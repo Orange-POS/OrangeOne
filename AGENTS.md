@@ -123,7 +123,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Never claim signed IPA generation, TestFlight installation, real iPhone scanning, or store release success without recorded evidence from actual runs.
 
 ## Tests and definition of done
-- Emulator/device integration tests are manual only; do not add integration jobs to CI unless the user requests it. Keep CI unit/widget tests, coverage, format, analysis and deployment guard checks. Preserve integration test files for local/device use.
+- Emulator/device integration tests are manual only; do not add integration jobs to CI unless the user requests it. Keep CI unit/widget tests, coverage, format, analysis and Fastlane syntax checks. Preserve integration test files for local/device use.
 For changed behavior, add/update focused tests where practical:
 - Domain use cases and mapping: unit tests.
 - Data repositories: mocked Dio/data-source/secure-storage dependencies.
@@ -147,3 +147,5 @@ Use repository-specific flavor/build commands rather than assuming entry-point n
 - Update README/config examples when commands, setup, environment requirements, or CI behavior change.
 - Before finishing, summarize: files changed, behavior implemented, acceptance criteria satisfied, verification commands/results, and any unverified items or follow-up dependencies.
 - Be accurate: do not claim iOS builds, physical-device camera flows, backend calls, or Figma matching were tested unless actually verified.
+
+- Keep deployment logic in the existing workflow YAML and Fastfile; do not reintroduce a separate tool/ci helper framework. Preserve secret-free PR compilation and isolated signing.

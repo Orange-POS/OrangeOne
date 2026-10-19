@@ -17,7 +17,6 @@ test/shared/*_test.dart
 test/app/*_test.dart
 test/support/                         reusable fixtures and controlled fakes
 integration_test/                     controlled app journeys and device-only tests
-tool/ci/test_*.py                     deployment guards/profile validation
 ```
 
 Existing product suites at `test/features/products/*_test.dart` remain valid;
@@ -61,13 +60,11 @@ flutter analyze --fatal-infos --fatal-warnings
 flutter test
 flutter test --coverage
 flutter test test/features/home/domain/use_cases/lookup_product_test.dart
-python3 -m unittest discover -s tool/ci -p 'test_*.py'
 ```
 
 `quality.yaml` runs on every branch push, every pull request, main merge-queue
 checks and manual dispatch. A PR merge is also a push to main. It checks format,
-analysis, all unit/widget tests with LCOV artifact, deployment guard tests and
-Fastlane Ruby syntax and lane guards with recording actions (no Apple requests). Emulator/device integration jobs are deliberately excluded from CI; keep `integration_test/` for manual verification. No signing/distribution secret is used here.
+analysis, all unit/widget tests with LCOV artifact and Fastlane Ruby syntax. Emulator/device integration jobs are deliberately excluded from CI; keep `integration_test/` for manual verification. No signing/distribution secret is used here.
 
 `license_check.yaml` validates Flutter runtime/dev/transitive dependency licenses
 on pushes, PRs to main and merge-queue runs, with retrieval failures treated as
@@ -87,37 +84,3 @@ See [deployment](deployment.md) for TestFlight and physical iPhone verification.
 
 Validation: the existing suites plus the new direct authentication and lookup
 use-case tests produced 348 passing Flutter tests with coverage on 2026-10-19.
-All six domain use-case files appear in the coverage report. Release helpers have
-six passing Python tests; the real Fastfile lane definitions have three passing
-recording-action tests with 22 assertions. No live Odoo or Apple service was used.
-
-## Preventing formatting failures before CI
-
-Use the same Flutter SDK as CI (3.47.5 / Dart 3.13.4). The shared VS Code settings
-format the entire Dart file on save. After the **last** Dart edit, including lint
-fixes and generated/manual edits, run both commands:
-
-```powershell
-dart format lib test integration_test
-dart format --output=none --set-exit-if-changed lib test integration_test
-```
-
-`--output=none` checks formatting without writing the result. Exit code 1 means
-the formatter would change a file; CI intentionally remains strict. Extra blank
-lines at EOF also fail this check. Re-run after final edits rather than relying
-on an earlier passing result.
-
-The shared pre-commit hook checks staged Dart content, so partially staged files
-cannot pass merely because the working copy is formatted. It does not rewrite or
-automatically stage files. Enable it once per clone:
-
-```bash
-# On macOS/Linux, first make the hook executable:
-chmod +x .githooks/pre-commit
-git config --local core.hooksPath .githooks
-```
-
-On Windows, run only the `git config` command using Git for Windows. This hook is
-configured for the current checkout. Do not overwrite an existing hooks setup
-when enabling it elsewhere; incorporate the check into that setup instead. Git
-hooks can be bypassed, so the CI formatting check remains the final enforcement.

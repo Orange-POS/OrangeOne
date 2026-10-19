@@ -198,7 +198,7 @@ The supplied README identifies these GitHub Actions workflows:
 | --- | --- |
 | `.github/workflows/quality.yaml` | Formatting, analysis, unit/widget tests, coverage and deployment checks (no emulator jobs) |
 | `.github/workflows/android.yaml` | Android debug APK builds for all three flavors |
-| `.github/workflows/ios.yaml` | Automatic unsigned iOS builds; manual production TestFlight for selected PRs or main; protected signing and review submission |
+| `.github/workflows/ios.yaml` | Automatic production-only unsigned iOS builds; manual production TestFlight for selected PRs or main using one app ID; protected signing and review submission |
 | `.github/workflows/license_check.yaml` | Flutter runtime, dev and transitive dependency license checks |
 
 Quality runs on every push and PR; Android/unsigned iOS builds run on every push and PR to main. A merge into main triggers push checks. Main merge queues are supported. The signed workflow is manually dispatched from main; an optional PR number selects PR source for production TestFlight builds. Leave it blank for main. There is no Play Store release.

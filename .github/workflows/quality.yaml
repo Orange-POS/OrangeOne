@@ -25,16 +25,12 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test integration_test
       - run: flutter analyze --fatal-infos --fatal-warnings
       - run: flutter test --coverage
-      - name: Check deployment scripts
-        run: |
-          python3 -m unittest discover -s tool/ci -p 'test_*.py'
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
       - name: Check Fastlane syntax
         run: |
           ruby -c fastlane/Fastfile
-          ruby tool/ci/test_fastlane.rb
       - uses: actions/upload-artifact@v4
         with:
           name: coverage

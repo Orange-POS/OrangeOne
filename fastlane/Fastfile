@@ -1,12 +1,22 @@
+require 'base64'
+require 'cfpropertylist'
+require 'fileutils'
+require 'json'
+require 'open3'
+require 'securerandom'
+
 default_platform(:ios)
 ROOT = File.expand_path('..', __dir__)
 
 # No Apple ID password/session is used; the key stays in runner temp storage.
 def connect_key
+  path = File.join(ENV.fetch('RUNNER_TEMP'), 'orangeone-signing', 'AuthKey.p8')
+  FileUtils.mkdir_p(File.dirname(path), mode: 0700)
+  File.write(path, Base64.strict_decode64(ENV.fetch('APP_STORE_CONNECT_KEY_BASE64').gsub(/\s/, '')), perm: 0600)
   app_store_connect_api_key(
     key_id: ENV.fetch('APP_STORE_CONNECT_KEY_ID'),
     issuer_id: ENV.fetch('APP_STORE_CONNECT_ISSUER_ID'),
-    key_filepath: ENV.fetch('APP_STORE_CONNECT_KEY_FILE'),
+    key_filepath: path,
     duration: 1200,
     in_house: false
   )
@@ -17,14 +27,91 @@ def require_main
     ENV['GITHUB_REF'] == 'refs/heads/main' && ENV['GITHUB_EVENT_NAME'] == 'workflow_dispatch'
 end
 
+# Run credential-bearing commands without printing their arguments or output.
+def quiet(*args)
+  output, status = Open3.capture2e(*args)
+  UI.user_error!('Apple signing command failed; verify certificate, profile and team.') unless status.success?
+  output
+end
+
+def sign_archive
+  root = File.join(ENV.fetch('RUNNER_TEMP'), 'orangeone-signing')
+  FileUtils.mkdir_p(root, mode: 0700)
+  certificate = File.join(root, 'distribution.p12')
+  profile = File.join(root, 'distribution.mobileprovision')
+  {'IOS_CERTIFICATE_BASE64' => certificate, 'IOS_PROVISION_PROFILE_BASE64' => profile}.each do |name, path|
+    File.write(path, Base64.strict_decode64(ENV.fetch(name).gsub(/\s/, '')), perm: 0600)
+  end
+  # Convert only public provisioning metadata, never the certificate/private key.
+  xml = quiet('/usr/bin/security', 'cms', '-D', '-i', profile)
+  data = CFPropertyList.native_types(CFPropertyList::List.new(data: xml).value)
+  team = ENV.fetch('APPLE_TEAM_ID')
+  identifier = data.fetch('ApplicationIdentifierPrefix').first + '.com.orangeone.app'
+  entitlements = data.fetch('Entitlements')
+  require 'time'
+  unless data.fetch('TeamIdentifier').include?(team) && entitlements['application-identifier'] == identifier &&
+      entitlements['get-task-allow'] == false && !data.key?('ProvisionedDevices') &&
+      !data['ProvisionsAllDevices'] && data.fetch('ExpirationDate') > Time.now &&
+      /\A[A-Fa-f0-9-]{36}\z/.match?(data.fetch('UUID'))
+    UI.user_error!('Use an unexpired App Store profile for com.orangeone.app and your team.')
+  end
+  profiles = File.expand_path('~/Library/MobileDevice/Provisioning Profiles')
+  FileUtils.mkdir_p(profiles)
+  destination = File.join(profiles, data.fetch('UUID') + '.mobileprovision')
+  previous = quiet('/usr/bin/security', 'list-keychains', '-d', 'user').scan(/"([^"]+)"/).flatten
+  File.write(File.join(root, 'state.json'), JSON.generate({previous: previous, profile: destination}), perm: 0600)
+  FileUtils.cp(profile, destination)
+  keychain = File.join(root, 'signing.keychain-db')
+  password = SecureRandom.hex(32)
+  quiet('/usr/bin/security', 'create-keychain', '-p', password, keychain)
+  quiet('/usr/bin/security', 'set-keychain-settings', '-lut', '21600', keychain)
+  quiet('/usr/bin/security', 'unlock-keychain', '-p', password, keychain)
+  quiet('/usr/bin/security', 'import', certificate, '-P', ENV.fetch('IOS_CERTIFICATE_PASSWORD'),
+        '-T', '/usr/bin/codesign', '-T', '/usr/bin/security', '-k', keychain)
+  quiet('/usr/bin/security', 'set-key-partition-list', '-S', 'apple-tool:,apple:,codesign:', '-k', password, keychain)
+  quiet('/usr/bin/security', 'list-keychains', '-d', 'user', '-s', keychain, *previous)
+  # Xcode export only; no PR source/build scripts run with these credentials.
+  options = File.join(root, 'export.json')
+  File.write(options, JSON.generate({method: 'app-store-connect', signingStyle: 'manual',
+    signingCertificate: 'Apple Distribution', teamID: team,
+    provisioningProfiles: {'com.orangeone.app' => data.fetch('Name')}}))
+  quiet('/usr/bin/plutil', '-convert', 'xml1', options)
+  sh('/usr/bin/xcodebuild', '-exportArchive', '-archivePath',
+     File.join(ENV.fetch('RUNNER_TEMP'), 'candidate/Runner.xcarchive'),
+     '-exportPath', File.join(ROOT, 'build/ios/ipa'), '-exportOptionsPlist', options)
+end
+
 platform :ios do
+  desc 'Remove temporary Apple signing credentials'
+  lane :cleanup do
+    root = File.join(ENV.fetch('RUNNER_TEMP'), 'orangeone-signing')
+    begin
+      state_path = File.join(root, 'state.json')
+      if File.exist?(state_path)
+        state = JSON.parse(File.read(state_path))
+        begin
+          quiet('/usr/bin/security', 'list-keychains', '-d', 'user', '-s', *state.fetch('previous'))
+        ensure
+          FileUtils.rm_f(state.fetch('profile'))
+        end
+      end
+    ensure
+      begin
+        keychain = File.join(root, 'signing.keychain-db')
+        quiet('/usr/bin/security', 'delete-keychain', keychain) if File.exist?(keychain)
+      ensure
+        FileUtils.rm_rf(root)
+      end
+    end
+  end
+
   desc 'Sign production and upload to internal TestFlight (no public release)'
   lane :beta do
     require_main
     key = connect_key
     bundle_id = 'com.orangeone.app'
     # Export on a fresh trusted runner; never rebuild PR code with Apple keys.
-    sh('python3', File.join(ROOT, 'tool/ci/export_ipa.py'))
+    sign_archive
     candidates = Dir[File.join(ROOT, 'build/ios/ipa/*.ipa')]
     UI.user_error!('Expected one exported IPA') unless candidates.length == 1
     ipa = candidates.first
