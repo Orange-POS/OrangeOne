@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/config/app_environment.dart';
+import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 
 class ApiConfiguration {
@@ -42,33 +43,15 @@ class ApiConfiguration {
   }
 }
 
-final apiConfigurationProvider = Provider<ApiConfiguration>(
-  (ref) => ApiConfiguration(
-    baseUrl: const String.fromEnvironment('ODOO_BASE_URL'),
-    environment: ref.watch(environmentProvider),
-    connectTimeout: _configuredTimeout(
-      const int.fromEnvironment('ODOO_CONNECT_TIMEOUT_MS', defaultValue: 15000),
-    ),
-    responseTimeout: _configuredTimeout(
-      const int.fromEnvironment(
-        'ODOO_RESPONSE_TIMEOUT_MS',
-        defaultValue: 20000,
-      ),
-    ),
-  ),
-  name: 'apiConfigurationProvider',
-);
-
-Duration _configuredTimeout(int milliseconds) {
-  if (milliseconds <= 0 || milliseconds > 600000) {
-    throw const AppFailure(
-      FailureKind.configuration,
-      'Server timeouts must be between 1 and 600000 milliseconds.',
-    );
-  }
-  return Duration(milliseconds: milliseconds);
-}
-
+final apiConfigurationProvider = Provider<ApiConfiguration>((ref) {
+  final settings = ref.watch(applicationSettingsProvider);
+  return ApiConfiguration(
+    baseUrl: settings.baseUrl,
+    environment: settings.environment,
+    connectTimeout: settings.connectTimeout,
+    responseTimeout: settings.responseTimeout,
+  );
+}, name: 'apiConfigurationProvider');
 final utcNowProvider = Provider<DateTime Function()>(
   (ref) =>
       () => DateTime.now().toUtc(),
