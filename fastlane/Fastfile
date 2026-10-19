@@ -1,0 +1,83 @@
+default_platform(:ios)
+ROOT = File.expand_path('..', __dir__)
+
+# No Apple ID password/session is used; the key stays in runner temp storage.
+def connect_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch('APP_STORE_CONNECT_KEY_ID'),
+    issuer_id: ENV.fetch('APP_STORE_CONNECT_ISSUER_ID'),
+    key_filepath: ENV.fetch('APP_STORE_CONNECT_KEY_FILE'),
+    duration: 1200,
+    in_house: false
+  )
+end
+
+def require_main
+  UI.user_error!('Distribution is manual from main only') unless
+    ENV['GITHUB_REF'] == 'refs/heads/main' && ENV['GITHUB_EVENT_NAME'] == 'workflow_dispatch'
+end
+
+platform :ios do
+  desc 'Sign production and upload to internal TestFlight (no public release)'
+  lane :beta do
+    require_main
+    key = connect_key
+    bundle_id = 'com.orangeone.app'
+    update_code_signing_settings(
+      path: File.join(ROOT, 'ios/Runner.xcodeproj'),
+      use_automatic_signing: false,
+      targets: ['Runner'],
+      build_configurations: ['Release-production'],
+      team_id: ENV.fetch('APPLE_TEAM_ID'),
+      code_sign_identity: 'Apple Distribution',
+      profile_uuid: ENV.fetch('IOS_PROFILE_UUID'),
+      profile_name: ENV.fetch('IOS_PROFILE_NAME'),
+      bundle_identifier: bundle_id
+    )
+    ipa = build_app(
+      workspace: File.join(ROOT, 'ios/Runner.xcworkspace'),
+      scheme: 'production',
+      configuration: 'Release-production',
+      clean: false,
+      output_directory: File.join(ROOT, 'build/ios/ipa'),
+      output_name: 'OrangeONE.ipa',
+      archive_path: File.join(ROOT, 'build/ios/archive/OrangeONE.xcarchive'),
+      export_method: 'app-store',
+      export_team_id: ENV.fetch('APPLE_TEAM_ID'),
+      export_options: {
+        method: 'app-store-connect',
+        signingStyle: 'manual',
+        teamID: ENV.fetch('APPLE_TEAM_ID'),
+        provisioningProfiles: { bundle_id => ENV.fetch('IOS_PROFILE_NAME') }
+      }
+    )
+    upload_to_testflight(
+      api_key: key,
+      app_identifier: bundle_id,
+      ipa: ipa,
+      distribute_external: false,
+      skip_waiting_for_build_processing: false
+    )
+  end
+
+  desc 'Submit an existing iPhone-tested TestFlight build; release remains manual'
+  lane :submit do
+    require_main
+    UI.user_error!('Confirm physical iPhone smoke testing first') unless
+      ENV['IPHONE_SMOKE_TEST_CONFIRMED'] == 'true'
+    upload_to_app_store(
+      api_key: connect_key,
+      app_identifier: 'com.orangeone.app',
+      app_version: ENV.fetch('RELEASE_VERSION'),
+      build_number: ENV.fetch('RELEASE_BUILD_NUMBER'),
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      automatic_release: false,
+      precheck_include_in_app_purchases: false,
+      force: true
+    )
+  end
+end
+

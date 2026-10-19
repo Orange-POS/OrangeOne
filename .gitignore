@@ -122,3 +122,19 @@ lib/l10n/gen/
 **/google-services.json
 **/GoogleService-Info.plist
 config/*.local.json
+
+# Apple signing and Fastlane output (credentials must only exist in runner temp)
+*.p8
+*.pfx
+*.cer
+*.keychain
+*.keychain-db
+*.ipa
+*.xcarchive/
+*.dSYM/
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+.bundle/
+vendor/bundle/
+**/__pycache__/

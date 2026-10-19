@@ -33,6 +33,7 @@ The project documentation describes these milestones:
 | 08 | Product editing | [Product name and tax workflow](docs/product-edit.md) |
 | 09 | Branding | [Startup splash and shared branding](docs/splash-branding.md) |
 | 11 | Environments and logging | [Validated settings and safe structured logs](docs/environments-and-logging.md) |
+| Testing / Deployment | Reliability and delivery | [Testing strategy](docs/testing.md), [APK / iOS release setup](docs/deployment.md) |
 
 Product lookup opens details for a matching barcode and the Create New Product form for an unknown barcode. Creation supports the original Odoo save endpoint; the create-only controller enhancement is optional. See [product creation](docs/product-creation.md) for compatibility and permission details. Stock adjustment, offline synchronization, Firebase integrations, the complete inventory dashboard, and signed store distribution remain future work.
 
@@ -197,7 +198,12 @@ The supplied README identifies these GitHub Actions workflows:
 | --- | --- |
 | `.github/workflows/quality.yaml` | Formatting, analysis, tests, coverage and emulator integration checks |
 | `.github/workflows/android.yaml` | Android debug APK builds for all three flavors |
-| `.github/workflows/ios.yaml` | Unsigned iOS release compilation for all three flavors |
+| `.github/workflows/ios.yaml` | Automatic unsigned iOS builds; manual main-only signing, TestFlight and review submission |
+| `.github/workflows/license_check.yaml` | Flutter runtime, dev and transitive dependency license checks |
+
+Quality runs on every push and PR; Android/unsigned iOS builds run on every push and PR to main. A merge into main triggers push checks. Main merge queues are supported. Signed iOS distribution is manual from main only; there is no Play Store release.
+
+Before signing, create protected GitHub environments `ios-production` and `ios-app-store`, add the seven Apple secrets listed in [deployment setup](docs/deployment.md#apple-setup-owner-action-before-the-first-signed-run), then dispatch **OrangeONE iOS → testflight**. After the exact build passes the documented physical iPhone tests, dispatch **submit_for_review** with confirmation. Public App Store release remains manual after Apple approval.
 
 CI results must be checked in GitHub Actions after pushing; the existence of workflow files does **not** mean that a workflow has passed. Unsigned iOS compilation is not an App Store-ready artifact.
 
@@ -207,11 +213,13 @@ CI results must be checked in GitHub Actions after pushing; the existence of wor
 - Keep local development configuration files ignored by Git.
 - Real Android distribution requires signing credentials and a protected keystore.
 - iOS distribution requires an Apple Developer account, provisioning/signing and App Store Connect configuration.
-- Firebase Crashlytics, Remote Config, App Distribution and Fastlane deployment are not part of the completed release workflow described in the supplied README.
+- Fastlane beta/review lanes are configured; successful Apple signing, TestFlight upload and physical iPhone validation still require your credentials and actual runs. Firebase integrations remain future work.
 - Verify permissions, network behavior and backend compatibility with real devices and a test Odoo environment before production use.
 
 ## Project documentation
 
+- [Testing strategy and conventions](docs/testing.md)
+- [Deployment, Apple secrets and iPhone release checklist](docs/deployment.md)
 - [Environments and logging](docs/environments-and-logging.md)
 - [Authentication setup and contract](docs/authentication.md)
 - [Architecture](docs/architecture.md)

@@ -117,6 +117,11 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Retry only operations known to be safe/idempotent or explicitly guarded against duplication.
 - Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
 
+## Testing and deployment automation
+- Read `docs/testing.md` and `docs/deployment.md`. Use existing quality/android/ios/license workflows. Quality runs on every push/PR; Android APK and unsigned iOS run on every push and PR targeting main (plus merge queues). Keep all automatic checks secret-free and independent of live Odoo.
+- iOS signing/TestFlight/review submission is workflow_dispatch from main only, with protected GitHub environments. Preserve the ephemeral keychain/profile/API-key cleanup and fixed production bundle/scheme. Never expose Apple credentials to PR jobs. App Store review uses an existing physical-iPhone-tested build; public release remains manual in App Store Connect.
+- Never claim signed IPA generation, TestFlight installation, real iPhone scanning, or store release success without recorded evidence from actual runs.
+
 ## Tests and definition of done
 For changed behavior, add/update focused tests where practical:
 - Domain use cases and mapping: unit tests.
