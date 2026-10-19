@@ -156,11 +156,11 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                   children: [
                     TextSpan(
                       text: 'Powered By ',
-                      style: TextStyle(color: OrangeTheme.secondary),
+                      style: TextStyle(color: Color(0xFF5F6368)),
                     ),
                     TextSpan(
                       text: 'OrangeONE',
-                      style: TextStyle(color: OrangeTheme.scannerAccent),
+                      style: TextStyle(color: OrangeTheme.dark),
                     ),
                   ],
                 ),

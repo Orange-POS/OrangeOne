@@ -223,13 +223,14 @@ void main() {
   );
 
   test(
-    'network failure on restore retains secrets but denies access',
+    'first network failure on restore deletes secrets without retrying',
     () async {
       store.values[key] = SessionModel.encode(testSession);
       dio.interceptors.clear();
       dio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) {
+            requests.add(options);
             handler.reject(
               DioException(
                 requestOptions: options,
@@ -239,8 +240,56 @@ void main() {
           },
         ),
       );
-      await expectLater(repository.restore(), throwsA(isA<AppFailure>()));
-      expect(store.values.containsKey(key), isTrue);
+      expect(await repository.restore(), isNull);
+      expect(store.values, isEmpty);
+      expect(requests, hasLength(1));
+      expect(await repository.restore(), isNull);
+      expect(requests, hasLength(1));
+    },
+  );
+
+  test(
+    'startup check cancels at 15 seconds and ignores late success',
+    () async {
+      store.values[key] = SessionModel.encode(testSession);
+      final requested = Completer<void>();
+      RequestInterceptorHandler? pending;
+      RequestOptions? request;
+      dio.interceptors.clear();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            request = options;
+            pending = handler;
+            requested.complete();
+          },
+        ),
+      );
+      var completed = false;
+      final restoration = repository.restore().then((value) {
+        completed = true;
+        return value;
+      });
+      await requested.future;
+      expect(requests, hasLength(1));
+      expect(completed, isFalse);
+      expect(await restoration, isNull);
+      expect(store.values, isEmpty);
+      expect(request!.cancelToken!.isCancelled, isTrue);
+      pending!.resolve(
+        Response(
+          requestOptions: request!,
+          data: {
+            'jsonrpc': '2.0',
+            'id': (request!.data as Map)['id'],
+            'result': tokenResult(),
+          },
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(store.values, isEmpty);
+      expect(requests, hasLength(1));
     },
   );
 }

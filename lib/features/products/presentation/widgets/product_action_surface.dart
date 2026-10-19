@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-/// Shared neutral glass treatment for product workflow action cards.
+/// Clear, neutral glass for fixed actions, independent of brand fills.
 class ProductActionSurface extends StatelessWidget {
   const new({required this.child, super.key});
   final Widget child;

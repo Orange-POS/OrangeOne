@@ -24,6 +24,9 @@ void main() {
     401: FailureKind.unauthenticated,
     403: FailureKind.forbidden,
     500: FailureKind.backend,
+    502: FailureKind.network,
+    503: FailureKind.network,
+    504: FailureKind.network,
     302: FailureKind.protocol,
   }.entries) {
     test('maps HTTP ${entry.key} independently from JSON-RPC errors', () async {

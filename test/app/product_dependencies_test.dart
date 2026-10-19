@@ -14,6 +14,45 @@ import '../support/auth_fakes.dart';
 import '../support/product_fakes.dart';
 
 void main() {
+  for (final type in [
+    DioExceptionType.connectionError,
+    DioExceptionType.receiveTimeout,
+  ]) {
+    test('first $type clears session and lookup without retries', () async {
+      final dio = Dio();
+      addTearDown(() => dio.close(force: true));
+      final auth = FakeAuthRepository()..restored = testSession;
+      var requests = 0;
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests++;
+            handler.reject(DioException(requestOptions: options, type: type));
+          },
+        ),
+      );
+      final container = ProviderContainer.test(
+        overrides: [
+          productRepositoryOverride,
+          environmentProvider.overrideWithValue(AppEnvironment.production),
+          authRepositoryProvider.overrideWithValue(auth),
+          utcNowProvider.overrideWithValue(() => testNow),
+          dioProvider.overrideWithValue(dio),
+        ],
+      );
+      await container.read(sessionControllerProvider.future);
+      container.listen(productLookupControllerProvider, (previous, next) {});
+      await container
+          .read(productLookupControllerProvider.notifier)
+          .scan(fixtureProduct.barcode);
+      await container.pump();
+      expect(container.read(sessionControllerProvider).value, isNull);
+      expect(auth.signOuts, 1);
+      expect(requests, 1);
+      expect(container.read(productLookupControllerProvider).value, isNull);
+    });
+  }
+
   test(
     'backend session rejection clears auth and suppresses product results',
     () async {

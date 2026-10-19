@@ -31,7 +31,8 @@ launch resources.
 Android launch drawables use an orange gradient with the supplied logo, including
 day/night variants. Android 12+ uses the OS-mandated solid splash background and
 centered logo. NormalTheme also has an orange backing while Flutter initializes.
-The iOS launch storyboard uses an orange background and centered supplied logo.
+The iOS launch storyboard uses the exported shared gradient and centered supplied
+logo. See [uniform branding](brand-gradient.md) for regeneration and platform limits.
 
 Native launch screens are static by platform design. Bouncing dots start with
 Flutter's first frame. Native launch appearance cannot be identical across these
@@ -51,4 +52,6 @@ The controlled Android integration journey passed on SM A315F: the splash remain
 visible during a held session restoration, then login, scan, product operations,
 back navigation and logout complete successfully. Android native launch resources
 compiled successfully as part of that build.
+On 17 October 2026, the completed normal development APK was installed and
+launched again on SM A315F after resuming the task.
 iOS compilation and native visual verification require macOS/an iOS device.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:orange_one/features/authentication/presentation/widgets/bouncing_dots.dart';
+import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/app_logo.dart';
 
 /// Displayed only while the existing session controller resolves access.
@@ -11,22 +12,16 @@ class SplashPage extends StatelessWidget {
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
     value: SystemUiOverlayStyle.light.copyWith(
       statusBarColor: Colors.transparent,
-      systemNavigationBarColor: const Color(0xFFFF8A33),
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
       systemNavigationBarIconBrightness: Brightness.light,
     ),
     child: Scaffold(
-      backgroundColor: const Color(0xFFBE4602),
+      backgroundColor: OrangeTheme.dark,
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment(-.54, -.72),
-            end: Alignment(1, .6),
-            colors: [Color(0xFFBE4602), Color(0xFFFF8A33)],
-            stops: [.08, .94],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: OrangeTheme.gradient),
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, viewport) => SingleChildScrollView(

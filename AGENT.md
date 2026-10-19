@@ -55,8 +55,8 @@ convention unless the user or supplied design explicitly requests otherwise.
 
 - Use 12 logical pixel top corners, clipped backdrop blur and subtle translucent
   white highlights for a clear, neutral glossy glass finish.
-- Do not add orange, warm or other colored tints to the card. Use a neutral page
-  backing so the brand-colored background cannot bleed through the glass.
+- Keep the entire action-card backing clear and neutral, with no orange gradient
+  or colored tint. Brand gradients belong to buttons, not the glass surface.
 - Preserve the buttons' specified brand colors: the primary action stays orange.
 - Keep buttons at least 56 logical pixels tall and full-width on phones; use a
   side-by-side arrangement on wider screens when appropriate.
@@ -90,4 +90,11 @@ with accessible bouncing dots and no artificial delay. Read docs/splash-branding
 Use shared AppLogo and assets/branding/app_logo.png for application branding;
 never tint or replace it with a tag. Run tool/sync_branding.ps1 after changing the
 source PNG to update native launch copies, then rebuild Android/iOS launch assets.
+
+Uniform branding: all orange screen/header/product-card/action-button fills use the exact
+shared splash gradient in OrangeTheme.gradient. homeGradient/scannerGradient are
+compatibility aliases, never separate designs. Generate matching native artwork
+with `flutter test tool/generate_brand_background_test.dart` after theme changes.
+The OS-controlled Android 12 splash permits a solid endpoint only; following
+native/Flutter backgrounds use the shared gradient. See docs/brand-gradient.md.
 

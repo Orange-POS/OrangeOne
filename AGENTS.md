@@ -76,6 +76,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Do not substitute generic Odoo endpoints or invent stock-write semantics without backend confirmation.
 
 ## Authentication and navigation
+- Restore a saved session once on a full restart, with a 15-second overall validation deadline and cancellation. Failed/offline validation clears secure storage for fresh QR login; do not poll or revalidate on ordinary resume. The first authenticated network/timeout failure signs out and resets session-dependent state without retrying. Keep Logout visible on Home. Preserve backend expiry and permission checks.
 - QR-based login uses the confirmed QR payload format and backend authentication process. Validate unsupported/expired data and suppress concurrent scan/login requests.
 - Store secrets or session identifiers in platform secure storage through an injectable abstraction, never plain-text preferences.
 - Restore valid sessions at startup, clear secrets on logout, and handle expiration without leaking authenticated UI.
@@ -93,6 +94,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Keep offline reads visibly distinguishable from fresh server data. Do not queue offline writes unless explicitly supported by confirmed backend rules.
 
 ## Figma and reusable UI
+- Use `OrangeTheme.gradient` as the single orange fill for branded backgrounds, headers, product-name cards and primary action buttons. This gradient matches the splash (#BE4602 to #FF8A33, shared direction/stops). Sticky action-card backing is clear neutral glass, never the orange gradient. Keep glass highlights untinted. Use shared palette endpoints for small readable accents; do not invent local orange shades. Regenerate native launch backgrounds with `flutter test tool/generate_brand_background_test.dart` after changing the gradient. Android 12's OS splash accepts only the matching solid endpoint before the gradient handoff.
 - Application branding uses `shared/widgets/app_logo.dart` and `assets/branding/app_logo.png`. Keep the supplied artwork untinted. Run `tool/sync_branding.ps1` after updating it and rebuild native launch resources; functional discount/tag icons are separate from branding.
 - Every product-name card on every screen must include the reusable stock badge with the current backend quantity/unit. This includes price update and future product screens. Unknown stock must be labelled unavailable, never fabricated.
 - Sticky action surfaces use 12 logical pixel top corners and clear, neutral glass (blur with translucent white highlights); do not add warm or other colored tints to the glass. Keep the action buttons' specified brand colors.

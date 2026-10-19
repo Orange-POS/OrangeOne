@@ -38,23 +38,39 @@ class HomePage extends StatelessWidget {
                       MediaQuery.paddingOf(context).top + 16,
                       height * 75 / 844,
                     ),
-                    left: 24,
-                    right: 24,
-                    child: Center(
-                      child: PopupMenuButton<String>(
-                        tooltip: 'Account menu',
-                        onSelected: (_) => onSignOut(),
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'logout',
-                            child: Text('Sign out'),
+                    left: 16,
+                    right: 16,
+                    child: Row(
+                      children: [
+                        SizedBox.square(
+                          dimension: 48,
+                          child: IconButton(
+                            key: const Key('logout-button'),
+                            tooltip: 'Logout',
+                            onPressed: onSignOut,
+                            iconSize: 20,
+                            style: IconButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.white.withValues(
+                                alpha: .2,
+                              ),
+                              shape: const CircleBorder(),
+                              fixedSize: const Size.square(48),
+                            ),
+                            icon: const Icon(Icons.logout),
                           ),
-                        ],
-                        child: const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: BrandMark(),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: BrandMark(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 56),
+                      ],
                     ),
                   ),
                   Positioned(
@@ -75,6 +91,10 @@ class HomePage extends StatelessWidget {
                             child: Center(
                               child: SvgPicture.asset(
                                 'assets/icons/box_scan.svg',
+                                colorFilter: const ColorFilter.mode(
+                                  OrangeTheme.scannerAccent,
+                                  BlendMode.srcIn,
+                                ),
                                 width: icon,
                                 height: icon,
                               ),

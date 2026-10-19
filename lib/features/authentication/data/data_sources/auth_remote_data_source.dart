@@ -35,11 +35,12 @@ class AuthRemoteDataSource {
     return session;
   }
 
-  Future<AuthSession> check(AuthSession stored) async {
+  Future<AuthSession> check(AuthSession stored, CancelToken cancelToken) async {
     final result = await _client.call(
       checkTokenPath,
       backendOrigin: stored.backendOrigin,
       accessToken: stored.accessToken,
+      cancelToken: cancelToken,
     );
     _checkResult(result, tokenCheck: true);
     final verified = SessionModel.fromResult(

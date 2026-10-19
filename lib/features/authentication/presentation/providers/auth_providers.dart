@@ -39,13 +39,15 @@ class SessionController extends AsyncNotifier<AuthSession?> {
   Timer? _expiry;
   var _generation = 0;
   var _busy = false;
+  var _signingOut = false;
 
   @override
   Future<AuthSession?> build() async {
     final generation = ++_generation;
     ref.onDispose(() => _expiry?.cancel());
     final session = await ref.watch(authRepositoryProvider).restore();
-    if (ref.mounted && generation == _generation) _scheduleExpiry(session);
+    if (!ref.mounted || generation != _generation) return null;
+    _scheduleExpiry(session);
     return session;
   }
 
@@ -130,6 +132,8 @@ class SessionController extends AsyncNotifier<AuthSession?> {
   }
 
   Future<void> signOut() async {
+    if (_signingOut) return;
+    _signingOut = true;
     final generation = ++_generation;
     _busy = true;
     _expiry?.cancel();
@@ -148,6 +152,7 @@ class SessionController extends AsyncNotifier<AuthSession?> {
         state = AsyncError(storageFailure, stack);
       }
     } finally {
+      _signingOut = false;
       if (generation == _generation) _busy = false;
     }
   }

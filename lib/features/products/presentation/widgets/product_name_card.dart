@@ -15,9 +15,7 @@ class ProductNameCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFC5591B), Color(0xFFFF791A)],
-        ),
+        gradient: OrangeTheme.gradient,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white, width: .5),
         boxShadow: const [

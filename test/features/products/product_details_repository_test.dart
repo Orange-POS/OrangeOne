@@ -60,6 +60,29 @@ void main() {
     );
   });
   tearDown(() => dio.close(force: true));
+  for (final type in [
+    DioExceptionType.connectionError,
+    DioExceptionType.receiveTimeout,
+  ]) {
+    test(
+      'first $type during details check logs out without product fetch',
+      () async {
+        dio.interceptors.clear();
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              requests.add(options);
+              handler.reject(DioException(requestOptions: options, type: type));
+            },
+          ),
+        );
+        await expectLater(repo.load('0010101010'), throwsA(isA<AppFailure>()));
+        expect(signOuts, 1);
+        expect(requests, hasLength(1));
+        expect(requests.single.path, endsWith('/token/check'));
+      },
+    );
+  }
   test(
     'combined edit uses confirmed fields and maps acknowledgement',
     () async {

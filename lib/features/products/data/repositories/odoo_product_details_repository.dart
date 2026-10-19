@@ -14,7 +14,11 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
     try {
       return await operation();
     } on AppFailure catch (error) {
-      if (error.kind == FailureKind.unauthenticated) await onSessionRejected();
+      if (error.kind == FailureKind.unauthenticated ||
+          error.kind == FailureKind.network ||
+          error.kind == FailureKind.timeout) {
+        await onSessionRejected();
+      }
       rethrow;
     }
   }

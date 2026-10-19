@@ -21,7 +21,9 @@ class OdooProductRepository implements ProductRepository {
       if (product is! Map<String, dynamic>) throw invalidResponse;
       return ProductModel.fromJson(product, barcode);
     } on AppFailure catch (failure) {
-      if (failure.kind == FailureKind.unauthenticated) {
+      if (failure.kind == FailureKind.unauthenticated ||
+          failure.kind == FailureKind.network ||
+          failure.kind == FailureKind.timeout) {
         await onSessionRejected();
       }
       rethrow;

@@ -109,6 +109,12 @@ class JsonRpcClient {
         );
       }
       final status = error.response?.statusCode;
+      if (status == 502 || status == 503 || status == 504) {
+        throw const AppFailure(
+          FailureKind.network,
+          'The POS server is unavailable. Sign in with a new POS QR code.',
+        );
+      }
       if (status != null && status >= 300 && status < 400) {
         throw invalidResponse;
       }

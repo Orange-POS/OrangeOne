@@ -11,6 +11,38 @@ import 'package:orange_one/features/authentication/presentation/widgets/qr_camer
 import 'support/auth_fakes.dart';
 
 void main() {
+  testWidgets('resume keeps the session without another server validation', (
+    tester,
+  ) async {
+    final repository = FakeAuthRepository()..restored = testSession;
+    final container = ProviderContainer.test(
+      overrides: [
+        authRepositoryProvider.overrideWithValue(repository),
+        utcNowProvider.overrideWithValue(() => testNow),
+      ],
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const App()),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Logout'), findsOneWidget);
+    expect(repository.restores, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(repository.restores, 1);
+    expect(container.read(sessionControllerProvider).value, testSession);
+    await tester.tap(find.byKey(const Key('logout-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tap to scan QR'), findsOneWidget);
+    expect(repository.signOuts, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('handles the device zero-size first frame before normal layout', (
     tester,
   ) async {
@@ -124,9 +156,9 @@ void main() {
       router.go('/login/scan');
       await tester.pumpAndSettle();
       expect(router.routeInformationProvider.value.uri.path, '/home');
-      await tester.tap(find.byTooltip('Account menu'));
+
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Sign out'));
+      await tester.tap(find.byKey(const Key('logout-button')));
       await tester.pumpAndSettle();
       expect(find.text('Tap to scan QR'), findsOneWidget);
       expect(repository.signIns, 1);

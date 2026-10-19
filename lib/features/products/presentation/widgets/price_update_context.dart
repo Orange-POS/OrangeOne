@@ -26,6 +26,10 @@ class PriceContextRow extends StatelessWidget {
         if (barcode)
           SvgPicture.asset(
             'assets/icons/product_barcode.svg',
+            colorFilter: const ColorFilter.mode(
+              OrangeTheme.scannerAccent,
+              BlendMode.srcIn,
+            ),
             width: 20,
             height: 20,
           )

@@ -230,6 +230,10 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                         children: [
                           SvgPicture.asset(
                             'assets/icons/camera_indicator.svg',
+                            colorFilter: const ColorFilter.mode(
+                              OrangeTheme.scannerAccent,
+                              BlendMode.srcIn,
+                            ),
                             width: 8,
                             height: 8,
                           ),
@@ -243,7 +247,7 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                                   : _cameraStatus,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
-                                color: Color(0xFFC84E00),
+                                color: OrangeTheme.dark,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),

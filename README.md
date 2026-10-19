@@ -217,6 +217,7 @@ CI results must be checked in GitHub Actions after pushing; the existence of wor
 - [Product price update](docs/product-price-update.md)
 - [Product name and tax editing](docs/product-edit.md)
 - [Splash and branding](docs/splash-branding.md)
+- [Shared orange gradient and native regeneration](docs/brand-gradient.md)
 - [Task 01 validation](docs/validation.md)
 - [Task 03 validation](docs/task03-validation.md)
 - [Agent guidance](AGENTS.md)

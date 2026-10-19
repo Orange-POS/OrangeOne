@@ -31,6 +31,8 @@ class ProductActionBar extends StatelessWidget {
         final stock = OutlinedButton(
           onPressed: null,
           style: OutlinedButton.styleFrom(
+            disabledForegroundColor: const Color(0xFF5F6368),
+            disabledBackgroundColor: const Color(0xFFDADCE0),
             minimumSize: const Size(double.infinity, 56),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -65,7 +67,7 @@ class ProductActionBar extends StatelessWidget {
             const Text(
               'Stock updates are not supported by the current server.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: OrangeTheme.secondary),
+              style: TextStyle(fontSize: 12, color: Color(0xFF5F6368)),
             ),
           ],
         );

@@ -13,7 +13,8 @@
          
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">#BE4602</item>
+        <item name="android:windowBackground">@drawable/brand_launch_background</item>
     </style>
 </resources>
+
 

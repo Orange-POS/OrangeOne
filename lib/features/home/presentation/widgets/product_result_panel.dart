@@ -93,7 +93,7 @@ class ProductResultPanel extends StatelessWidget {
                       children: [
                         const CircleAvatar(
                           radius: 20,
-                          backgroundColor: Color(0xFFC84E00),
+                          backgroundColor: OrangeTheme.dark,
                           child: Text(
                             '✓',
                             style: TextStyle(color: Colors.white, fontSize: 22),

@@ -125,9 +125,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back to home'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Account menu'));
+
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign out'));
+    await tester.tap(find.byKey(const Key('logout-button')));
     await tester.pumpAndSettle();
     expect(find.text('Tap to scan QR'), findsOneWidget);
     expect(repository.signIns, 1);

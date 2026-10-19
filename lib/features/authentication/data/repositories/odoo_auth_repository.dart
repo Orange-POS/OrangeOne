@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
@@ -52,7 +54,18 @@ class OdooAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AuthSession?> restore() async {
+  Future<AuthSession?> restore() {
+    final generation = _epoch;
+    return _restore().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () async {
+        if (generation == _epoch) await signOut();
+        return null;
+      },
+    );
+  }
+
+  Future<AuthSession?> _restore() async {
     final generation = _epoch;
     final saved = await _store.read(_key);
     if (generation != _epoch) return null;
@@ -71,19 +84,20 @@ class OdooAuthRepository implements AuthRepository {
       await signOut();
       return null;
     }
+    final cancel = CancelToken();
+    _pending = cancel;
     try {
-      final verified = await _remote.check(stored);
+      final verified = await _remote.check(stored, cancel);
       if (verified.isExpired(_now())) throw invalidSession;
       if (generation != _epoch) return null;
       return verified;
-    } on AppFailure catch (failure) {
+    } on AppFailure {
       if (generation != _epoch) return null;
-      if (failure.kind == FailureKind.unauthenticated ||
-          failure.kind == FailureKind.forbidden) {
-        await signOut();
-        return null;
-      }
-      rethrow; // Offline restoration never authorizes protected UI.
+      // A saved session is usable only after this one successful check.
+      await signOut();
+      return null;
+    } finally {
+      if (identical(_pending, cancel)) _pending = null;
     }
   }
 
@@ -91,6 +105,7 @@ class OdooAuthRepository implements AuthRepository {
   Future<void> signOut() async {
     _epoch++;
     _pending?.cancel();
+    _pending = null;
     await _storeInOrder(() => _store.delete(_key));
   }
 
