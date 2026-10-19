@@ -76,7 +76,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Do not substitute generic Odoo endpoints or invent stock-write semantics without backend confirmation.
 
 ## Authentication and navigation
-- Restore a saved session once on a full restart, with a 15-second overall validation deadline and cancellation. Failed/offline validation clears secure storage for fresh QR login; do not poll or revalidate on ordinary resume. The first authenticated network/timeout failure signs out and resets session-dependent state without retrying. Keep Logout visible on Home. Preserve backend expiry and permission checks.
+- Restore a saved session once on a full restart, with a 15-second validation deadline and cancellation, plus at most 2 seconds for secure-storage cleanup. Stalled cleanup must show a safe storage error and block new login until deletion finishes; never claim storage was cleared before success. Failed/offline validation clears secure storage for fresh QR login; do not poll or revalidate on ordinary resume. The first authenticated network/timeout failure signs out and resets session-dependent state without retrying. Keep Logout visible on Home. Preserve backend expiry and permission checks.
 - QR-based login uses the confirmed QR payload format and backend authentication process. Validate unsupported/expired data and suppress concurrent scan/login requests.
 - Store secrets or session identifiers in platform secure storage through an injectable abstraction, never plain-text preferences.
 - Restore valid sessions at startup, clear secrets on logout, and handle expiration without leaking authenticated UI.
@@ -85,6 +85,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Implement guards only in tasks where session management and the guard behavior are in scope.
 
 ## Inventory workflows
+- Unknown-barcode creation belongs to Products. Support the original confirmed `/products/save` contract without requiring new capability fields. When `create_only_supported` is advertised, send `create_only: true`; otherwise send only original parameters and require its exact created acknowledgment. Original upsert races cannot be prevented by client lookup alone. Recheck permissions, barcode and tax options, require explicit tax selection (including No Tax), and block repeat writes after uncertain outcomes until an explicit barcode check.
 - Supported flows: home, barcode scan, product lookup, product details, add/edit product, stock adjustment, and price update.
 - Treat successful scanner reads as input, not authorization to mutate inventory. Handle permission denial, cancellation, repeated reads, and invalid formats.
 - Validate forms and quantities/prices; use correct currency precision and confirmed Odoo pricing/stock rules.
@@ -94,7 +95,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Keep offline reads visibly distinguishable from fresh server data. Do not queue offline writes unless explicitly supported by confirmed backend rules.
 
 ## Figma and reusable UI
-- Use `OrangeTheme.gradient` as the single orange fill for branded backgrounds, headers, product-name cards and primary action buttons. This gradient matches the splash (#BE4602 to #FF8A33, shared direction/stops). Sticky action-card backing is clear neutral glass, never the orange gradient. Keep glass highlights untinted. Use shared palette endpoints for small readable accents; do not invent local orange shades. Regenerate native launch backgrounds with `flutter test tool/generate_brand_background_test.dart` after changing the gradient. Android 12's OS splash accepts only the matching solid endpoint before the gradient handoff.
+- Use `OrangeTheme.gradient` as the single orange fill for branded backgrounds, headers and product-name cards. This gradient matches the splash (#BE4602 to #FF8A33, shared direction/stops). Sticky action-card backing is clear neutral glass, never the orange gradient. Keep glass highlights untinted. Buttons follow the supplied solid-color component: primary normal/loading/Done #F56600 with white text/icons, pressed/hover #C84E00, disabled #DADCE0 with #5F6368 labels. Outlined buttons use white fill with matching orange text/border, pressed #C84E00, disabled gray text/border. Centralize these in OrangeTheme; no gradients, scrims or text halos on buttons. Keep 12px corners and at least 56px management touch targets. Busy actions stay orange while duplicate taps remain blocked. Use shared palette endpoints for small readable accents; do not invent local orange shades. Regenerate native launch backgrounds with `flutter test tool/generate_brand_background_test.dart` after changing the gradient. Android 12's OS splash accepts only the matching solid endpoint before the gradient handoff.
 - Application branding uses `shared/widgets/app_logo.dart` and `assets/branding/app_logo.png`. Keep the supplied artwork untinted. Run `tool/sync_branding.ps1` after updating it and rebuild native launch resources; functional discount/tag icons are separate from branding.
 - Every product-name card on every screen must include the reusable stock badge with the current backend quantity/unit. This includes price update and future product screens. Unknown stock must be labelled unavailable, never fabricated.
 - Sticky action surfaces use 12 logical pixel top corners and clear, neutral glass (blur with translucent white highlights); do not add warm or other colored tints to the glass. Keep the action buttons' specified brand colors.
@@ -136,3 +137,5 @@ Use repository-specific flavor/build commands rather than assuming entry-point n
 - Update README/config examples when commands, setup, environment requirements, or CI behavior change.
 - Before finishing, summarize: files changed, behavior implemented, acceptance criteria satisfied, verification commands/results, and any unverified items or follow-up dependencies.
 - Be accurate: do not claim iOS builds, physical-device camera flows, backend calls, or Figma matching were tested unless actually verified.
+
+

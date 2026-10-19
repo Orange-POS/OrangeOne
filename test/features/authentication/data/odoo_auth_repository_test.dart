@@ -59,6 +59,63 @@ void main() {
   const key = 'orangeone.development.session.v1';
 
   test(
+    'stalled cleanup reports storage error and blocks login until deletion',
+    () async {
+      store.values[key] = '{broken';
+      store.pendingDelete = Completer<void>();
+      await expectLater(
+        repository.restore().timeout(const Duration(seconds: 3)),
+        throwsA(same(storageFailure)),
+      );
+      expect(store.values.containsKey(key), isTrue);
+      expect(store.deletes, 1);
+      await expectLater(
+        repository.signIn(validQr()),
+        throwsA(same(storageFailure)),
+      );
+      expect(requests, isEmpty);
+      store.pendingDelete!.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(store.values, isEmpty);
+      await repository.signIn(validQr());
+      expect(store.values.containsKey(key), isTrue);
+      expect(store.deletes, 1);
+    },
+  );
+
+  test(
+    'validation deadline plus stalled cleanup returns a safe storage error',
+    () async {
+      store.values[key] = SessionModel.encode(testSession);
+      store.pendingDelete = Completer<void>();
+      final requested = Completer<RequestOptions>();
+      dio.interceptors.clear();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            requests.add(options);
+            requested.complete(options);
+          },
+        ),
+      );
+      final restoration = repository.restore();
+      final assertion = expectLater(
+        restoration.timeout(const Duration(seconds: 18)),
+        throwsA(same(storageFailure)),
+      );
+      final request = await requested.future;
+      await assertion;
+      expect(request.cancelToken!.isCancelled, isTrue);
+      expect(store.values.containsKey(key), isTrue);
+      expect(store.deletes, 1);
+      expect(requests, hasLength(1));
+      store.pendingDelete!.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(store.values, isEmpty);
+    },
+  );
+
+  test(
     'login and restored token use the scanned server, not configuration',
     () async {
       const server = 'http://192.168.1.3:8080';

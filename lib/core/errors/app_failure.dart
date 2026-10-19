@@ -1,6 +1,7 @@
 enum FailureKind {
   configuration,
   validation,
+  conflict,
   expiredQr,
   usedQr,
   unsupportedQr,

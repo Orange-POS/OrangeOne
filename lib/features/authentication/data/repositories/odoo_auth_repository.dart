@@ -19,6 +19,12 @@ class OdooAuthRepository implements AuthRepository {
   var _epoch = 0;
   CancelToken? _pending;
   Future<void> _storageWork = Future<void>.value();
+  Future<void>? _cleanup;
+
+  static const _cleanupLimit = Duration(seconds: 2);
+
+  Future<void> _waitForCleanup() =>
+      _cleanup!.timeout(_cleanupLimit, onTimeout: () => throw storageFailure);
 
   String get _key => 'orangeone.${_configuration.environment.name}.session.v1';
 
@@ -34,6 +40,7 @@ class OdooAuthRepository implements AuthRepository {
 
   @override
   Future<AuthSession> signIn(String qrPayload) async {
+    if (_cleanup != null) throw storageFailure;
     if (_pending != null) throw cancelledOperation;
     final challenge = LoginQrModel.parse(qrPayload, _configuration, _now());
     final generation = _epoch;
@@ -59,13 +66,17 @@ class OdooAuthRepository implements AuthRepository {
     return _restore().timeout(
       const Duration(seconds: 15),
       onTimeout: () async {
-        if (generation == _epoch) await signOut();
+        if (generation == _epoch || _cleanup != null) await signOut();
         return null;
       },
     );
   }
 
   Future<AuthSession?> _restore() async {
+    if (_cleanup != null) {
+      await _waitForCleanup();
+      return null;
+    }
     final generation = _epoch;
     final saved = await _store.read(_key);
     if (generation != _epoch) return null;
@@ -102,11 +113,22 @@ class OdooAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> signOut() async {
+  Future<void> signOut() {
+    if (_cleanup != null) return _waitForCleanup();
     _epoch++;
     _pending?.cancel();
     _pending = null;
-    await _storeInOrder(() => _store.delete(_key));
+    // Platform storage cannot be cancelled. Keep its real completion in the
+    // ordered queue, even after the caller's bounded wait reports an error.
+    final cleanup = _storeInOrder(() => _store.delete(_key));
+    _cleanup = cleanup;
+    unawaited(
+      cleanup.then<void>(
+        (_) => _cleanup = null,
+        onError: (Object error, StackTrace stack) => _cleanup = null,
+      ),
+    );
+    return _waitForCleanup();
   }
 
   void dispose() => _pending?.cancel();

@@ -6,11 +6,10 @@ The former Home and scanner definitions are aliases of that same constant.
 
 Login, Home, QR/scanner headers, product details, edit and pricing pages use this
 definition. Product-name cards no longer define their own orange gradient.
-Primary FilledButtons inherit a gradient background from the shared theme;
-disabled buttons remain visibly disabled and retain their normal behavior.
+Buttons use the supplied solid-color component, independent of the background gradient: #F56600 normal/loading/Done, #C84E00 pressed/hover, #DADCE0 disabled with #5F6368 labels. Primary labels are white; outlined buttons have white fill and matching state-colored text/border. No button gradient, scrim or text halo.
 Sticky action cards use clear neutral glass without an orange backing. They retain
 backdrop blur, white highlights, 12px top corners, large fixed actions and safe-area
-spacing. Brand gradients remain on the buttons; theme changes must not tint glass.
+spacing. Button colors remain independent of the branded background; theme changes must not tint glass.
 Readable small accents use the dark endpoint rather than unrelated orange shades.
 The supplied logo artwork and semantic success/error colors remain independent.
 
@@ -45,3 +44,5 @@ development APK built successfully and was installed on the Android phone. Launc
 logs showed Flutter initialization, but sustained device execution and live debugger
 reconnection were not confirmed at handoff. iOS compilation remains unverified on
 Windows.
+
+

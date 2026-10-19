@@ -210,10 +210,6 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                         children: [
                           const Text('Product not found'),
                           FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: OrangeTheme.scannerAccent,
-                              foregroundColor: Colors.white,
-                            ),
                             onPressed: () => context.pushReplacementNamed(
                               'addProduct',
                               queryParameters: {'barcode': widget.barcode},

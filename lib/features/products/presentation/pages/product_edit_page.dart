@@ -113,8 +113,8 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                 width: double.infinity,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: OrangeTheme.scannerAccent,
-                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: busy ? OrangeTheme.action : null,
+                    disabledForegroundColor: busy ? Colors.white : null,
                     minimumSize: const Size(double.infinity, 56),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

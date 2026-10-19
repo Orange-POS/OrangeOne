@@ -24,6 +24,24 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
   var _cameraGeneration = 0;
   String _status = 'Opening camera…';
   bool _navigating = false;
+  bool _routeCurrent = true;
+  bool _resuming = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.isCurrentOf(context) ?? true;
+    if (current && !_routeCurrent) {
+      _resuming = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? true)) return;
+        _navigating = false;
+        _resuming = false;
+        _scanAgain();
+      });
+    }
+    _routeCurrent = current;
+  }
 
   Future<void> _openResult(ProductLookup result) async {
     if (_navigating || !mounted) return;
@@ -33,7 +51,7 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
     } finally {
       if (mounted) {
         _navigating = false;
-        _scanAgain();
+        if (_routeCurrent && !_resuming) _scanAgain();
       }
     }
   }
@@ -62,11 +80,14 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
       }
     });
     final controller = ref.read(productLookupControllerProvider.notifier);
+    final cameraGeneration = _cameraGeneration;
     final scanning =
         !state.isLoading &&
         !state.hasError &&
         state.value == null &&
-        !_navigating;
+        !_navigating &&
+        _routeCurrent &&
+        !_resuming;
     return Scaffold(
       backgroundColor: OrangeTheme.camera,
       body: LayoutBuilder(
@@ -153,7 +174,10 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                                           (code) =>
                                               unawaited(controller.scan(code)),
                                           (status) {
-                                            if (mounted) {
+                                            if (mounted &&
+                                                _routeCurrent &&
+                                                cameraGeneration ==
+                                                    _cameraGeneration) {
                                               setState(() => _status = status);
                                             }
                                           },
@@ -193,10 +217,7 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                       onScanAgain: _scanAgain,
                       onRetry: () => unawaited(controller.retry()),
                       onAddProduct: (barcode) => unawaited(
-                        context.pushNamed<void>(
-                          'addProduct',
-                          queryParameters: {'barcode': barcode},
-                        ),
+                        _openResult(ProductLookup(barcode: barcode)),
                       ),
                     ),
                   ],

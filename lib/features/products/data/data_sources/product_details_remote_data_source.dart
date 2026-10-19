@@ -28,6 +28,21 @@ class ProductDetailsRemoteDataSource {
     if (result['ok'] == true) return result;
     final error = result['error'];
     if (result['ok'] != false || error is! String) throw invalidResponse;
+    if (error == 'Barcode already exists.') {
+      throw const AppFailure(
+        FailureKind.conflict,
+        'This barcode already exists. Open its product details.',
+      );
+    }
+    if (error == 'Select valid product taxes.' ||
+        error == 'Product name is required.' ||
+        error == 'Valid product price is required.' ||
+        error == 'Price cannot be negative.') {
+      throw const AppFailure(
+        FailureKind.validation,
+        'Check the product name, price and tax selection.',
+      );
+    }
     if (error == 'Token does not have required permission.' ||
         error == 'Product is not allowed for this POS company.') {
       throw const AppFailure(

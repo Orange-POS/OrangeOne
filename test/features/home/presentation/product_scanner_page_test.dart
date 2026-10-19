@@ -31,7 +31,8 @@ void main() {
         utcNowProvider.overrideWithValue(() => testNow),
         productRepositoryProvider.overrideWithValue(products),
         productDetailsRepositoryProvider.overrideWithValue(
-          FakeDetailsRepository(),
+          FakeDetailsRepository()
+            ..product = products.product == null ? null : detailsFixture,
         ),
         productCameraBuilderProvider.overrideWithValue(
           (context, onCode, onStatus) => FilledButton(
@@ -82,28 +83,29 @@ void main() {
     },
   );
 
-  testWidgets('not found opens a prefilled draft without any mutation', (
-    tester,
-  ) async {
-    final products = FakeProductRepository()..product = null;
-    await mount(tester, products);
-    await tester.tap(find.text('Tap to scan Barcode'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Test scan'));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(TextFormField, '0010101010'), findsOneWidget);
-    expect(find.text('Product name'), findsOneWidget);
-    expect(find.textContaining('Draft only'), findsOneWidget);
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Product name'),
-      'New product',
-    );
-    await tester.tap(find.text('Return to scanner'));
-    await tester.pumpAndSettle();
-    expect(find.text('Test scan'), findsOneWidget);
-    expect(products.barcodes.length, 1);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'not found opens a prefilled creation form without any mutation',
+    (tester) async {
+      final products = FakeProductRepository()..product = null;
+      await mount(tester, products);
+      await tester.tap(find.text('Tap to scan Barcode'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Test scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('0010101010'), findsOneWidget);
+      expect(find.text('Product Name'), findsOneWidget);
+      expect(find.text('Create New Product'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('create-product-name')),
+        'New product',
+      );
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Test scan'), findsOneWidget);
+      expect(products.barcodes.length, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('loading suppresses scans; cancellation ignores late results', (
     tester,

@@ -117,12 +117,15 @@ entitlement is configured for all nine Runner flavor/build configurations; signe
 iOS device validation still requires Apple signing assets.
 
 On a full application restart, the repository reads secure storage and validates
-an existing token once through POST `/mupi/mobile/auth/token/check`. This whole
-restoration attempt has a 15-second deadline. Invalid, rejected, unreachable or
-timed-out validation deletes the secure record and returns to fresh QR login.
+an existing token once through POST `/mupi/mobile/auth/token/check`. Validation has
+a 15-second deadline. Invalid, rejected, unreachable or timed-out validation
+deletes the secure record and returns to fresh QR login after successful cleanup.
 The pending request is cancelled at the deadline; late responses cannot restore
 an old session or delete a newer session. There are no automatic restore retries.
-Storage failures remain visible and never count as successful secret deletion.
+Cleanup waits at most 2 additional seconds (17 seconds maximum when validation
+uses its entire budget). Stalled deletion surfaces a safe storage error, never a
+successful logout. New login is blocked while the actual platform deletion remains
+pending; writes/deletes stay ordered so a late deletion cannot erase a new login.
 
 A successful QR login stays in secure storage across process restarts until local
 logout, backend expiry/rejection, or a detected server outage. Ordinary background /

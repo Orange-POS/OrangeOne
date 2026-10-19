@@ -5,8 +5,13 @@ import 'package:orange_one/shared/widgets/app_logo.dart';
 import 'package:orange_one/shared/widgets/stock_badge.dart';
 
 class ProductNameCard extends StatelessWidget {
-  const new({required this.product, super.key});
-  final ProductDetails product;
+  const new({
+    required this.product,
+    this.emptyTitle = 'Product Not Found',
+    super.key,
+  });
+  final ProductDetails? product;
+  final String emptyTitle;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -32,23 +37,23 @@ class ProductNameCard extends StatelessWidget {
           const AppLogo(),
           const SizedBox(height: 16),
           Text(
-            product.name,
+            product?.name ?? emptyTitle,
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          if (product.reference.isNotEmpty)
+          if (product?.reference.isNotEmpty ?? false)
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: Text(
-                product.reference,
+                product!.reference,
                 style: const TextStyle(fontSize: 16, color: Colors.white),
               ),
             ),
           const SizedBox(height: 16),
-          StockBadge(quantity: product.stock, unit: product.unit),
+          StockBadge(quantity: product?.stock, unit: product?.unit ?? ''),
         ],
       ),
     ),

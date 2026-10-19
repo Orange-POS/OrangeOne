@@ -33,7 +33,7 @@ The project documentation describes these milestones:
 | 08 | Product editing | [Product name and tax workflow](docs/product-edit.md) |
 | 09 | Branding | [Startup splash and shared branding](docs/splash-branding.md) |
 
-The product lookup flow describes opening details for a matching barcode and a prefilled draft for an unknown barcode. **Saving an unknown product draft is deferred.** Stock adjustment, offline synchronization, Firebase integrations, the complete inventory dashboard, and signed store distribution are future work in the supplied documentation.
+Product lookup opens details for a matching barcode and the Create New Product form for an unknown barcode. Creation supports the original Odoo save endpoint; the create-only controller enhancement is optional. See [product creation](docs/product-creation.md) for compatibility and permission details. Stock adjustment, offline synchronization, Firebase integrations, the complete inventory dashboard, and signed store distribution remain future work.
 
 ## Technology stack
 
@@ -216,6 +216,7 @@ CI results must be checked in GitHub Actions after pushing; the existence of wor
 - [Product details](docs/product-details.md)
 - [Product price update](docs/product-price-update.md)
 - [Product name and tax editing](docs/product-edit.md)
+- [Product creation and backend compatibility](docs/product-creation.md)
 - [Splash and branding](docs/splash-branding.md)
 - [Shared orange gradient and native regeneration](docs/brand-gradient.md)
 - [Task 01 validation](docs/validation.md)

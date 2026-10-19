@@ -1,6 +1,7 @@
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
 import 'package:orange_one/features/products/data/models/product_details_model.dart';
+import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
@@ -9,6 +10,105 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
   const new(this.source, {required this.onSessionRejected});
   final ProductDetailsRemoteDataSource source;
   final Future<void> Function() onSessionRejected;
+
+  @override
+  Future<ProductCreationContext> prepareCreation(String barcode) =>
+      _authenticated(() => _prepareCreation(barcode));
+
+  Future<ProductCreationContext> _prepareCreation(String barcode) async {
+    final details = await _load(barcode);
+    if (!details.access.editName ||
+        !details.access.updatePrice ||
+        !details.access.readReferences ||
+        details.product != null) {
+      return ProductCreationContext(
+        details: details,
+        taxes: const [],
+        supportsCreateOnly: false,
+      );
+    }
+    final references = await source.call(
+      '/mupi/mobile/api/products/references',
+    );
+    return ProductCreationContext(
+      details: details,
+      taxes: _parseTaxes(references),
+      supportsCreateOnly: references['create_only_supported'] == true,
+    );
+  }
+
+  @override
+  Future<ProductDetails> createProduct(
+    NewProduct product,
+  ) => _authenticated(() async {
+    // Both versions use the supplied save route. Prefer its stronger guard when
+    // advertised; the original addon accepts only the original parameters.
+    final context = await _prepareCreation(product.barcode);
+    if (context.details.product != null) {
+      throw const AppFailure(
+        FailureKind.conflict,
+        'This barcode already exists. Open its product details.',
+      );
+    }
+    if (!context.canCreate) {
+      throw const AppFailure(
+        FailureKind.forbidden,
+        'Product creation is not available for this session or server.',
+      );
+    }
+    if (product.taxIds.any((id) => !context.taxes.any((tax) => tax.id == id))) {
+      throw const AppFailure(
+        FailureKind.validation,
+        'Tax options changed. Reload the form.',
+      );
+    }
+    final result = await source.call('/mupi/mobile/api/products/save', {
+      'barcode': product.barcode,
+      'name': product.name,
+      'price': product.price.asDouble,
+      'tax_ids': product.taxIds,
+      if (context.supportsCreateOnly) 'create_only': true,
+    });
+    final created = context.supportsCreateOnly
+        ? result['action'] == 'created'
+        : result['action'] == 'created' ||
+              (!result.containsKey('action') &&
+                  result['message'] == 'Product created successfully.');
+    if (!created || result['product'] is! Map<String, dynamic>) {
+      throw invalidResponse;
+    }
+    final saved = ProductDetailsModel.parse(
+      result['product'] as Map<String, dynamic>,
+      product.barcode,
+    );
+    // Original save uses `if tax_ids`, so [] otherwise inherits Odoo defaults.
+    // Its existing update route supports an explicit empty tax assignment.
+    if (!context.supportsCreateOnly &&
+        product.taxIds.isEmpty &&
+        (saved.taxIds == null || saved.taxIds!.isNotEmpty)) {
+      try {
+        final corrected = await updateInformation(
+          saved.id,
+          saved.name,
+          taxIds: const [],
+        );
+        if (corrected.barcode != product.barcode ||
+            corrected.taxIds == null ||
+            corrected.taxIds!.isNotEmpty) {
+          throw invalidResponse;
+        }
+        return corrected;
+      } on Exception {
+        throw const AppFailure(
+          FailureKind.protocol,
+          'The product was saved, but its tax selection '
+          'could not be confirmed. '
+          'Check product details before trying again.',
+        );
+      }
+    }
+    return saved;
+  });
 
   Future<T> _authenticated<T>(Future<T> Function() operation) async {
     try {
@@ -24,7 +124,10 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
   }
 
   @override
-  Future<ProductDetailsState> load(String barcode) => _authenticated(() async {
+  Future<ProductDetailsState> load(String barcode) =>
+      _authenticated(() => _load(barcode));
+
+  Future<ProductDetailsState> _load(String barcode) async {
     final permission = await source.call('/mupi/mobile/auth/token/check');
     final rawScopes = permission['scopes'];
     if (rawScopes != null && rawScopes != false && rawScopes is! String) {
@@ -51,7 +154,7 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
         readReferences: scopes.contains('reference:read'),
       ),
     );
-  });
+  }
 
   @override
   Future<void> updateName(int id, String name) => _authenticated(() async {
@@ -64,6 +167,10 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
   @override
   Future<List<ProductTax>> loadTaxes() => _authenticated(() async {
     final result = await source.call('/mupi/mobile/api/products/references');
+    return _parseTaxes(result);
+  });
+
+  List<ProductTax> _parseTaxes(Map<String, dynamic> result) {
     final raw = result['taxes'];
     if (raw is! List) throw invalidResponse;
     final taxes = <ProductTax>[];
@@ -90,7 +197,7 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
       );
     }
     return List.unmodifiable(taxes);
-  });
+  }
 
   @override
   Future<ProductDetails> updateInformation(

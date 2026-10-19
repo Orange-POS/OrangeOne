@@ -8,6 +8,7 @@ class PriceUpdateForm extends StatelessWidget {
     required this.onChanged,
     required this.enabled,
     this.error,
+    this.alwaysShowCurrency = false,
     super.key,
   });
   final TextEditingController controller;
@@ -15,6 +16,7 @@ class PriceUpdateForm extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final bool enabled;
   final String? error;
+  final bool alwaysShowCurrency;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -31,7 +33,19 @@ class PriceUpdateForm extends StatelessWidget {
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => focusNode.unfocus(),
         decoration: InputDecoration(
-          prefixText: 'CHF ',
+          prefixText: alwaysShowCurrency ? null : 'CHF ',
+          prefixIcon: alwaysShowCurrency
+              ? const Padding(
+                  padding: EdgeInsets.only(left: 16, right: 8),
+                  child: Text(
+                    'CHF',
+                    style: TextStyle(color: OrangeTheme.secondary),
+                  ),
+                )
+              : null,
+          prefixIconConstraints: alwaysShowCurrency
+              ? const BoxConstraints()
+              : null,
           hintText: 'Enter new price',
           errorText: error,
           errorMaxLines: 3,

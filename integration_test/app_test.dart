@@ -45,6 +45,7 @@ void main() {
       ..validateNativeFlavor(appFlavor);
     final repository = StartupAuthRepository();
     final products = FakeProductRepository();
+    final details = FakeDetailsRepository();
     var scanBarcode = '0010101010';
     await tester.pumpWidget(
       ProviderScope(
@@ -53,9 +54,7 @@ void main() {
           authRepositoryProvider.overrideWithValue(repository),
           utcNowProvider.overrideWithValue(() => testNow),
           productRepositoryProvider.overrideWithValue(products),
-          productDetailsRepositoryProvider.overrideWithValue(
-            FakeDetailsRepository(),
-          ),
+          productDetailsRepositoryProvider.overrideWithValue(details),
           productCameraBuilderProvider.overrideWithValue(
             (context, onCode, onStatus) => FilledButton(
               onPressed: () => onCode(scanBarcode),
@@ -120,8 +119,28 @@ void main() {
     scanBarcode = '999000';
     await tester.tap(find.text('Test product scan'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Draft only'), findsOneWidget);
-    await tester.tap(find.text('Return to scanner'));
+    expect(find.text('Create New Product'), findsOneWidget);
+    expect(find.text('999000'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('create-product-name')),
+      'New mobile product',
+    );
+    await tester.enterText(find.byKey(const Key('new-price-input')), '12.50');
+    await tester.tap(find.byKey(const Key('create-product-tax')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('No Tax'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Product'));
+    await tester.pumpAndSettle();
+    expect(find.text('New Product Created'), findsOneWidget);
+    expect(details.creates, 1);
+    expect(details.submittedProduct?.barcode, '999000');
+    expect(details.submittedProduct?.taxIds, isEmpty);
+    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('New mobile product'), findsOneWidget);
+    expect(find.text('CHF 12.50'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back to scanner'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back to home'));
     await tester.pumpAndSettle();

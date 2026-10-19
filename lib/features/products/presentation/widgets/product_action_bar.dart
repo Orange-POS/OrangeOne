@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
-import 'package:orange_one/shared/theme/orange_theme.dart';
 
 /// Fixed, safe-area-aware actions; the page body scrolls independently.
 class ProductActionBar extends StatelessWidget {
@@ -14,8 +13,6 @@ class ProductActionBar extends StatelessWidget {
         final price = FilledButton(
           onPressed: onUpdatePrice,
           style: FilledButton.styleFrom(
-            backgroundColor: OrangeTheme.scannerAccent,
-            foregroundColor: Colors.white,
             minimumSize: const Size(double.infinity, 56),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -31,13 +28,10 @@ class ProductActionBar extends StatelessWidget {
         final stock = OutlinedButton(
           onPressed: null,
           style: OutlinedButton.styleFrom(
-            disabledForegroundColor: const Color(0xFF5F6368),
-            disabledBackgroundColor: const Color(0xFFDADCE0),
             minimumSize: const Size(double.infinity, 56),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            side: const BorderSide(color: OrangeTheme.scannerAccent),
             textStyle: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 16,

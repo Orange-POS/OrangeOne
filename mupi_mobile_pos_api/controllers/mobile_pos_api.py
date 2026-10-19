@@ -1,3 +1,5 @@
+import math
+
 from odoo import http
 from odoo.exceptions import AccessDenied
 from odoo.http import request
@@ -185,6 +187,7 @@ class MupiMobilePosApiController(http.Controller):
         product_category_id=None,
         image=None,
         default_code=None,
+        create_only=False,
     ):
         try:
             token_record, payload = self._validate_mobile_token(
@@ -219,13 +222,35 @@ class MupiMobilePosApiController(http.Controller):
                 "error": "Valid product price is required.",
             }
 
-        if price < 0:
+        if not math.isfinite(price) or price < 0:
             return {
                 "ok": False,
                 "error": "Price cannot be negative.",
             }
 
         Product = request.env["product.product"].sudo()
+
+        # Serialize this endpoint's barcode writes, including legacy upserts.
+        request.env.cr.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s))", [str(barcode)]
+        )
+        if create_only is True and Product.with_context(active_test=False).search_count([
+            ("barcode", "=", barcode)
+        ]):
+            return {"ok": False, "error": "Barcode already exists."}
+        if create_only is True:
+            if not isinstance(tax_ids, list) or any(
+                type(tax_id) is not int or tax_id <= 0 for tax_id in tax_ids
+            ):
+                return {"ok": False, "error": "Select valid product taxes."}
+            allowed_taxes = request.env["account.tax"].sudo().search([
+                ("id", "in", tax_ids),
+                ("type_tax_use", "=", "sale"),
+                ("active", "=", True),
+                ("company_id", "=", token_record.company_id.id),
+            ])
+            if set(allowed_taxes.ids) != set(tax_ids):
+                return {"ok": False, "error": "Select valid product taxes."}
 
         product = Product.browse()
         if barcode:
@@ -256,7 +281,7 @@ class MupiMobilePosApiController(http.Controller):
         #if pos_category_ids:
         #    values["pos_categ_ids"] = [(6, 0, [int(category_id) for category_id in pos_category_ids])]
 
-        if tax_ids:
+        if tax_ids or create_only is True:
             values["taxes_id"] = [(6, 0, [int(tax_id) for tax_id in tax_ids])]
         
         old_name = product.name if product else None
@@ -291,6 +316,7 @@ class MupiMobilePosApiController(http.Controller):
         return {
             "ok": True,
             "message": "Product %s successfully." % action,
+            "action": action,
             "product": self._format_product(product),
         }
         
@@ -496,6 +522,7 @@ class MupiMobilePosApiController(http.Controller):
         return {
             "ok": True,
             "default_tax_ids": default_tax_ids,
+            "create_only_supported": True,
             "taxes": [
                 {
                     "id": tax.id,
@@ -592,4 +619,3 @@ class MupiMobilePosApiController(http.Controller):
             "message": "Product name updated successfully.",
             "product": self._format_product(product),
         }
-    

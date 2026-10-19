@@ -48,6 +48,7 @@ class MemorySecretStore implements SecretStore {
   int deletes = 0;
   AppFailure? failure;
   Completer<void>? pendingWrite;
+  Completer<void>? pendingDelete;
 
   @override
   Future<String?> read(String key) async {
@@ -66,6 +67,7 @@ class MemorySecretStore implements SecretStore {
   @override
   Future<void> delete(String key) async {
     deletes++;
+    if (pendingDelete != null) await pendingDelete!.future;
     if (failure != null) throw failure!;
     values.remove(key);
   }

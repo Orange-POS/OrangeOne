@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
@@ -14,6 +15,50 @@ const detailsFixture = ProductDetails(
 );
 
 class FakeDetailsRepository implements ProductDetailsRepository {
+  bool supportsCreateOnly = true;
+  NewProduct? submittedProduct;
+  int creates = 0;
+  Completer<ProductCreationContext>? pendingCreation;
+  @override
+  Future<ProductCreationContext> prepareCreation(String barcode) async {
+    if (pendingCreation != null) return await pendingCreation!.future;
+    if (error != null) Error.throwWithStackTrace(error!, StackTrace.current);
+    if (referencesError != null) {
+      Error.throwWithStackTrace(referencesError!, StackTrace.current);
+    }
+    return ProductCreationContext(
+      details: ProductDetailsState(
+        product?.barcode == barcode ? product : null,
+        access,
+      ),
+      taxes: taxes,
+      supportsCreateOnly: supportsCreateOnly,
+    );
+  }
+
+  @override
+  Future<ProductDetails> createProduct(NewProduct draft) async {
+    creates++;
+    submittedProduct = draft;
+    if (writeError != null) {
+      Error.throwWithStackTrace(writeError!, StackTrace.current);
+    }
+    if (pendingWrite != null) return await pendingWrite!.future;
+    return product = ProductDetails(
+      id: 11,
+      barcode: draft.barcode,
+      name: draft.name,
+      price: draft.price.asDouble,
+      stock: 0,
+      unit: 'Units',
+      taxIds: draft.taxIds,
+      taxes: taxes
+          .where((tax) => draft.taxIds.contains(tax.id))
+          .map((tax) => tax.label)
+          .toList(),
+    );
+  }
+
   ProductDetails? product = detailsFixture;
   ProductAccess access = const ProductAccess(
     editName: true,

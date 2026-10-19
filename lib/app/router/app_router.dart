@@ -6,10 +6,10 @@ import 'package:orange_one/features/authentication/presentation/pages/login_page
 import 'package:orange_one/features/authentication/presentation/pages/qr_login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/splash_page.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
-import 'package:orange_one/features/home/presentation/pages/add_product_start_page.dart';
 import 'package:orange_one/features/home/presentation/pages/home_page.dart';
 import 'package:orange_one/features/home/presentation/pages/product_scanner_page.dart';
 import 'package:orange_one/features/initialization/presentation/pages/initialization_page.dart';
+import 'package:orange_one/features/products/presentation/pages/product_creation_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
@@ -93,8 +93,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: 'addProduct',
             path: 'products/new',
-            builder: (context, state) => AddProductStartPage(
-              barcode: state.uri.queryParameters['barcode'],
+            builder: (context, state) => ProductCreationPage(
+              barcode: state.uri.queryParameters['barcode'] ?? '',
             ),
           ),
           GoRoute(

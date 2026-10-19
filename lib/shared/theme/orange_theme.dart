@@ -6,6 +6,17 @@ abstract final class OrangeTheme {
   static const camera = Color(0xFF1B120B);
   static const pale = Color(0xFFFFF3E8);
   static const secondary = Color(0xFF5F6368);
+  // Supplied button component colors; independent of branded backgrounds.
+  static const action = Color(0xFFF56600);
+  static const actionPressed = Color(0xFFC84E00);
+  static const actionDisabled = Color(0xFFDADCE0);
+  static const actionDisabledLabel = Color(0xFF5F6368);
+
+  static Color _actionColor(Set<WidgetState> states) =>
+      states.contains(WidgetState.pressed) ||
+          states.contains(WidgetState.hovered)
+      ? actionPressed
+      : action;
   // Use the dark endpoint for readable small accents on white surfaces.
   static const Color scannerAccent = dark;
   static const gradient = LinearGradient(
@@ -29,28 +40,41 @@ abstract final class OrangeTheme {
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.disabled)
-              ? const Color(0xFFDADCE0)
-              : Colors.transparent,
+              ? actionDisabled
+              : _actionColor(states),
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.disabled)
-              ? const Color(0xFF5F6368)
+              ? actionDisabledLabel
               : Colors.white,
+        ),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(0),
+        minimumSize: const WidgetStatePropertyAll(Size(64, 56)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? actionDisabledLabel
+              : _actionColor(states),
         ),
         side: WidgetStateProperty.resolveWith(
           (states) => BorderSide(
             color: states.contains(WidgetState.disabled)
-                ? const Color(0xFFDADCE0)
-                : const Color(0x99FFFFFF),
-            width: .5,
+                ? actionDisabled
+                : _actionColor(states),
           ),
         ),
-        backgroundBuilder: (context, states, child) => DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: states.contains(WidgetState.disabled) ? null : gradient,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: child,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        minimumSize: const WidgetStatePropertyAll(Size(64, 56)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     ),
