@@ -56,7 +56,7 @@ jobs:
       - run: flutter build ios --release --no-codesign --flavor ${{ matrix.flavor }} --target lib/main_${{ matrix.flavor }}.dart --dart-define-from-file=config/${{ matrix.flavor }}.example.json
       - name: Preserve unsigned app permissions and symlinks
         run: ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app build/ios/unsigned-${{ matrix.flavor }}.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-unsigned-${{ matrix.flavor }}
           path: build/ios/unsigned-${{ matrix.flavor }}.zip
@@ -153,7 +153,7 @@ jobs:
         run: flutter build ipa --release --no-codesign --flavor production --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$RELEASE_BUILD_NUMBER"
       - name: Package unsigned archive as data
         run: ditto -c -k --norsrc --noextattr --keepParent build/ios/archive/Runner.xcarchive candidate.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: unsigned-production-candidate
           path: candidate.zip
@@ -223,7 +223,7 @@ jobs:
         run: python3 tool/ci/ios_signing.py install
       - name: Export signed IPA and upload to internal TestFlight
         run: bundle exec fastlane ios beta
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-production-${{ inputs.version }}-${{ inputs.build_number }}
           path: build/ios/ipa/*.ipa

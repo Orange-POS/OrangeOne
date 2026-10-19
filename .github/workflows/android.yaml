@@ -33,7 +33,7 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       # Debug builds validate native integration without distribution credentials.
       - run: flutter build apk --debug --flavor ${{ matrix.flavor }} --target lib/main_${{ matrix.flavor }}.dart --dart-define-from-file=config/${{ matrix.flavor }}.example.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-${{ matrix.flavor }}
           path: build/app/outputs/flutter-apk/app-${{ matrix.flavor }}-debug.apk
