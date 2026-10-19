@@ -7,13 +7,13 @@
 | `quality.yaml` | Every push, every PR, main merge queue, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax and Fastlane lane guards; device integration remains manual |
 | `android.yaml` | Every push, PR to main, main merge queue, manual | Development/staging/production debug APK artifacts; no Play Store upload |
 | `ios.yaml` / `ios` | Every push, PR to main, main merge queue | Unsigned release `.app` ZIPs on GitHub-hosted `macos-26`; no Apple secrets |
-| `ios.yaml` / `beta` | Manual `testflight` from main after release checks and environment approval | Signed production IPA and internal TestFlight upload |
+| `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as production, then exported/signed on a fresh runner and uploaded to internal TestFlight |
 | `ios.yaml` / `submit` | Manual `submit_for_review` from main after release checks, iPhone confirmation and separate environment approval | Submit existing tested build for review; public release remains manual |
 | `license_check.yaml` | Every push, PR to main, main merge queue, manual | Flutter dependency license policy |
 
 A merge into main triggers push checks. Workflows use read-only repository access;
 there is no `pull_request_target` or secrets in untrusted PR jobs. Production code
-comes from the selected main commit, not an arbitrary input ref. Signing jobs are
+comes from main or the explicitly selected open PR head targeting main, pinned to its immutable SHA. The workflow itself must still be dispatched from main so its control/signing scripts remain trusted. PR TestFlight builds are never automatic. Signing jobs are
 serialized and not cancelled by a new dispatch. Unsigned apps are ZIP-wrapped to
 preserve their bundle permissions/symlinks in GitHub artifacts.
 
@@ -80,15 +80,20 @@ but it cannot prevent explicitly forced commits; inspect changes before pushing.
 
 1. Merge the tested pipeline changes into main. Configure the environments and
    secrets above. Ensure quality, Android and unsigned iOS checks are green.
-2. Open **Actions → OrangeONE iOS → Run workflow**. Select branch **main** and
-   operation **testflight**. Enter a marketing version such as `1.0.0` and a new
+2. Open **Actions → OrangeONE iOS → Run workflow**. Select workflow branch **main** and
+   operation **testflight**. Set **pr_number** to the open PR number (for example `42`) to build that PR, or leave it blank to build main. Enter a marketing version such as `1.0.0` and a new
    build integer from `1` to `9999`. Increment the number for every upload; reruns
    of an already uploaded version/build will be rejected by Apple. The pipeline
    deliberately requires an explicit number rather than guessing App Store state.
-3. Approve `ios-production`. The manual run repeats format/analyze/tests, prepares
-   Flutter/CocoaPods production settings, imports a temporary signing keychain,
-   signs `Release-production`, exports IPA, and runs `bundle exec fastlane ios beta`.
-   The production environment JSON is nonsecret and leaves backend discovery to QR.
+3. Review the selected PR/main SHA in the workflow summary and approve
+   `ios-production`. The candidate job runs formatting, analysis, unit/widgets and
+   `flutter build ipa --no-codesign` for the **production** flavor without Apple
+   credentials. A separate fresh runner checks out only trusted workflow code,
+   validates the archived bundle/version/build and contained paths, loads signing
+   material, and calls Xcode's **export-only** operation. It never rebuilds or runs
+   PR scripts with signing secrets. Fastlane uploads the exported IPA. Protected
+   jobs do not restore PR-writable dependency caches. The production environment
+   JSON is nonsecret and leaves backend discovery to QR.
 4. Fastlane waits for processing, uploads to **internal** TestFlight and does not
    enable external distribution or public release. Configure an internal tester
    group/build assignment in App Store Connect, resolve export compliance if
@@ -143,7 +148,7 @@ privacy manifests and Apple validation results. Do not invent compliance answers
 or mark encryption exemption automatically.
 
 After the exact version/build passes the iPhone checklist, dispatch the same
-workflow from **main**, operation **submit_for_review**, supplying that version
+workflow from **main**, operation **submit_for_review**, leaving **pr_number** empty and supplying that version
 and build and checking `iphone_smoke_test_confirmed`. An `ios-app-store` reviewer
 must verify the test evidence before approving. `fastlane ios submit` selects the
 existing App Store Connect binary, performs prechecks and submits for Apple review;
@@ -161,9 +166,7 @@ and ship a corrected higher build. Never try to overwrite an existing uploaded I
 
 Flutter is pinned to 3.47.5; native iOS compilation/signing uses GitHub-hosted
 `macos-26` with its selected Xcode 26+ toolchain (version printed in logs).
-Fastlane is pinned in `Gemfile`, with macOS/Linux dependencies locked in `Gemfile.lock`; Ruby 3.3 is set in workflows. Bundler installs from this lockfile. Update it deliberately with `bundle update fastlane` and review the diff. Build steps use the
-existing production scheme and bundle identifier; signing changes are made only
-in the ephemeral checkout, not committed to the Xcode project.
+Fastlane is pinned in `Gemfile`, with macOS/Linux dependencies locked in `Gemfile.lock`; Ruby 3.3 is set in workflows. Bundler installs from this lockfile. Update it deliberately with `bundle update fastlane` and review the diff. Compilation uses the existing production scheme and bundle identifier. The signing job exports the already-built archive; it does not change or build an Xcode project.
 
 Local quality: `flutter analyze --fatal-infos --fatal-warnings`,
 `flutter test --coverage`, `python3 -m unittest discover -s tool/ci -p 'test_*.py'`,
@@ -187,3 +190,23 @@ Fastfile tests use recording actions, not Apple services. No workflow was pushed
 or dispatched, no signing credential was used, and no signed IPA/TestFlight/
 physical-iPhone/store result is claimed. Those acceptance criteria remain pending
 owner secret setup and actual hosted/device runs.
+
+### Manual PR build rules
+
+- Any selected PR must be open and target this repository's `main` branch.
+- Select workflow branch **main**; `pr_number` selects the application source, not
+  the workflow source. No secrets are required in a contributor's fork.
+- A new PR commit or a closed PR invalidates the candidate before signing. Rerun
+  manually and review the new immutable SHA; do not approve stale source.
+- Main and PR uploads share `com.orangeone.app` and the production flavor. Use a
+  distinct build number for every upload. TestFlight's changelog names PR/main
+  and the SHA. Development/staging TestFlight distribution is not enabled.
+- Existing automatic unsigned iOS checks remain. They do not sign or upload to
+  TestFlight. Integration/device tests remain manual.
+- PR selection is available for TestFlight only. App Store submission stays a
+  separate main-dispatched approval operation with the existing iPhone evidence
+  requirement; its release owner must verify the chosen build's source.
+
+The split unsigned-archive/export path is validated locally through mocked export
+commands, archive checks and workflow linting. Actual signing/export and upload
+still need a hosted macOS run with Apple credentials; no success is claimed here.

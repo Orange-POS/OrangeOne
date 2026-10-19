@@ -23,38 +23,16 @@ platform :ios do
     require_main
     key = connect_key
     bundle_id = 'com.orangeone.app'
-    update_code_signing_settings(
-      path: File.join(ROOT, 'ios/Runner.xcodeproj'),
-      use_automatic_signing: false,
-      targets: ['Runner'],
-      build_configurations: ['Release-production'],
-      team_id: ENV.fetch('APPLE_TEAM_ID'),
-      code_sign_identity: 'Apple Distribution',
-      profile_uuid: ENV.fetch('IOS_PROFILE_UUID'),
-      profile_name: ENV.fetch('IOS_PROFILE_NAME'),
-      bundle_identifier: bundle_id
-    )
-    ipa = build_app(
-      workspace: File.join(ROOT, 'ios/Runner.xcworkspace'),
-      scheme: 'production',
-      configuration: 'Release-production',
-      clean: false,
-      output_directory: File.join(ROOT, 'build/ios/ipa'),
-      output_name: 'OrangeONE.ipa',
-      archive_path: File.join(ROOT, 'build/ios/archive/OrangeONE.xcarchive'),
-      export_method: 'app-store',
-      export_team_id: ENV.fetch('APPLE_TEAM_ID'),
-      export_options: {
-        method: 'app-store-connect',
-        signingStyle: 'manual',
-        teamID: ENV.fetch('APPLE_TEAM_ID'),
-        provisioningProfiles: { bundle_id => ENV.fetch('IOS_PROFILE_NAME') }
-      }
-    )
+    # Export on a fresh trusted runner; never rebuild PR code with Apple keys.
+    sh('python3', File.join(ROOT, 'tool/ci/export_ipa.py'))
+    candidates = Dir[File.join(ROOT, 'build/ios/ipa/*.ipa')]
+    UI.user_error!('Expected one exported IPA') unless candidates.length == 1
+    ipa = candidates.first
     upload_to_testflight(
       api_key: key,
       app_identifier: bundle_id,
       ipa: ipa,
+      changelog: "Production #{ENV['PR_NUMBER'].to_s.empty? ? 'main' : 'PR #' + ENV['PR_NUMBER']} @ #{ENV['SOURCE_SHA']}",
       distribute_external: false,
       skip_waiting_for_build_processing: false
     )
@@ -80,4 +58,3 @@ platform :ios do
     )
   end
 end
-

@@ -13,6 +13,11 @@ def validate(values):
     operation = values.get('OPERATION')
     if operation not in ('testflight', 'submit_for_review'):
         raise ValueError('Unsupported release operation.')
+    number = values.get('PR_NUMBER', '').strip()
+    if number and not re.fullmatch(r'[1-9]\d*', number):
+        raise ValueError('PR number must be a positive integer or empty for main.')
+    if operation == 'submit_for_review' and number:
+        raise ValueError('PR selection is supported only for TestFlight; leave PR number empty for App Store submission.')
     if operation == 'submit_for_review' and values.get('IPHONE_SMOKE_TEST_CONFIRMED') != 'true':
         raise ValueError('Complete the physical iPhone smoke checklist before submission.')
 

@@ -26,6 +26,14 @@ class ReleaseValidationTest(unittest.TestCase):
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 validate({**self.values, key: value})
 
+    def test_pr_selection_is_optional_and_testflight_only(self):
+        validate({**self.values, 'PR_NUMBER': '42'})
+        for number in ['0', '-2', '42;bad', 'refs/pull/42/head']:
+            with self.subTest(number=number), self.assertRaises(ValueError):
+                validate({**self.values, 'PR_NUMBER': number})
+        with self.assertRaises(ValueError):
+            validate({**self.values, 'PR_NUMBER': '42', 'OPERATION': 'submit_for_review',
+                      'IPHONE_SMOKE_TEST_CONFIRMED': 'true'})
     def test_appstore_submission_requires_device_confirmation(self):
         values = {**self.values, 'OPERATION': 'submit_for_review'}
         with self.assertRaises(ValueError):
@@ -80,4 +88,3 @@ class CleanupTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

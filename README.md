@@ -198,12 +198,12 @@ The supplied README identifies these GitHub Actions workflows:
 | --- | --- |
 | `.github/workflows/quality.yaml` | Formatting, analysis, unit/widget tests, coverage and deployment checks (no emulator jobs) |
 | `.github/workflows/android.yaml` | Android debug APK builds for all three flavors |
-| `.github/workflows/ios.yaml` | Automatic unsigned iOS builds; manual main-only signing, TestFlight and review submission |
+| `.github/workflows/ios.yaml` | Automatic unsigned iOS builds; manual production TestFlight for selected PRs or main; protected signing and review submission |
 | `.github/workflows/license_check.yaml` | Flutter runtime, dev and transitive dependency license checks |
 
-Quality runs on every push and PR; Android/unsigned iOS builds run on every push and PR to main. A merge into main triggers push checks. Main merge queues are supported. Signed iOS distribution is manual from main only; there is no Play Store release.
+Quality runs on every push and PR; Android/unsigned iOS builds run on every push and PR to main. A merge into main triggers push checks. Main merge queues are supported. The signed workflow is manually dispatched from main; an optional PR number selects PR source for production TestFlight builds. Leave it blank for main. There is no Play Store release.
 
-Before signing, create protected GitHub environments `ios-production` and `ios-app-store`, add the seven Apple secrets listed in [deployment setup](docs/deployment.md#apple-setup-owner-action-before-the-first-signed-run), then dispatch **OrangeONE iOS → testflight**. After the exact build passes the documented physical iPhone tests, dispatch **submit_for_review** with confirmation. Public App Store release remains manual after Apple approval.
+Before signing, create protected GitHub environments `ios-production` and `ios-app-store`, add the seven Apple secrets listed in [deployment setup](docs/deployment.md#apple-setup-owner-action-before-the-first-signed-run), then dispatch **OrangeONE iOS → testflight** from workflow branch **main**. Enter `pr_number` for a selected open PR targeting main, or leave it empty for main source. After the exact build passes the documented physical iPhone tests, dispatch **submit_for_review** with confirmation. Public App Store release remains manual after Apple approval.
 
 CI results must be checked in GitHub Actions after pushing; the existence of workflow files does **not** mean that a workflow has passed. Unsigned iOS compilation is not an App Store-ready artifact.
 
