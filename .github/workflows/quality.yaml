@@ -1,8 +1,9 @@
 name: OrangeONE Quality
 on:
   push:
-    branches: [main]
   pull_request:
+  merge_group:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,41 +25,18 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test integration_test
       - run: flutter analyze --fatal-infos --fatal-warnings
       - run: flutter test --coverage
+      - name: Check deployment scripts
+        run: |
+          python3 -m unittest discover -s tool/ci -p 'test_*.py'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Check Fastlane syntax
+        run: |
+          ruby -c fastlane/Fastfile
+          ruby tool/ci/test_fastlane.rb
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage/lcov.info
           if-no-files-found: error
-  integration:
-    needs: quality
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        flavor: [development, staging, production]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.47.5'
-          channel: stable
-          cache: true
-      - run: flutter pub get --enforce-lockfile
-      - name: Enable emulator hardware acceleration
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          disable-animations: true
-          script: flutter test integration_test/app_test.dart --flavor ${{ matrix.flavor }} --dart-define=TEST_FLAVOR=${{ matrix.flavor }} -d emulator-5554
-

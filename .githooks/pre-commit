@@ -1,0 +1,20 @@
+#!/bin/sh
+# Check staged Dart content, including partially staged files. Never auto-stage.
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+files=$(mktemp)
+trap 'rm -f "$files"' EXIT HUP INT TERM
+git diff --cached --name-only --diff-filter=ACMR -- ':(glob)lib/**/*.dart' ':(glob)test/**/*.dart' ':(glob)integration_test/**/*.dart' > "$files"
+if [ ! -s "$files" ]; then
+  exit 0
+fi
+if ! command -v dart >/dev/null 2>&1; then
+  echo 'Dart SDK is required to check staged formatting. Use the project Flutter SDK.' >&2
+  exit 1
+fi
+while IFS= read -r path; do
+  if ! git show ":$path" | dart format --output=none --set-exit-if-changed --stdin-name "$path"; then
+    echo 'Formatting check failed. Run dart format lib test integration_test, review and stage the fixes.' >&2
+    exit 1
+  fi
+done < "$files"

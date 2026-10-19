@@ -23,7 +23,7 @@ Do not guess Figma properties or backend behavior when their source is unavailab
 - Flutter/Dart project initialized using Very Good CLI (preserve its existing bootstrap and flavor conventions).
 - Support `development`, `staging`, and `production`; keep flavor entry points and configuration consistent with the actual project.
 - Use null-safe Dart, idiomatic Flutter, small cohesive classes, and descriptive names.
-- Follow existing lints and formatting; use `dart format`, `flutter analyze`, and `flutter test` as applicable.
+- Follow existing lints and formatting; use `dart format`, `flutter analyze`, and `flutter test` as applicable. After the final Dart edit (including lint fixes), run `dart format lib test integration_test`, then the exact CI gate `dart format --output=none --set-exit-if-changed lib test integration_test` and require zero changed files before handoff. Never append whitespace after that verification. Keep the staged-content formatting hook and Dart format-on-save settings.
 - Avoid `print`; use the established structured logger, excluding credentials, tokens, session identifiers, raw QR payloads, and personally sensitive data.
 - Do not hardcode URLs, environment secrets, auth credentials, or deployment credentials in source code.
 - Favor existing packages and patterns over adding dependencies. Explain any essential new dependency.
@@ -117,7 +117,13 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Retry only operations known to be safe/idempotent or explicitly guarded against duplication.
 - Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
 
+## Testing and deployment automation
+- Read `docs/testing.md` and `docs/deployment.md`. Use existing quality/android/ios/license workflows. Quality runs on every push/PR; Android APK and unsigned iOS run on every push and PR targeting main (plus merge queues). Keep all automatic checks secret-free and independent of live Odoo.
+- The iOS workflow control plane is workflow_dispatch from main, with protected GitHub environments. Production TestFlight may compile main or an explicitly selected open PR targeting main via `pr_number`; never trigger signed uploads automatically for all PRs. Pin/recheck the PR SHA, compile/test without Apple secrets or shared caches, then export/sign the validated archive on a fresh runner using trusted main scripts only. Never rebuild PR source in a credentialed job. App Store submission remains a separate main-dispatched operation without PR selection. Preserve the ephemeral keychain/profile/API-key cleanup and fixed production bundle/scheme. Never expose Apple credentials to PR jobs. App Store review uses an existing physical-iPhone-tested build; public release remains manual in App Store Connect.
+- Never claim signed IPA generation, TestFlight installation, real iPhone scanning, or store release success without recorded evidence from actual runs.
+
 ## Tests and definition of done
+- Emulator/device integration tests are manual only; do not add integration jobs to CI unless the user requests it. Keep CI unit/widget tests, coverage, format, analysis and deployment guard checks. Preserve integration test files for local/device use.
 For changed behavior, add/update focused tests where practical:
 - Domain use cases and mapping: unit tests.
 - Data repositories: mocked Dio/data-source/secure-storage dependencies.
