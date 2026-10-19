@@ -4,7 +4,7 @@
 
 | File/job | Trigger | Output / access |
 | --- | --- | --- |
-| `quality.yaml` | Every push, every PR, main merge queue, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax, controlled Android emulator matrix |
+| `quality.yaml` | Every push, every PR, main merge queue, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax and Fastlane lane guards; device integration remains manual |
 | `android.yaml` | Every push, PR to main, main merge queue, manual | Development/staging/production debug APK artifacts; no Play Store upload |
 | `ios.yaml` / `ios` | Every push, PR to main, main merge queue | Unsigned release `.app` ZIPs on GitHub-hosted `macos-26`; no Apple secrets |
 | `ios.yaml` / `beta` | Manual `testflight` from main after release checks and environment approval | Signed production IPA and internal TestFlight upload |

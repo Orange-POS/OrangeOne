@@ -33,7 +33,7 @@ real regressions rather than duplicate private implementation details.
 | Riverpod | Fresh `ProviderContainer.test()`, override repository/service providers; listen to auto-dispose state for test lifetime; await deterministic futures/completers | Session, lookup, creation, edit, price and details controller suites |
 | Widgets | Pump page with `ProviderScope` overrides; assert loading, populated/empty, error, retry where safe, disabled/permission states, submission suppression, small screen and keyboard behavior | Product details/creation/edit/price pages; splash/login/scanner suites |
 | Routing | App with controlled auth/repositories/scanner; exercise named routes, auth restoration/expiry, push/pop/replacement and refreshed return state | `test/app_test.dart`, product navigation and scanner-return tests |
-| Device integration | CI uses fake camera and repositories; physical-camera tests are explicit, not part of normal emulator jobs | `integration_test/app_test.dart`; `scanner_return_test.dart` is device-only |
+| Device integration | Run manually on an emulator or device; controlled journeys use fake cameras/repositories and physical-camera tests are separate | `integration_test/app_test.dart`; `scanner_return_test.dart` is device-only |
 
 Domain code remains independent of Flutter, Riverpod, Dio and API payloads.
 The Flutter test runner can run these Dart domain tests without changing that
@@ -67,15 +67,14 @@ python3 -m unittest discover -s tool/ci -p 'test_*.py'
 `quality.yaml` runs on every branch push, every pull request, main merge-queue
 checks and manual dispatch. A PR merge is also a push to main. It checks format,
 analysis, all unit/widget tests with LCOV artifact, deployment guard tests and
-Fastlane Ruby syntax and lane guards with recording actions (no Apple requests). Its dependent emulator matrix runs the controlled app
-journey for all three flavors. No signing/distribution secret is used here.
+Fastlane Ruby syntax and lane guards with recording actions (no Apple requests). Emulator/device integration jobs are deliberately excluded from CI; keep `integration_test/` for manual verification. No signing/distribution secret is used here.
 
 `license_check.yaml` validates Flutter runtime/dev/transitive dependency licenses
 on pushes, PRs to main and merge-queue runs, with retrieval failures treated as
 failures. Ruby dependencies and bundled artwork still need their own release
 license review. No package is silently exempted.
 
-Require the quality and integration checks in the main branch ruleset. Mark
+Require the quality check in the main branch ruleset. If previously required, remove the old `integration (development)`, `integration (staging)` and `integration (production)` checks from that ruleset so removed jobs do not block merging. Mark
 Android/unsigned iOS checks required as appropriate. Repository files cannot
 configure GitHub branch protection by themselves. Coverage is an artifact for
 review; there is no invented percentage threshold or exclusion to inflate it.

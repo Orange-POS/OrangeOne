@@ -177,7 +177,7 @@ flutter test --coverage
 flutter build apk --debug --flavor development --target lib/main_development.dart
 ```
 
-For the documented integration smoke test, connect an emulator or device:
+Integration tests are manual and excluded from CI. To run the integration smoke test, connect an emulator or device:
 
 ```powershell
 flutter devices
@@ -196,7 +196,7 @@ The supplied README identifies these GitHub Actions workflows:
 
 | Workflow | Purpose |
 | --- | --- |
-| `.github/workflows/quality.yaml` | Formatting, analysis, tests, coverage and emulator integration checks |
+| `.github/workflows/quality.yaml` | Formatting, analysis, unit/widget tests, coverage and deployment checks (no emulator jobs) |
 | `.github/workflows/android.yaml` | Android debug APK builds for all three flavors |
 | `.github/workflows/ios.yaml` | Automatic unsigned iOS builds; manual main-only signing, TestFlight and review submission |
 | `.github/workflows/license_check.yaml` | Flutter runtime, dev and transitive dependency license checks |

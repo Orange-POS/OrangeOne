@@ -123,6 +123,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Never claim signed IPA generation, TestFlight installation, real iPhone scanning, or store release success without recorded evidence from actual runs.
 
 ## Tests and definition of done
+- Emulator/device integration tests are manual only; do not add integration jobs to CI unless the user requests it. Keep CI unit/widget tests, coverage, format, analysis and deployment guard checks. Preserve integration test files for local/device use.
 For changed behavior, add/update focused tests where practical:
 - Domain use cases and mapping: unit tests.
 - Data repositories: mocked Dio/data-source/secure-storage dependencies.
