@@ -43,4 +43,3 @@ void main() {
     expect(() => lookup('123'), throwsA(same(failure)));
   });
 }
-

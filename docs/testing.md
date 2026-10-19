@@ -91,3 +91,34 @@ use-case tests produced 348 passing Flutter tests with coverage on 2026-10-19.
 All six domain use-case files appear in the coverage report. Release helpers have
 six passing Python tests; the real Fastfile lane definitions have three passing
 recording-action tests with 22 assertions. No live Odoo or Apple service was used.
+
+## Preventing formatting failures before CI
+
+Use the same Flutter SDK as CI (3.47.5 / Dart 3.13.4). The shared VS Code settings
+format the entire Dart file on save. After the **last** Dart edit, including lint
+fixes and generated/manual edits, run both commands:
+
+```powershell
+dart format lib test integration_test
+dart format --output=none --set-exit-if-changed lib test integration_test
+```
+
+`--output=none` checks formatting without writing the result. Exit code 1 means
+the formatter would change a file; CI intentionally remains strict. Extra blank
+lines at EOF also fail this check. Re-run after final edits rather than relying
+on an earlier passing result.
+
+The shared pre-commit hook checks staged Dart content, so partially staged files
+cannot pass merely because the working copy is formatted. It does not rewrite or
+automatically stage files. Enable it once per clone:
+
+```bash
+# On macOS/Linux, first make the hook executable:
+chmod +x .githooks/pre-commit
+git config --local core.hooksPath .githooks
+```
+
+On Windows, run only the `git config` command using Git for Windows. This hook is
+configured for the current checkout. Do not overwrite an existing hooks setup
+when enabling it elsewhere; incorporate the check into that setup instead. Git
+hooks can be bypassed, so the CI formatting check remains the final enforcement.

@@ -23,7 +23,7 @@ Do not guess Figma properties or backend behavior when their source is unavailab
 - Flutter/Dart project initialized using Very Good CLI (preserve its existing bootstrap and flavor conventions).
 - Support `development`, `staging`, and `production`; keep flavor entry points and configuration consistent with the actual project.
 - Use null-safe Dart, idiomatic Flutter, small cohesive classes, and descriptive names.
-- Follow existing lints and formatting; use `dart format`, `flutter analyze`, and `flutter test` as applicable.
+- Follow existing lints and formatting; use `dart format`, `flutter analyze`, and `flutter test` as applicable. After the final Dart edit (including lint fixes), run `dart format lib test integration_test`, then the exact CI gate `dart format --output=none --set-exit-if-changed lib test integration_test` and require zero changed files before handoff. Never append whitespace after that verification. Keep the staged-content formatting hook and Dart format-on-save settings.
 - Avoid `print`; use the established structured logger, excluding credentials, tokens, session identifiers, raw QR payloads, and personally sensitive data.
 - Do not hardcode URLs, environment secrets, auth credentials, or deployment credentials in source code.
 - Favor existing packages and patterns over adding dependencies. Explain any essential new dependency.
