@@ -32,6 +32,7 @@ The project documentation describes these milestones:
 | 07 | Price update | CHF price input, validation, confirmation and server-side checks |
 | 08 | Product editing | [Product name and tax workflow](docs/product-edit.md) |
 | 09 | Branding | [Startup splash and shared branding](docs/splash-branding.md) |
+| 11 | Environments and logging | [Validated settings and safe structured logs](docs/environments-and-logging.md) |
 
 Product lookup opens details for a matching barcode and the Create New Product form for an unknown barcode. Creation supports the original Odoo save endpoint; the create-only controller enhancement is optional. See [product creation](docs/product-creation.md) for compatibility and permission details. Stock adjustment, offline synchronization, Firebase integrations, the complete inventory dashboard, and signed store distribution remain future work.
 
@@ -116,6 +117,8 @@ flutter run --flavor production --target lib/main_production.dart
 ```
 
 Always match the native flavor with its Dart entry point. These identifiers are provisional until ownership is confirmed for store and Firebase registration.
+
+See [environment configuration and logging](docs/environments-and-logging.md) for per-flavor templates, validation, and production logging policy.
 
 ### Odoo configuration
 
@@ -209,6 +212,7 @@ CI results must be checked in GitHub Actions after pushing; the existence of wor
 
 ## Project documentation
 
+- [Environments and logging](docs/environments-and-logging.md)
 - [Authentication setup and contract](docs/authentication.md)
 - [Architecture](docs/architecture.md)
 - [Riverpod state management](docs/state-management.md)

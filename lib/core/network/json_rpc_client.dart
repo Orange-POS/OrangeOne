@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/logging/app_logger.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final configuration = ref.watch(apiConfigurationProvider);
@@ -25,12 +26,15 @@ final jsonRpcClientProvider = Provider<JsonRpcClient>(
   (ref) => JsonRpcClient(
     ref.watch(dioProvider),
     ref.watch(apiConfigurationProvider),
+    logger: ref.watch(appLoggerProvider),
   ),
   name: 'jsonRpcClientProvider',
 );
 
 class JsonRpcClient {
-  new(this._dio, this._configuration);
+  new(this._dio, this._configuration, {this._logger});
+
+  final AppLogger? _logger;
 
   final Dio _dio;
   final ApiConfiguration _configuration;
@@ -44,6 +48,49 @@ class JsonRpcClient {
     CancelToken? cancelToken,
   }) async {
     final id = ++_requestId;
+    final timer = Stopwatch()..start();
+    _logger?.event(LogEvent.rpcStarted, requestId: id);
+    try {
+      final result = await _call(
+        path,
+        id: id,
+        backendOrigin: backendOrigin,
+        params: params,
+        accessToken: accessToken,
+        cancelToken: cancelToken,
+      );
+      _logger?.event(
+        result['ok'] == false ? LogEvent.rpcFailed : LogEvent.rpcSucceeded,
+        requestId: id,
+        elapsedMs: timer.elapsedMilliseconds,
+      );
+      return result;
+    } on AppFailure catch (failure) {
+      _logger?.event(
+        LogEvent.rpcFailed,
+        requestId: id,
+        elapsedMs: timer.elapsedMilliseconds,
+        failure: failure.kind,
+      );
+      rethrow;
+    } catch (_) {
+      _logger?.event(
+        LogEvent.rpcFailed,
+        requestId: id,
+        elapsedMs: timer.elapsedMilliseconds,
+      );
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> _call(
+    String path, {
+    required int id,
+    Uri? backendOrigin,
+    Map<String, dynamic> params = const {},
+    String? accessToken,
+    CancelToken? cancelToken,
+  }) async {
     final origin = backendOrigin == null
         ? _configuration.trustedOrigin
         : _configuration.validateOrigin(backendOrigin.toString());

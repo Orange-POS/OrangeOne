@@ -5,6 +5,7 @@ import 'package:orange_one/app/app.dart';
 import 'package:orange_one/app/router/app_router.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
+import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/authentication/presentation/widgets/qr_camera.dart';
 
@@ -97,6 +98,9 @@ void main() {
         ProviderScope(
           overrides: [
             environmentProvider.overrideWithValue(environment),
+            developmentDiagnosticsProvider.overrideWithValue(
+              environment == AppEnvironment.development,
+            ),
             authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
           ],
           child: const App(),
@@ -106,13 +110,19 @@ void main() {
       final context = tester.element(find.byType(App));
       ProviderScope.containerOf(context)
           .read(routerProvider)
-          .goNamed('initialization');
+          .go('/diagnostics/initialization');
       await tester.pumpAndSettle();
-      expect(find.text('OrangeONE'), findsOneWidget);
-      expect(
-        find.text('Application initialized\nEnvironment: ${environment.name}'),
-        findsOneWidget,
-      );
+      if (environment == AppEnvironment.development) {
+        expect(find.text('OrangeONE'), findsOneWidget);
+        expect(
+          find.text(
+            'Application initialized\nEnvironment: ${environment.name}',
+          ),
+          findsOneWidget,
+        );
+      } else {
+        expect(find.text('Page not found'), findsOneWidget);
+      }
       expect(tester.takeException(), isNull);
     });
   }

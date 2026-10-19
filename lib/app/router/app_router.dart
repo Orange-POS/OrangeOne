@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/app/router/auth_redirect.dart';
+import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/features/authentication/presentation/pages/login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/qr_login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/splash_page.dart';
@@ -112,11 +113,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashPage(),
       ),
       GoRoute(path: '/', redirect: (context, state) => '/login'),
-      GoRoute(
-        name: 'initialization',
-        path: '/diagnostics/initialization',
-        builder: (context, state) => const InitializationPage(),
-      ),
+      if (ref.watch(developmentDiagnosticsProvider))
+        GoRoute(
+          name: 'initialization',
+          path: '/diagnostics/initialization',
+          builder: (context, state) => const InitializationPage(),
+        ),
     ],
   );
   ref

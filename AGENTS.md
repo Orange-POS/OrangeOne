@@ -107,6 +107,10 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Include accessibility semantics, clear empty/loading/error states, touch targets, and safe-area/keyboard behavior.
 - Keep UI responsive across supported phone sizes and avoid hardcoded pixel assumptions.
 
+## Application environments and logging (Task 11)
+- Read `docs/environments-and-logging.md`. Bootstrap validates native flavor and `ApplicationSettings` once, then injects them. Use matching nonsecret config templates; do not silently default malformed settings or change QR-selected POS origins.
+- Use `appLoggerProvider` and fixed `LogEvent` values; never add raw message/error/stack/body/header/URL/QR fields. Production and nondebug builds must emit no development logs. Diagnostics routes are development-debug only and default closed.
+
 ## Error handling and observability
 - Translate network, backend, auth/authorization, validation, and unexpected errors into typed application failures.
 - Show safe, actionable user-facing messages; do not display server traces or sensitive internals.
@@ -137,5 +141,3 @@ Use repository-specific flavor/build commands rather than assuming entry-point n
 - Update README/config examples when commands, setup, environment requirements, or CI behavior change.
 - Before finishing, summarize: files changed, behavior implemented, acceptance criteria satisfied, verification commands/results, and any unverified items or follow-up dependencies.
 - Be accurate: do not claim iOS builds, physical-device camera flows, backend calls, or Figma matching were tested unless actually verified.
-
-
