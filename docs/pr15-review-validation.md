@@ -1,8 +1,9 @@
 # PR #15 review validation
 
 Branch: `feature/android_iOSbuild_CD`. Dependency: PR #9, testing strategy and
-retained native/release/license baseline. No commit, push, merge or release was
-performed during this review. PR #9's pre-existing uncommitted work is preserved
+retained native/release/license baseline. Initial validation did not commit, push, merge or release. The subsequent
+user-authorized Git repair commits the missing files and merges the corrected
+PR #9 branch into PR #15; main is unchanged and no release is triggered. PR #9's pre-existing uncommitted work is preserved
 in the stash named `Preserve PR9 working changes before PR15 review`.
 
 ## Findings and implementation
@@ -11,8 +12,10 @@ Issues #10/#11 identify production-only iOS coverage, lost executable release
 regressions and removal of native/release/license capabilities. PR #15 also
 triggered signing automatically and compiled with credentials available. The
 required remedy reuses the PR #9/main split pipeline rather than introducing a
-second release system. The final PR dependency must be reconciled before merge;
-no branch history was rewritten or dependency merged locally.
+second release system. The corrected PR #9 dependency is integrated using a normal merge commit,
+retaining the stronger PR #15 release checks. No history is rewritten.
+Unrelated PR template, Dependabot and branding/contract helper deletions are
+restored from main to keep the PR focused on CI/CD.
 
 | File | Change |
 | --- | --- |

@@ -6,9 +6,9 @@ PR #15 depends on PR #9's testing strategy and restored license policy. The
 canonical workflow names remain `android.yaml`, `ios.yaml`, `license_check.yaml`
 and `flutter_tests.yml`; the production-only `android_apk.yml`, `ios_unsigned.yml`
 and automatic `ios_testflight.yml` replacements are retired to prevent duplicate
-builds or automatic signing after the dependency lands. Do not merge main or
-rewrite history merely to reconcile these PRs. Review the final combined diff
-against PR #9 before merging either dependent change.
+builds or automatic signing after the dependency lands. The Git repair integrates the corrected PR #9 branch using a normal merge
+commit into PR #15. Main is unchanged and history is preserved. Review the
+incremental PR #15 diff against PR #9 before merging either dependent change.
 
 The main-only manual release, protected environments and split archive/export
 pipeline are retained from the PR #9 baseline because Issue #11 explicitly
