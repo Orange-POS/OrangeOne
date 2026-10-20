@@ -119,7 +119,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 
 ## Testing CI (fresh Task 11 setup)
 - Read `docs/testing.md`. The testing workflow is `.github/workflows/flutter_tests.yml`: format, analysis, offline unit/widget tests and coverage on every push/PR, main merge queue and manual dispatch.
-- Task 12 adds `android_apk.yml`, `ios_unsigned.yml` and `ios_testflight.yml`. Keep signing restricted to successful main push test runs (or manual main retries); no PR signing. Use repository secrets only in the beta step and ephemeral signing assets cleaned in Fastlane ensure blocks. App Store review/public release stays manual in App Store Connect. Keep deployment logic in YAML and Fastfile, without separate helper scripts. Read `docs/deployment.md`.
+- Native checks in `android.yaml` and `ios.yaml` cover all three flavors; preserve `license_check.yaml`. Distribution is manual from main through protected `ios-production` / `ios-app-store` environments. Compile candidate source without secrets, then validate/sign/export on a fresh trusted runner without rebuilding. Preserve regression tests in `tool/ci`, cleanup on partial failure and explicit iPhone confirmation before submission. Never automatically publish. Read `docs/deployment.md`.
 - Preserve existing test suites and use mirrored feature/layer folders for new suites. Reuse Mocktail, service overrides and controlled fakes; no live Odoo or credential dependencies.
 
 ## Tests and definition of done

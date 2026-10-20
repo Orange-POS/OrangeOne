@@ -197,11 +197,12 @@ formatting, analysis and offline unit/widget tests on every push and pull reques
 main merge queues and manual dispatch. Coverage is uploaded as an artifact.
 Read [Testing strategy](docs/testing.md) for conventions, examples and commands.
 
-Task 12 adds [Android APK](.github/workflows/android_apk.yml),
-[unsigned iOS](.github/workflows/ios_unsigned.yml) and
-[TestFlight](.github/workflows/ios_testflight.yml) workflows. Main pushes passing
-Flutter Tests automatically build/sign/upload to TestFlight. App Store review and
-public release remain manual. See [deployment setup](docs/deployment.md).
+Native checks use [Android](.github/workflows/android.yaml) and
+[iOS](.github/workflows/ios.yaml) matrices for development, staging and production.
+The [license policy](.github/workflows/license_check.yaml) remains enforced.
+iOS distribution is manual from main, with protected approval and separate
+archive/export runners. TestFlight does not publish the app publicly.
+Read [Deployment](docs/deployment.md) for inputs, environments and release checks.
 
 ## Security and release notes
 
@@ -209,7 +210,7 @@ public release remain manual. See [deployment setup](docs/deployment.md).
 - Keep local development configuration files ignored by Git.
 - Real Android distribution requires signing credentials and a protected keystore.
 - iOS distribution requires an Apple Developer account, provisioning/signing and App Store Connect configuration.
-- Main builds passing Flutter Tests are uploaded to TestFlight by Task 12; App Store review and release remain manual. Actual signing and iPhone testing require recorded run evidence. Firebase integrations remain future work.
+- Production distribution requires a manual main-branch request and protected approval. Actual signing and iPhone testing require recorded run evidence. Firebase integrations remain future work.
 - Verify permissions, network behavior and backend compatibility with real devices and a test Odoo environment before production use.
 
 ## Project documentation
