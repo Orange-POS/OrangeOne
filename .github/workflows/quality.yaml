@@ -35,7 +35,7 @@ jobs:
         run: |
           ruby -c fastlane/Fastfile
           ruby tool/ci/test_fastlane.rb
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage/lcov.info
