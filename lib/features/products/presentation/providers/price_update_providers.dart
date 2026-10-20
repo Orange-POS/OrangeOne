@@ -154,7 +154,9 @@ class PriceUpdateController extends AsyncNotifier<PriceUpdateState> {
       writeStarted = true;
       final updated = await UpdateProductPrice(repository)(confirmation);
       if (!ref.mounted || generation != _generation) return;
-      if (updated.id != product.id || updated.barcode != barcode) {
+      if (updated.id != product.id ||
+          updated.barcode != barcode ||
+          updated.price.toStringAsFixed(2) != confirmation.price.formatted) {
         throw invalidResponse;
       }
       state = AsyncData(
