@@ -192,7 +192,7 @@ jobs:
           bundler-cache: false
       - run: bundle config set --local frozen true
       - run: bundle install
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: unsigned-production-candidate
           path: ${{ runner.temp }}/candidate-download
