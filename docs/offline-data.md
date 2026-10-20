@@ -137,10 +137,10 @@ or changing main. Existing offline application code and locked dependencies are
 preserved. Native flavor builds, manual protected distribution and executable
 release regression checks are inherited from that branch.
 
-The restored license scan retrieves 100 dependency licenses but fails for the
-existing transitive Linux packages `dbus` and `nm` (MPL-2.0), introduced through
-`connectivity_plus`. The owner explicitly requested pushing this update with the
-license policy unchanged. No packages are skipped and no licenses are added to
-the allowlist. The license CI job is expected to remain failing until a separate
-approved dependency or policy decision resolves these two packages. This is a
-known dependency-policy failure, not a failed Flutter test or merge conflict.
+The initial restored policy rejected the existing transitive Linux packages
+`dbus` and `nm` (MPL-2.0), introduced through `connectivity_plus`. Following the
+owner's request to resolve this CI failure, MPL-2.0 is included in the license
+allowlist alongside MIT, BSD-3-Clause, BSD-2-Clause and Apache-2.0. The policy
+still checks direct, development and transitive dependencies, skips no packages,
+and fails on retrieval errors or licenses outside the explicit allowlist.
+Adding a license to CI does not remove its license/notice obligations.
