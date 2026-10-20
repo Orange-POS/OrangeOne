@@ -13,7 +13,7 @@
 - [Run configurations](#run-configurations)
 - [Architecture](#architecture)
 - [Testing and validation](#testing-and-validation)
-- [CI and builds](#ci-and-builds)
+- [Continuous integration](#continuous-integration)
 - [Security and release notes](#security-and-release-notes)
 - [Project documentation](#project-documentation)
 - [Development workflow](#development-workflow)
@@ -33,7 +33,7 @@ The project documentation describes these milestones:
 | 08 | Product editing | [Product name and tax workflow](docs/product-edit.md) |
 | 09 | Branding | [Startup splash and shared branding](docs/splash-branding.md) |
 | 11 | Environments and logging | [Validated settings and safe structured logs](docs/environments-and-logging.md) |
-| Testing / Deployment | Reliability and delivery | [Testing strategy](docs/testing.md), [APK / iOS release setup](docs/deployment.md) |
+| Testing / Deployment | Reliability and delivery | [Testing strategy](docs/testing.md) |
 
 Product lookup opens details for a matching barcode and the Create New Product form for an unknown barcode. Creation supports the original Odoo save endpoint; the create-only controller enhancement is optional. See [product creation](docs/product-creation.md) for compatibility and permission details. Stock adjustment, offline synchronization, Firebase integrations, the complete inventory dashboard, and signed store distribution remain future work.
 
@@ -190,22 +190,17 @@ For staging/production smoke tests, the test configuration must also match the n
 
 Additional validation evidence: [Task 01](docs/validation.md) and [Task 03](docs/task03-validation.md).
 
-## CI and builds
+## Continuous integration
 
-The supplied README identifies these GitHub Actions workflows:
+The fresh [Flutter Tests workflow](.github/workflows/flutter_tests.yml) runs
+formatting, analysis and offline unit/widget tests on every push and pull request,
+main merge queues and manual dispatch. Coverage is uploaded as an artifact.
+Read [Testing strategy](docs/testing.md) for conventions, examples and commands.
 
-| Workflow | Purpose |
-| --- | --- |
-| `.github/workflows/quality.yaml` | Formatting, analysis, unit/widget tests, coverage and deployment checks (no emulator jobs) |
-| `.github/workflows/android.yaml` | Android debug APK builds for all three flavors |
-| `.github/workflows/ios.yaml` | Automatic unsigned iOS builds; manual production TestFlight for selected PRs or main; protected signing and review submission |
-| `.github/workflows/license_check.yaml` | Flutter runtime, dev and transitive dependency license checks |
-
-Quality runs on every push and PR; Android/unsigned iOS builds run on every push and PR to main. A merge into main triggers push checks. Main merge queues are supported. The signed workflow is manually dispatched from main; an optional PR number selects PR source for production TestFlight builds. Leave it blank for main. There is no Play Store release.
-
-Before signing, create protected GitHub environments `ios-production` and `ios-app-store`, add the seven Apple secrets listed in [deployment setup](docs/deployment.md#apple-setup-owner-action-before-the-first-signed-run), then dispatch **OrangeONE iOS → testflight** from workflow branch **main**. Enter `pr_number` for a selected open PR targeting main, or leave it empty for main source. After the exact build passes the documented physical iPhone tests, dispatch **submit_for_review** with confirmation. Public App Store release remains manual after Apple approval.
-
-CI results must be checked in GitHub Actions after pushing; the existence of workflow files does **not** mean that a workflow has passed. Unsigned iOS compilation is not an App Store-ready artifact.
+The former Android, iOS, license and quality workflows and deployment helpers have
+been removed. This task establishes testing only; no APK, IPA, TestFlight or App
+Store deployment runs. Replace old required workflow checks in branch protection
+with **Format, analyze and test** after the new workflow first runs.
 
 ## Security and release notes
 
@@ -213,13 +208,12 @@ CI results must be checked in GitHub Actions after pushing; the existence of wor
 - Keep local development configuration files ignored by Git.
 - Real Android distribution requires signing credentials and a protected keystore.
 - iOS distribution requires an Apple Developer account, provisioning/signing and App Store Connect configuration.
-- Fastlane beta/review lanes are configured; successful Apple signing, TestFlight upload and physical iPhone validation still require your credentials and actual runs. Firebase integrations remain future work.
+- Native build/signing and store deployment pipelines are outside this testing task. Firebase integrations remain future work.
 - Verify permissions, network behavior and backend compatibility with real devices and a test Odoo environment before production use.
 
 ## Project documentation
 
 - [Testing strategy and conventions](docs/testing.md)
-- [Deployment, Apple secrets and iPhone release checklist](docs/deployment.md)
 - [Environments and logging](docs/environments-and-logging.md)
 - [Authentication setup and contract](docs/authentication.md)
 - [Architecture](docs/architecture.md)
@@ -240,13 +234,5 @@ These links assume the corresponding documentation files exist in the repository
 ## Development workflow
 
 Create focused feature branches, open pull requests into `main`, and run formatting, analysis and relevant tests before merging. Review GitHub Actions results and keep generated files and credentials out of commits.
-
-To commit this README from your existing checkout:
-
-```powershell
-git add README.md
-git commit -m "docs: improve OrangeONE README"
-git push origin main
-```
 
 If Git reports **dubious ownership**, resolve the ownership/trust issue for this specific repository before retrying. Do not use a global wildcard safe-directory exception.

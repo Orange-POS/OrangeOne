@@ -117,13 +117,13 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Retry only operations known to be safe/idempotent or explicitly guarded against duplication.
 - Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
 
-## Testing and deployment automation
-- Read `docs/testing.md` and `docs/deployment.md`. Use existing quality/android/ios/license workflows. Quality runs on every push/PR; Android APK and unsigned iOS run on every push and PR targeting main (plus merge queues). Keep all automatic checks secret-free and independent of live Odoo.
-- The iOS workflow control plane is workflow_dispatch from main, with protected GitHub environments. Production TestFlight may compile main or an explicitly selected open PR targeting main via `pr_number`; never trigger signed uploads automatically for all PRs. Pin/recheck the PR SHA, compile/test without Apple secrets or shared caches, then export/sign the validated archive on a fresh runner using trusted main scripts only. Never rebuild PR source in a credentialed job. App Store submission remains a separate main-dispatched operation without PR selection. Preserve the ephemeral keychain/profile/API-key cleanup and fixed production bundle/scheme. Never expose Apple credentials to PR jobs. App Store review uses an existing physical-iPhone-tested build; public release remains manual in App Store Connect.
-- Never claim signed IPA generation, TestFlight installation, real iPhone scanning, or store release success without recorded evidence from actual runs.
+## Testing CI (fresh Task 11 setup)
+- Read `docs/testing.md`. The only workflow is `.github/workflows/flutter_tests.yml`: format, analysis, offline unit/widget tests and coverage on every push/PR, main merge queue and manual dispatch.
+- Android/iOS builds, signing, license and deployment workflows were removed. Do not restore them or introduce deployment helper scripts without a new user task.
+- Preserve existing test suites and use mirrored feature/layer folders for new suites. Reuse Mocktail, service overrides and controlled fakes; no live Odoo or credential dependencies.
 
 ## Tests and definition of done
-- Emulator/device integration tests are manual only; do not add integration jobs to CI unless the user requests it. Keep CI unit/widget tests, coverage, format, analysis and deployment guard checks. Preserve integration test files for local/device use.
+- Emulator/device integration tests are manual only; do not add integration jobs to CI unless the user requests it. Keep CI unit/widget tests, coverage, format and analysis checks. Preserve integration test files for local/device use.
 For changed behavior, add/update focused tests where practical:
 - Domain use cases and mapping: unit tests.
 - Data repositories: mocked Dio/data-source/secure-storage dependencies.
@@ -138,7 +138,7 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test
 ```
-Use repository-specific flavor/build commands rather than assuming entry-point names. CI should separately validate Android and unsigned iOS builds on a GitHub-hosted macOS runner; signed iOS/TestFlight steps require securely configured signing assets and must never commit keys or certificates.
+Use repository-specific flavor/build commands rather than assuming entry-point names. Native build and distribution verification is outside the current test-only CI scope. Never commit keys or certificates.
 
 ## Scope, quality, and handoff rules
 - Implement only requested acceptance criteria; identify blockers or prerequisites instead of silently expanding scope.
