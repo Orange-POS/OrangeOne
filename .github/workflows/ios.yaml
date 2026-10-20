@@ -44,7 +44,7 @@ jobs:
       matrix:
         flavor: [development, staging, production]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Report Apple build tools
         run: xcodebuild -version
       - uses: subosito/flutter-action@v2
@@ -74,7 +74,7 @@ jobs:
       source_sha: ${{ steps.source.outputs.sha }}
       pr_number: ${{ steps.source.outputs.pr_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate manual release request
         env:
           RELEASE_VERSION: ${{ inputs.version }}
@@ -131,7 +131,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release_checks.outputs.source_sha }}
           persist-credentials: false
@@ -180,7 +180,7 @@ jobs:
       SOURCE_SHA: ${{ needs.release_checks.outputs.source_sha }}
     steps:
       # Trusted control-plane files only. Never checkout or execute PR source here.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -248,7 +248,7 @@ jobs:
       RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
       IPHONE_SMOKE_TEST_CONFIRMED: ${{ inputs.iphone_smoke_test_confirmed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
