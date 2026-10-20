@@ -85,18 +85,30 @@ committing. Keep the existing format-on-save settings and staged-format hook.
 
 ## CI
 
-The new `.github/workflows/flutter_tests.yml` is the only workflow. **Flutter
-Tests / Format, analyze and test** runs on every branch push, every PR, main merge
-queue and manual dispatch. A merge into main is also a push. It installs locked
-dependencies, checks formatting, analyzes code and runs `flutter test --coverage`.
-It uploads `coverage/lcov.info` for seven days. Any failed gate fails the job;
-missing coverage is an error. No secrets, native builds, emulators, license checks
-or deployment steps are used by this test-only setup.
+**Flutter Tests / Format, analyze and test** runs on every branch push, every PR,
+main merge queue and manual dispatch. It installs locked dependencies, checks
+formatting, analyzes code and runs offline `flutter test --coverage`. Coverage is
+retained for seven days. This job requires no Odoo server, device or Apple secrets.
 
-In the main branch ruleset, replace required statuses for the removed workflows
-with the new **Format, analyze and test** job after its first run. Old quality,
-integration, Android, iOS or license statuses will no longer be emitted. GitHub
-settings are not changed by committing YAML.
+Independent checks remain in place:
+
+- `android.yaml`: secret-free debug APK compilation for all three flavors.
+- `ios.yaml`: unsigned release compilation for all three flavors, plus the existing
+  main-dispatched protected release path with pinned-source compilation separated
+  from signing and credential cleanup.
+- `license_check.yaml`: existing Very Good Workflows license tooling; direct,
+  development and transitive dependencies are checked against MIT, BSD-3-Clause,
+  BSD-2-Clause and Apache-2.0. Retrieval failures fail the check.
+
+Flutter Tests replaces only the redundant Quality workflow. Its Python release
+validation and Ruby Fastlane checks remain part of Flutter Tests. Keep native and
+license required statuses in branch protection; replace only the old Quality
+status with **Format, analyze and test** after its first run. Repository settings
+are not changed by YAML. Device integration tests remain manual.
+
+See [deployment documentation](deployment.md) for the restored baseline.
+[PR #15](https://github.com/Orange-POS/OrangeOne/pull/15) owns detailed deployment
+implementation; PR #9 restores existing functionality without duplicating it.
 
 ## Adding a feature or fixing a regression
 
@@ -107,9 +119,9 @@ settings are not changed by committing YAML.
 5. Review coverage changes for missing paths; do not add arbitrary exclusions or
    thresholds to make CI pass. Record physical-device checks separately.
 
-Native builds and deployment pipelines were removed as requested and are outside
-this task. Passing this suite does not prove Android/iOS compilation, real camera
-behavior or production backend compatibility.
+Passing host tests does not prove Android/iOS compilation, real camera behavior
+or production backend compatibility. Native workflows and release verification
+provide separate evidence.
 
 Local verification on 2026-10-20: all 355 unit/widget tests passed with coverage,
 including all six domain use-case source files. The exact format gate reported
