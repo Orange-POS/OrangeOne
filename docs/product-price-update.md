@@ -96,3 +96,12 @@ success, Done returning refreshed details, unknown-barcode draft and logout.
 iOS builds and real Odoo price writes were not exercised by these tests.
 The normal arm64 development APK built successfully and was installed/launched
 on the phone after the integration run; live Flutter preview is restored.
+
+
+## Confirming update responses (Issue #12)
+
+A matching product ID/barcode is insufficient to report success. The price
+controller also compares the returned CHF amount with the confirmed amount at
+hundredth precision. A mismatch enters the existing uncertain state, preserves
+the draft and requires an authoritative refresh before another write. It never
+retries automatically or replaces the draft with an unconfirmed response.
