@@ -1,0 +1,268 @@
+name: OrangeONE iOS
+on:
+  push:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Manual production distribution (workflow runs from main)
+        required: true
+        type: choice
+        options: [testflight, submit_for_review]
+      pr_number:
+        description: Optional PR number for TestFlight; leave blank to build main
+        required: false
+        type: string
+      version:
+        description: Marketing version, e.g. 1.0.0
+        required: true
+        type: string
+      build_number:
+        description: Unique build integer 1-9999; for submission use the iPhone-tested build
+        required: true
+        type: string
+      iphone_smoke_test_confirmed:
+        description: The selected TestFlight build passed the documented physical iPhone checklist
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && 'distribution' || github.ref }}
+  # Never interrupt signing/submission when another workflow is dispatched.
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+jobs:
+  ios:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [development, staging, production]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report Apple build tools
+        run: xcodebuild -version
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build ios --release --no-codesign --flavor ${{ matrix.flavor }} --target lib/main_${{ matrix.flavor }}.dart --dart-define-from-file=config/${{ matrix.flavor }}.example.json
+      - name: Preserve unsigned app permissions and symlinks
+        run: ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app build/ios/unsigned-${{ matrix.flavor }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-${{ matrix.flavor }}
+          path: build/ios/unsigned-${{ matrix.flavor }}.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  release_checks:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+      pr_number: ${{ steps.source.outputs.pr_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manual release request
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+          OPERATION: ${{ inputs.operation }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          IPHONE_SMOKE_TEST_CONFIRMED: ${{ inputs.iphone_smoke_test_confirmed }}
+        run: python3 tool/ci/validate_release.py
+      - name: Resolve main or selected PR to an immutable commit
+        id: source
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const number = process.env.PR_NUMBER.trim();
+            let sha = context.sha;
+            if (number) {
+              const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: Number(number)});
+              if (pr.state !== 'open' || pr.base.ref !== 'main' ||
+                  pr.base.repo.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
+                throw new Error('Select an open PR targeting main in this repository.');
+              }
+              sha = pr.head.sha;
+            }
+            if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid source commit.');
+            core.setOutput('sha', sha);
+            core.setOutput('pr_number', number);
+            await core.summary.addHeading('Production TestFlight source')
+              .addTable([['Source', 'Commit'], [number ? `PR #${number}` : 'main', sha]])
+              .write();
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: dart format --output=none --set-exit-if-changed lib test integration_test
+      - run: flutter analyze --fatal-infos --fatal-warnings
+      - run: flutter test
+      - run: python3 -m unittest discover -s tool/ci -p 'test_*.py'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - run: |
+          ruby -c fastlane/Fastfile
+          ruby tool/ci/test_fastlane.rb
+
+  candidate:
+    needs: release_checks
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'testflight'
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release_checks.outputs.source_sha }}
+          persist-credentials: false
+      - run: xcodebuild -version
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          # PR code must not publish caches later consumed by signing jobs.
+          cache: false
+      - run: flutter pub get --enforce-lockfile
+      - run: dart format --output=none --set-exit-if-changed lib test integration_test
+      - run: flutter analyze --fatal-infos --fatal-warnings
+      - run: flutter test
+      - name: Archive selected source without signing credentials
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+        run: flutter build ipa --release --no-codesign --flavor production --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$RELEASE_BUILD_NUMBER"
+      - name: Package unsigned archive as data
+        run: ditto -c -k --norsrc --noextattr --keepParent build/ios/archive/Runner.xcarchive candidate.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-production-candidate
+          path: candidate.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  beta:
+    needs: [release_checks, candidate]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'testflight'
+    environment: ios-production
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      FASTLANE_SKIP_UPDATE_CHECK: 'true'
+      FASTLANE_HIDE_CHANGELOG: 'true'
+      FASTLANE_OPT_OUT_USAGE: 'true'
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      PR_NUMBER: ${{ needs.release_checks.outputs.pr_number }}
+      SOURCE_SHA: ${{ needs.release_checks.outputs.source_sha }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+    steps:
+      # Trusted control-plane files only. Never checkout or execute PR source here.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - run: xcodebuild -version
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          # Do not restore a cache written by a PR compilation job.
+          bundler-cache: false
+      - run: bundle config set --local frozen true
+      - run: bundle install
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned-production-candidate
+          path: ${{ runner.temp }}/candidate-download
+      - name: Check that selected PR has not changed since compilation
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.release_checks.outputs.pr_number }}
+          SOURCE_SHA: ${{ needs.release_checks.outputs.source_sha }}
+        with:
+          script: |
+            if (process.env.PR_NUMBER) {
+              const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: Number(process.env.PR_NUMBER)});
+              if (pr.state !== 'open' || pr.head.sha !== process.env.SOURCE_SHA) {
+                throw new Error('PR changed or closed; dispatch a new build and review its commit.');
+              }
+            }
+      - name: Validate and unpack archive without executing PR code
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+        run: python3 tool/ci/prepare_archive.py
+      - name: Import temporary Apple credentials
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+        run: python3 tool/ci/ios_signing.py install
+      - name: Export signed IPA and upload to internal TestFlight
+        run: bundle exec fastlane ios beta
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-production-${{ inputs.version }}-${{ inputs.build_number }}
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove signing keychain, profile and API key
+        if: always()
+        run: python3 tool/ci/ios_signing.py cleanup
+  submit:
+    needs: release_checks
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'submit_for_review'
+    environment: ios-app-store
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      FASTLANE_SKIP_UPDATE_CHECK: 'true'
+      FASTLANE_HIDE_CHANGELOG: 'true'
+      FASTLANE_OPT_OUT_USAGE: 'true'
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+      IPHONE_SMOKE_TEST_CONFIRMED: ${{ inputs.iphone_smoke_test_confirmed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: false
+      - run: bundle config set --local frozen true
+      - run: bundle install
+      - name: Load App Store Connect API key
+        env:
+          APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+        run: python3 tool/ci/ios_signing.py api-key
+      - name: Submit the tested build for Apple review (manual public release)
+        run: bundle exec fastlane ios submit
+      - name: Remove API key
+        if: always()
+        run: python3 tool/ci/ios_signing.py cleanup

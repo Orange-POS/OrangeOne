@@ -127,3 +127,20 @@ reported no issues and the format gate reported 143 files with zero changes.
 The Samsung A31 device test passed two offline/recovery icon cycles using a real
 Drift file and controlled failures. Creation and tax correction were tested with
 mocked backend responses and a real in-memory encrypted cache, not live Odoo writes.
+
+
+## Integration with corrected CI branches (2026-10-20)
+
+The corrected `feature/android_iOSbuild_CD` history, including the PR #9 testing
+and license restoration, is merged into `feature/Offline-Sync` without rebasing
+or changing main. Existing offline application code and locked dependencies are
+preserved. Native flavor builds, manual protected distribution and executable
+release regression checks are inherited from that branch.
+
+The restored license scan retrieves 100 dependency licenses but fails for the
+existing transitive Linux packages `dbus` and `nm` (MPL-2.0), introduced through
+`connectivity_plus`. The owner explicitly requested pushing this update with the
+license policy unchanged. No packages are skipped and no licenses are added to
+the allowlist. The license CI job is expected to remain failing until a separate
+approved dependency or policy decision resolves these two packages. This is a
+known dependency-policy failure, not a failed Flutter test or merge conflict.
