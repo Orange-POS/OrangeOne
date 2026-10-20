@@ -122,3 +122,7 @@ lib/l10n/gen/
 **/google-services.json
 **/GoogleService-Info.plist
 config/*.local.json
+
+# Local Odoo backend reference addons (maintained separately)
+/mupi_mobile_auth/
+/mupi_mobile_pos_api/

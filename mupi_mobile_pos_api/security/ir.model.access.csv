@@ -1,2 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_mupi_mobile_product_audit_user,mupi.mobile.product.audit user,model_mupi_mobile_product_audit,base.group_user,1,0,1,0
