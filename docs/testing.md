@@ -85,7 +85,7 @@ committing. Keep the existing format-on-save settings and staged-format hook.
 
 ## CI
 
-The new `.github/workflows/flutter_tests.yml` is the only workflow. **Flutter
+The new `.github/workflows/flutter_tests.yml` runs the testing gates. **Flutter
 Tests / Format, analyze and test** runs on every branch push, every PR, main merge
 queue and manual dispatch. A merge into main is also a push. It installs locked
 dependencies, checks formatting, analyzes code and runs `flutter test --coverage`.
@@ -107,8 +107,8 @@ settings are not changed by committing YAML.
 5. Review coverage changes for missing paths; do not add arbitrary exclusions or
    thresholds to make CI pass. Record physical-device checks separately.
 
-Native builds and deployment pipelines were removed as requested and are outside
-this task. Passing this suite does not prove Android/iOS compilation, real camera
+Native builds and deployment are separate workflows documented in
+[deployment.md](deployment.md). Passing this suite does not prove Android/iOS compilation, real camera
 behavior or production backend compatibility.
 
 Local verification on 2026-10-20: all 355 unit/widget tests passed with coverage,

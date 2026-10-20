@@ -197,10 +197,11 @@ formatting, analysis and offline unit/widget tests on every push and pull reques
 main merge queues and manual dispatch. Coverage is uploaded as an artifact.
 Read [Testing strategy](docs/testing.md) for conventions, examples and commands.
 
-The former Android, iOS, license and quality workflows and deployment helpers have
-been removed. This task establishes testing only; no APK, IPA, TestFlight or App
-Store deployment runs. Replace old required workflow checks in branch protection
-with **Format, analyze and test** after the new workflow first runs.
+Task 12 adds [Android APK](.github/workflows/android_apk.yml),
+[unsigned iOS](.github/workflows/ios_unsigned.yml) and
+[TestFlight](.github/workflows/ios_testflight.yml) workflows. Main pushes passing
+Flutter Tests automatically build/sign/upload to TestFlight. App Store review and
+public release remain manual. See [deployment setup](docs/deployment.md).
 
 ## Security and release notes
 
@@ -208,7 +209,7 @@ with **Format, analyze and test** after the new workflow first runs.
 - Keep local development configuration files ignored by Git.
 - Real Android distribution requires signing credentials and a protected keystore.
 - iOS distribution requires an Apple Developer account, provisioning/signing and App Store Connect configuration.
-- Native build/signing and store deployment pipelines are outside this testing task. Firebase integrations remain future work.
+- Main builds passing Flutter Tests are uploaded to TestFlight by Task 12; App Store review and release remain manual. Actual signing and iPhone testing require recorded run evidence. Firebase integrations remain future work.
 - Verify permissions, network behavior and backend compatibility with real devices and a test Odoo environment before production use.
 
 ## Project documentation

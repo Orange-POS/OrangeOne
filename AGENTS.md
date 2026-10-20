@@ -118,8 +118,8 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
 
 ## Testing CI (fresh Task 11 setup)
-- Read `docs/testing.md`. The only workflow is `.github/workflows/flutter_tests.yml`: format, analysis, offline unit/widget tests and coverage on every push/PR, main merge queue and manual dispatch.
-- Android/iOS builds, signing, license and deployment workflows were removed. Do not restore them or introduce deployment helper scripts without a new user task.
+- Read `docs/testing.md`. The testing workflow is `.github/workflows/flutter_tests.yml`: format, analysis, offline unit/widget tests and coverage on every push/PR, main merge queue and manual dispatch.
+- Task 12 adds `android_apk.yml`, `ios_unsigned.yml` and `ios_testflight.yml`. Keep signing restricted to successful main push test runs (or manual main retries); no PR signing. Use repository secrets only in the beta step and ephemeral signing assets cleaned in Fastlane ensure blocks. App Store review/public release stays manual in App Store Connect. Keep deployment logic in YAML and Fastfile, without separate helper scripts. Read `docs/deployment.md`.
 - Preserve existing test suites and use mirrored feature/layer folders for new suites. Reuse Mocktail, service overrides and controlled fakes; no live Odoo or credential dependencies.
 
 ## Tests and definition of done
@@ -138,7 +138,7 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test
 ```
-Use repository-specific flavor/build commands rather than assuming entry-point names. Native build and distribution verification is outside the current test-only CI scope. Never commit keys or certificates.
+Use repository-specific flavor/build commands rather than assuming entry-point names. Task 12 native workflows are separate from Flutter testing CI; verify actual signing/upload and device results before claiming success. Never commit keys or certificates.
 
 ## Scope, quality, and handoff rules
 - Implement only requested acceptance criteria; identify blockers or prerequisites instead of silently expanding scope.
