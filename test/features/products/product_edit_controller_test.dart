@@ -64,7 +64,15 @@ void main() {
     controller().changeName('Ignored');
     expect(repo.writes, 1);
     expect(value().name, 'Changed');
-    repo.pendingWrite!.complete(detailsFixture);
+    repo.pendingWrite!.complete(
+      ProductDetails(
+        id: detailsFixture.id,
+        name: 'Changed',
+        barcode: detailsFixture.barcode,
+        price: detailsFixture.price,
+        stock: detailsFixture.stock,
+      ),
+    );
     await operation;
     expect(value().phase, ProductEditPhase.saved);
   });

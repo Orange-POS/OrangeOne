@@ -248,6 +248,11 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                                 ),
                               ),
                               const SizedBox(height: 16),
+                              if (view.taxSelectionError != null)
+                                Text(
+                                  view.taxSelectionError!,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
                               ProductEditForm(
                                 controller: _name,
                                 focusNode: _focus,

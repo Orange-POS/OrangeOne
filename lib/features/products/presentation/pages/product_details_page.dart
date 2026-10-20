@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/mock_discount_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_action_bar.dart';
@@ -243,13 +244,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                             'Price',
                             'CHF ${product.price.toStringAsFixed(2)}',
                           ),
-                          _row(
-                            Icons.percent,
-                            'TAX',
-                            product.taxes.isEmpty
-                                ? 'No taxes assigned'
-                                : product.taxes.join('\n'),
-                          ),
+                          _row(Icons.percent, 'TAX', product.currentTaxLabel),
                           Container(
                             padding: const EdgeInsets.all(16),
                             margin: const EdgeInsets.only(bottom: 8),

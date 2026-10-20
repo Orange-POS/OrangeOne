@@ -92,7 +92,15 @@ void main() {
       controller.changePrice('500');
       expect(repo.writes, 1);
       expect(container.read(provider).requireValue.draft, '125');
-      repo.pendingWrite!.complete(detailsFixture);
+      repo.pendingWrite!.complete(
+        ProductDetails(
+          id: detailsFixture.id,
+          name: detailsFixture.name,
+          barcode: detailsFixture.barcode,
+          price: 125,
+          stock: detailsFixture.stock,
+        ),
+      );
       await saving;
       expect(
         container.read(provider).requireValue.phase,
