@@ -139,3 +139,7 @@ fastlane/screenshots/
 .bundle/
 vendor/bundle/
 **/__pycache__/
+
+# Local Odoo backend reference addons (maintained separately)
+/mupi_mobile_auth/
+/mupi_mobile_pos_api/
