@@ -1,3 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_mupi_mobile_auth_challenge_manager,mupi_mobile_auth_challenge_manager,model_mupi_mobile_auth_challenge,point_of_sale.group_pos_manager,1,1,1,1
-access_mupi_mobile_auth_token_manager,mupi_mobile_auth_token_manager,model_mupi_mobile_auth_token,point_of_sale.group_pos_manager,1,1,1,1

@@ -1,1 +1,0 @@
-from . import test_mobile_auth_contract 

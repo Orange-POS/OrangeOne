@@ -1,10 +1,14 @@
 # Android and iOS deployment
 
+PR #9 preserves the main-branch native/release implementation and helper tests.
+PR #15 owns its detailed replacement or enhancement; this restoration does not
+claim that Apple signing or device testing has completed.
+
 ## Workflow behavior
 
 | File/job | Trigger | Output / access |
 | --- | --- | --- |
-| `quality.yaml` | Every push, every PR, main merge queue, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax and Fastlane lane guards; device integration remains manual |
+| `flutter_tests.yml` | Every push, every PR, main merge queue, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax and Fastlane lane guards; device integration remains manual |
 | `android.yaml` | Every push, PR to main, main merge queue, manual | Development/staging/production debug APK artifacts; no Play Store upload |
 | `ios.yaml` / `ios` | Every push, PR to main, main merge queue | Unsigned release `.app` ZIPs on GitHub-hosted `macos-26`; no Apple secrets |
 | `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as production, then exported/signed on a fresh runner and uploaded to internal TestFlight |

@@ -6,7 +6,7 @@ README.md before changes. Keep project memory there to avoid conflicting copies.
 Task 01 foundation: Flutter 3.47.5 / Dart 3.13.4, Very Good CLI 1.5.0;
 Riverpod 3 with plain overrideable providers, GoRouter, and three native flavors.
 Pair --flavor with lib/main_<flavor>.dart; bootstrap rejects mismatches.
-CI uses Ubuntu 24.04 for quality/Android and macOS 26 for unsigned iOS builds.
+CI uses Ubuntu 24.04 for offline unit/widget tests, formatting and analysis.
 Native builds and device smoke tests must be verified separately from Dart tests.
 Inventory features and Firebase remain deferred until requested.
 

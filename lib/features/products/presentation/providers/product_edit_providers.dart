@@ -5,6 +5,7 @@ import 'package:orange_one/features/products/domain/entities/product_details.dar
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
 import 'package:orange_one/features/products/domain/use_cases/edit_product_information.dart';
 import 'package:orange_one/features/products/domain/use_cases/manage_product_details.dart';
+import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 
 enum ProductEditPhase { editing, saving, checking, saved, uncertain }
@@ -16,6 +17,7 @@ class ProductEditState {
     this.taxes = const [],
     this.selectedTaxIds,
     this.taxMessage,
+    this.taxSelectionError,
     this.nameError,
     this.message,
     this.phase = ProductEditPhase.editing,
@@ -27,6 +29,7 @@ class ProductEditState {
   /// Null preserves all existing taxes; [] explicitly removes them.
   final List<int>? selectedTaxIds;
   final String? taxMessage;
+  final String? taxSelectionError;
   final String? nameError;
   final String? message;
   final ProductEditPhase phase;
@@ -43,22 +46,19 @@ class ProductEditState {
   bool get canSubmit =>
       canEdit &&
       (selectedTaxIds == null || canSelectTax) &&
+      taxSelectionError == null &&
       changed &&
       name.trim().isNotEmpty &&
       nameError == null;
-  String get currentTaxLabel {
-    final product = details.product;
-    if (product == null) return 'Tax information unavailable';
-    if (product.taxes.isNotEmpty) return product.taxes.join(', ');
-    return product.taxIds?.isEmpty == true
-        ? 'No Tax'
-        : 'Tax information unavailable';
-  }
+  String get currentTaxLabel =>
+      details.product?.currentTaxLabel ?? 'Tax information unavailable';
 
   String get taxLabel => selectedTaxIds == null
       ? currentTaxLabel
       : selectedTaxIds!.isEmpty
       ? 'No Tax'
+      : selectedTaxIds!.any((id) => !taxes.any((tax) => tax.id == id))
+      ? 'Selected tax unavailable'
       : taxes
             .where((tax) => selectedTaxIds!.contains(tax.id))
             .map((tax) => tax.label)
@@ -117,16 +117,28 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
           'Tax selection requires reference access. '
           'Existing taxes are preserved.';
     }
+    if (selectedTaxIds != null && taxMessage != null) {
+      taxMessage =
+          'Tax changes are unavailable. Your selection is retained. '
+          'Restore access and refresh before saving.';
+    }
     return ProductEditState(
       details: details,
       name: name,
       taxes: taxes,
       taxMessage: taxMessage,
+      taxSelectionError: _taxError(selectedTaxIds, taxes),
       selectedTaxIds: selectedTaxIds,
       message: message,
       nameError: _nameError(name),
     );
   }
+
+  String? _taxError(List<int>? ids, List<ProductTax> taxes) =>
+      ids != null && ids.any((id) => !taxes.any((tax) => tax.id == id))
+      ? 'Your selected tax is unavailable. '
+            'Select an available tax before saving.'
+      : null;
 
   String? _nameError(String name) {
     try {
@@ -149,6 +161,7 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
     taxes: value.taxes,
     selectedTaxIds: selectedTaxIds ?? value.selectedTaxIds,
     taxMessage: value.taxMessage,
+    taxSelectionError: value.taxSelectionError,
     nameError: _nameError(name ?? value.name),
     phase: phase,
     message: message,
@@ -203,6 +216,7 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
         final next = await _loadReferences(
           fresh,
           current.name,
+          selectedTaxIds: current.selectedTaxIds,
           message: 'This product or edit permission is no longer available.',
         );
         if (ref.mounted && generation == _generation) state = AsyncData(next);
@@ -215,6 +229,7 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
         final next = await _loadReferences(
           fresh,
           current.name,
+          selectedTaxIds: current.selectedTaxIds,
           message: 'Product information changed. Review it before saving.',
         );
         if (ref.mounted && generation == _generation) state = AsyncData(next);
@@ -224,6 +239,19 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
           ? current.taxes
           : await repository.loadTaxes();
       if (!ref.mounted || generation != _generation) return;
+      final taxError = _taxError(current.selectedTaxIds, taxes);
+      if (taxError != null) {
+        state = AsyncData(
+          ProductEditState(
+            details: fresh,
+            name: current.name,
+            taxes: taxes,
+            selectedTaxIds: current.selectedTaxIds,
+            taxSelectionError: taxError,
+          ),
+        );
+        return;
+      }
       writeStarted = true;
       final updated = await EditProductInformation(repository)(
         product,
@@ -232,7 +260,15 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
         allowedTaxes: taxes,
       );
       if (!ref.mounted || generation != _generation) return;
-      if (updated.id != product.id || updated.barcode != barcode) {
+      final selected = current.selectedTaxIds?.toSet();
+      final returned = updated.taxIds?.toSet();
+      if (updated.id != product.id ||
+          updated.barcode != barcode ||
+          updated.name != EditProductInformation.validateName(current.name) ||
+          (selected != null &&
+              (returned == null ||
+                  selected.length != returned.length ||
+                  !selected.containsAll(returned)))) {
         throw invalidResponse;
       }
       state = AsyncData(

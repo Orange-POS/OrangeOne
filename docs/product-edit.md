@@ -62,3 +62,25 @@ launched on SM A315F; the live Flutter preview was restored after testing.
 The attached PNG/SVG are the visual reference: Figma MCP access was blocked by
 the Starter plan limit. iOS builds require macOS; real backend writes require
 separate acceptance testing against the deployed module.
+
+
+## Review corrections (Issues #12, #13 and #14)
+
+Save success requires matching identity, normalized submitted name and, when
+explicitly selected, the exact returned tax assignment as a set. Missing tax IDs
+cannot confirm an explicit assignment. Mismatch preserves the draft in the
+uncertain state and requires a read before another submission; name-only edits
+continue omitting tax changes.
+
+Conflict and permission refreshes retain explicit tax IDs, including No Tax
+(`[]`). Fresh references revalidate this intent. Removed options remain visible
+as unavailable and block saving until the user chooses a permitted option;
+reference/permission loss never silently converts the draft into preserve-existing
+semantics. The form distinguishes reference availability from selection validity
+so a removed selection can still be corrected when references are available.
+
+Details and edit screens share the same current-tax label: omitted/null/false
+tax data is unavailable, an explicitly empty list is confirmed unassigned, and
+populated taxes display their names. This display distinction does not invent
+backend assignments or permissions. Regression tests cover all five mapper and
+widget cases and mutation/conflict/permission/reference outcomes.
