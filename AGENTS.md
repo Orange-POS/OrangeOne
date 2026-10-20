@@ -76,7 +76,7 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Do not substitute generic Odoo endpoints or invent stock-write semantics without backend confirmation.
 
 ## Authentication and navigation
-- Restore a saved session once on a full restart, with a 15-second validation deadline and cancellation, plus at most 2 seconds for secure-storage cleanup. Stalled cleanup must show a safe storage error and block new login until deletion finishes; never claim storage was cleared before success. Failed/offline validation clears secure storage for fresh QR login; do not poll or revalidate on ordinary resume. The first authenticated network/timeout failure signs out and resets session-dependent state without retrying. Keep Logout visible on Home. Preserve backend expiry and permission checks.
+- Restore a saved session once on a full restart, with a 15-second validation deadline and cancellation, plus at most 2 seconds for secure-storage cleanup. Stalled cleanup must show a safe storage error and block new login until deletion finishes; never claim storage was cleared before success. Failed/offline validation clears secure storage for fresh QR login; do not poll or revalidate on ordinary resume. Task 13 supersedes runtime outage sign-out for product operations: an already verified session may use encrypted, stale read-only cache until expiry; cache misses remain errors and all offline writes stay disabled. Startup remains strict. Backend auth rejection/expiry/logout still resets session-dependent state. Keep Logout visible on Home. Preserve backend expiry and permission checks.
 - QR-based login uses the confirmed QR payload format and backend authentication process. Validate unsupported/expired data and suppress concurrent scan/login requests.
 - Store secrets or session identifiers in platform secure storage through an injectable abstraction, never plain-text preferences.
 - Restore valid sessions at startup, clear secrets on logout, and handle expiration without leaking authenticated UI.
@@ -147,3 +147,12 @@ Use repository-specific flavor/build commands rather than assuming entry-point n
 - Update README/config examples when commands, setup, environment requirements, or CI behavior change.
 - Before finishing, summarize: files changed, behavior implemented, acceptance criteria satisfied, verification commands/results, and any unverified items or follow-up dependencies.
 - Be accurate: do not claim iOS builds, physical-device camera flows, backend calls, or Figma matching were tested unless actually verified.
+
+## Offline product reads (Task 13)
+- Read `docs/offline-data.md`. Use Drift for encrypted, approved read snapshots only, scoped to backend/company/user/token, with 24-hour retention and bounded storage. Never cache permissions, authentication payloads or offline writes.
+- Keep startup validation strict. Preserve read-only access only during an already verified open session; purge session cache on logout/disposal and never fall back on auth/permission rejection.
+- All product-name cards show the shared accessible sync icon opposite the logo. Connectivity is a hint; only authoritative reads restore online status. Preserve drafts during recovery and never replay writes.
+
+- Riverpod stream notifications must carry changing values (such as monotonic integer revisions), not repeated void/null payloads. Regression tests must cover at least two offline/recovery cycles with mounted UI/provider listeners and assert buttons recover.
+- Keep creation preflight/validation outside the cache write critical section; guard only the actual save and any tax correction. Test creation with a real EncryptedReadCache as well as without it.
+- Cache deserialization/decryption is an untrusted boundary: convert all malformed-envelope/type/authentication failures into a safe typed storage failure and failed sync status. Test both short envelopes and a flipped ciphertext byte.

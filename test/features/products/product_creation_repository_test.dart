@@ -1,9 +1,12 @@
 import 'package:dio/dio.dart';
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/json_rpc_client.dart';
+import 'package:orange_one/core/storage/encrypted_read_cache.dart';
+import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
@@ -89,6 +92,68 @@ void main() {
     name: 'New',
     price: ChfPrice.parse('100.00'),
     taxIds: const [],
+  );
+
+  test(
+    'online creation with cache guard still performs authoritative preflight',
+    () async {
+      final db = ReadCacheDatabase(NativeDatabase.memory());
+      final cache = EncryptedReadCache(db, sessionSecret: 'creation-fixture');
+      addTearDown(() async {
+        await cache.close();
+        await db.close();
+      });
+      final cachedRepository = OdooProductDetailsRepository(
+        repository.source,
+        cache: cache,
+        onSessionRejected: () async {},
+      );
+      final result = await cachedRepository.createProduct(draft());
+      expect(result.id, 10);
+      expect(
+        requests.where((request) => request.path.endsWith('/save')),
+        hasLength(1),
+      );
+      expect(
+        requests.any((request) => request.path.endsWith('/token/check')),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'cache-enabled legacy creation keeps tax correction inside the save',
+    () async {
+      supported = false;
+      saveResult = {
+        'ok': true,
+        'message': 'Product created successfully.',
+        'product': {
+          ...productJson(),
+          'taxes': [
+            {'id': 1, 'name': 'VAT', 'amount': 15, 'amount_type': 'percent'},
+          ],
+        },
+      };
+      final db = ReadCacheDatabase(NativeDatabase.memory());
+      final cache = EncryptedReadCache(db, sessionSecret: 'legacy-creation');
+      addTearDown(() async {
+        await cache.close();
+        await db.close();
+      });
+      final cachedRepository = OdooProductDetailsRepository(
+        repository.source,
+        cache: cache,
+        onSessionRejected: () async {},
+      );
+      final product = await cachedRepository.createProduct(draft());
+      expect(product.taxIds, isEmpty);
+      expect(
+        requests.where((request) => request.path.endsWith('/save')),
+        hasLength(1),
+      );
+      expect(requests.last.uri.path, '/mupi/mobile/api/products/update');
+    },
   );
 
   test('rechecks permission and sends create-only with No Tax', () async {

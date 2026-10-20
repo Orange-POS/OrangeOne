@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/price_update_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_change_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
@@ -80,6 +81,8 @@ class _ProductPriceUpdatePageState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(readCacheChangesProvider);
+    final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = priceUpdateControllerProvider(widget.barcode);
     final async = ref.watch(provider);
     final view = async.isLoading || async.hasError ? null : async.value;
@@ -140,7 +143,7 @@ class _ProductPriceUpdatePageState
                   ? () => _leave(true)
                   : uncertain
                   ? _refresh
-                  : view?.canSubmit == true
+                  : view?.canSubmit == true && !offline
                   ? _confirm
                   : null,
               child: Text(

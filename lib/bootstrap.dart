@@ -44,6 +44,7 @@ void bootstrap(AppEnvironment environment) {
           settings.diagnosticsEnabled,
         ),
         appLoggerProvider.overrideWithValue(logger),
+        readCacheOverride,
         productRepositoryOverride,
         productDetailsRepositoryOverride,
       ],

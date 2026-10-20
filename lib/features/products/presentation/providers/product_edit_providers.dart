@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
 import 'package:orange_one/features/products/domain/use_cases/edit_product_information.dart';
@@ -85,6 +88,9 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
   @override
   Future<ProductEditState> build() async {
     _generation++;
+    ref.listen(readCacheRecoveryProvider, (previous, next) {
+      if (next.hasValue) unawaited(refresh());
+    });
     final repository = ref.watch(productDetailsRepositoryProvider);
     final details = await ManageProductDetails(repository).load(barcode);
     return await _loadReferences(details, details.product?.name ?? '');
@@ -284,6 +290,7 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
   }
 
   Future<void> refresh() async {
+    ref.read(readCacheProvider)?.retryRead();
     final current = state.value;
     if (state.isLoading || current == null || current.busy) return;
     final generation = _generation;

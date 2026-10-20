@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/app_logo.dart';
+import 'package:orange_one/shared/widgets/product_sync_indicator.dart';
 import 'package:orange_one/shared/widgets/stock_badge.dart';
 
 class ProductNameCard extends StatelessWidget {
@@ -34,7 +35,13 @@ class ProductNameCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppLogo(),
+          Row(
+            children: [
+              const AppLogo(),
+              const Spacer(),
+              ProductSyncIndicator(barcode: product?.barcode),
+            ],
+          ),
           const SizedBox(height: 16),
           Text(
             product?.name ?? emptyTitle,

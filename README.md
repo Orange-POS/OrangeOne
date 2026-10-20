@@ -216,6 +216,7 @@ public release remain manual. See [deployment setup](docs/deployment.md).
 
 - [Testing strategy and conventions](docs/testing.md)
 - [Environments and logging](docs/environments-and-logging.md)
+- [Offline product reads and recovery](docs/offline-data.md)
 - [Authentication setup and contract](docs/authentication.md)
 - [Architecture](docs/architecture.md)
 - [Riverpod state management](docs/state-management.md)

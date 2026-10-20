@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
@@ -82,15 +85,63 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
   new(this.barcode);
   final String barcode;
   int _generation = 0;
+  bool _recovering = false;
 
   @override
   Future<ProductCreationState> build() async {
     _generation++;
+    ref.listen(readCacheRecoveryProvider, (previous, next) {
+      if (next.hasValue) unawaited(_recover());
+    });
     NewProduct.validateBarcode(barcode);
     final repository = ref.watch(productDetailsRepositoryProvider);
     return ProductCreationState(
       context: await repository.prepareCreation(barcode),
     );
+  }
+
+  Future<void> _recover() async {
+    final current = state.value;
+    if (_recovering ||
+        current == null ||
+        current.busy ||
+        current.phase != ProductCreationPhase.editing) {
+      return;
+    }
+    _recovering = true;
+    final generation = _generation;
+    try {
+      final context = await ref
+          .read(productDetailsRepositoryProvider)
+          .prepareCreation(barcode);
+      if (!ref.mounted || generation != _generation) return;
+      final latest = state.value;
+      if (latest == null || latest.busy) return;
+      state = AsyncData(
+        ProductCreationState(
+          context: context,
+          name: latest.name,
+          price: latest.price,
+          taxIds: latest.taxIds,
+          message: 'Product availability refreshed. Review before creating.',
+        ),
+      );
+    } on AppFailure catch (error) {
+      if (ref.mounted && generation == _generation) {
+        final latest = state.value ?? current;
+        state = AsyncData(
+          ProductCreationState(
+            context: latest.context,
+            name: latest.name,
+            price: latest.price,
+            taxIds: latest.taxIds,
+            message: error.message,
+          ),
+        );
+      }
+    } finally {
+      _recovering = false;
+    }
   }
 
   void edit({String? name, String? price, List<int>? taxIds}) {
@@ -108,7 +159,7 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
 
   Future<void> save() async {
     final current = state.value;
-    if (current == null || !current.canSubmit) return;
+    if (_recovering || current == null || !current.canSubmit) return;
     final generation = _generation;
     final repository = ref.read(productDetailsRepositoryProvider);
     final useCase = CreateProduct(repository);

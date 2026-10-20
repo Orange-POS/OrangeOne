@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_creation_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
@@ -69,6 +70,8 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(readCacheChangesProvider);
+    final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = productCreationControllerProvider(widget.barcode);
     final async = ref.watch(provider);
     final value = async.hasError || async.isLoading ? null : async.value;
@@ -129,7 +132,7 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                       ? _details
                       : value?.phase == ProductCreationPhase.uncertain
                       ? controller.check
-                      : value?.canSubmit == true
+                      : value?.canSubmit == true && !offline
                       ? () async {
                           FocusScope.of(context).unfocus();
                           await controller.save();
