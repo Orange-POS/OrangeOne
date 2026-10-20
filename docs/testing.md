@@ -85,18 +85,17 @@ committing. Keep the existing format-on-save settings and staged-format hook.
 
 ## CI
 
-The new `.github/workflows/flutter_tests.yml` runs the testing gates. **Flutter
-Tests / Format, analyze and test** runs on every branch push, every PR, main merge
-queue and manual dispatch. A merge into main is also a push. It installs locked
-dependencies, checks formatting, analyzes code and runs `flutter test --coverage`.
-It uploads `coverage/lcov.info` for seven days. Any failed gate fails the job;
-missing coverage is an error. No secrets, native builds, emulators, license checks
-or deployment steps are used by this test-only setup.
+`.github/workflows/flutter_tests.yml` preserves PR #9's format, analyze, offline
+unit/widget and coverage gates on pushes, PRs, main merge queues and manual runs.
+It also executes `python3 -m unittest discover -s tool/ci -p 'test_*.py'`,
+`ruby -c fastlane/Fastfile` and `ruby tool/ci/test_fastlane.rb`.
+The deployment tests use synthetic profiles/archives and mocked subprocesses and
+Fastlane actions; they never sign, upload, contact Apple or access credentials.
 
-In the main branch ruleset, replace required statuses for the removed workflows
-with the new **Format, analyze and test** job after its first run. Old quality,
-integration, Android, iOS or license statuses will no longer be emitted. GitHub
-settings are not changed by committing YAML.
+Keep the independent native flavor builds and license workflow required statuses.
+Only the legacy quality status is replaced by **Format, analyze and test**.
+GitHub branch protection/environment settings require owner configuration.
+See [Deployment](deployment.md) for manual protected release controls.
 
 ## Adding a feature or fixing a regression
 

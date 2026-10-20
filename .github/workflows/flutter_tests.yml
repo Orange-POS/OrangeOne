@@ -38,6 +38,15 @@ jobs:
         run: flutter analyze --fatal-infos --fatal-warnings
       - name: Run offline unit and widget tests
         run: flutter test --coverage --reporter expanded
+      - name: Check release regression tests
+        run: python3 -m unittest discover -s tool/ci -p 'test_*.py'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Check Fastlane guards
+        run: |
+          ruby -c fastlane/Fastfile
+          ruby tool/ci/test_fastlane.rb
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
