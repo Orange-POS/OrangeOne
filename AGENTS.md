@@ -117,9 +117,9 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Retry only operations known to be safe/idempotent or explicitly guarded against duplication.
 - Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
 
-## Testing CI (fresh Task 11 setup)
-- Read `docs/testing.md`. The only workflow is `.github/workflows/flutter_tests.yml`: format, analysis, offline unit/widget tests and coverage on every push/PR, main merge queue and manual dispatch.
-- Android/iOS builds, signing, license and deployment workflows were removed. Do not restore them or introduce deployment helper scripts without a new user task.
+## Testing CI (Task 11)
+- Read `docs/testing.md`. `.github/workflows/flutter_tests.yml` replaces only the quality workflow: format, analysis, offline unit/widget tests, coverage and preserved deployment-script checks on every push/PR, main merge queue and manual dispatch.
+- Preserve Android/iOS compilation, manual signing/submission, dependency license enforcement and their existing helpers. PR #15 owns detailed native/deployment enhancements; do not duplicate them in testing-only work.
 - Preserve existing test suites and use mirrored feature/layer folders for new suites. Reuse Mocktail, service overrides and controlled fakes; no live Odoo or credential dependencies.
 
 ## Tests and definition of done
@@ -138,7 +138,7 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test
 ```
-Use repository-specific flavor/build commands rather than assuming entry-point names. Native build and distribution verification is outside the current test-only CI scope. Never commit keys or certificates.
+Use repository-specific flavor/build commands rather than assuming entry-point names. Host tests do not replace the preserved native build checks or protected release verification. Never commit keys or certificates.
 
 ## Scope, quality, and handoff rules
 - Implement only requested acceptance criteria; identify blockers or prerequisites instead of silently expanding scope.
