@@ -85,18 +85,21 @@ committing. Keep the existing format-on-save settings and staged-format hook.
 
 ## CI
 
-The new `.github/workflows/flutter_tests.yml` is the only workflow. **Flutter
-Tests / Format, analyze and test** runs on every branch push, every PR, main merge
-queue and manual dispatch. A merge into main is also a push. It installs locked
-dependencies, checks formatting, analyzes code and runs `flutter test --coverage`.
-It uploads `coverage/lcov.info` for seven days. Any failed gate fails the job;
-missing coverage is an error. No secrets, native builds, emulators, license checks
-or deployment steps are used by this test-only setup.
+`.github/workflows/flutter_tests.yml` replaces the former quality workflow only.
+**Flutter Tests / Format, analyze and test** runs on every push/PR, main merge
+queue and manual dispatch. It checks locked dependencies, formatting, analysis,
+offline unit/widget tests, coverage and the preserved deployment-script tests.
+Missing coverage or any failed gate fails the job. Device integration is manual.
 
-In the main branch ruleset, replace required statuses for the removed workflows
-with the new **Format, analyze and test** job after its first run. Old quality,
-integration, Android, iOS or license statuses will no longer be emitted. GitHub
-settings are not changed by committing YAML.
+Native compilation remains in `android.yaml` and `ios.yaml`, including all three
+flavors. The independent `license_check.yaml` enforces the existing direct,
+development and transitive dependency policy and fails on retrieval errors.
+Manual iOS signing/submission and its protected environments are preserved;
+see [Deployment](deployment.md). None of these checks require a live Odoo server.
+
+Update only the old quality required status to **Format, analyze and test** after
+its first run. Keep native and license requirements; repository settings are not
+changed by workflow files. PR #15 owns further native/deployment changes.
 
 ## Adding a feature or fixing a regression
 
@@ -107,9 +110,9 @@ settings are not changed by committing YAML.
 5. Review coverage changes for missing paths; do not add arbitrary exclusions or
    thresholds to make CI pass. Record physical-device checks separately.
 
-Native builds and deployment pipelines were removed as requested and are outside
-this task. Passing this suite does not prove Android/iOS compilation, real camera
-behavior or production backend compatibility.
+Passing host tests alone does not prove native compilation, real camera behavior
+or production backend compatibility. Native compilation has separate workflows;
+physical-device verification remains a separate release requirement.
 
 Local verification on 2026-10-20: all 355 unit/widget tests passed with coverage,
 including all six domain use-case source files. The exact format gate reported

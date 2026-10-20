@@ -1,0 +1,41 @@
+name: OrangeONE Android
+on:
+  push:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [development, staging, production]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      # Debug builds validate native integration without distribution credentials.
+      - run: flutter build apk --debug --flavor ${{ matrix.flavor }} --target lib/main_${{ matrix.flavor }}.dart --dart-define-from-file=config/${{ matrix.flavor }}.example.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.flavor }}
+          path: build/app/outputs/flutter-apk/app-${{ matrix.flavor }}-debug.apk
+          if-no-files-found: error
+          retention-days: 7
