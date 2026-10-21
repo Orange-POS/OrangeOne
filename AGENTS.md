@@ -117,8 +117,8 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Retry only operations known to be safe/idempotent or explicitly guarded against duplication.
 - Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
 
-## Testing CI (fresh Task 11 setup)
-- Read `docs/testing.md`. The testing workflow is `.github/workflows/flutter_tests.yml`: format, analysis, offline unit/widget tests and coverage on every push/PR, main merge queue and manual dispatch.
+## Testing CI (Task 11)
+- Read `docs/testing.md`. `.github/workflows/flutter_tests.yml` replaces only the quality workflow: format, analysis, offline unit/widget tests, coverage and deployment-script checks on every push/PR, main merge queue and manual dispatch.
 - Native checks in `android.yaml` and `ios.yaml` cover all three flavors; preserve `license_check.yaml`. Distribution is manual from main through protected `ios-production` / `ios-app-store` environments. Compile candidate source without secrets, then validate/sign/export on a fresh trusted runner without rebuilding. Preserve regression tests in `tool/ci`, cleanup on partial failure and explicit iPhone confirmation before submission. Never automatically publish. Read `docs/deployment.md`.
 - Preserve existing test suites and use mirrored feature/layer folders for new suites. Reuse Mocktail, service overrides and controlled fakes; no live Odoo or credential dependencies.
 
