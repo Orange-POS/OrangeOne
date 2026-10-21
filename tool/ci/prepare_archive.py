@@ -34,7 +34,7 @@ def validate_app(archive, version, build_number):
         raise ValueError('Archive must contain the production Runner app.')
     app = root / 'Products' / relative
     details = plistlib.loads((app / 'Info.plist').read_bytes())
-    if (details.get('CFBundleIdentifier') != 'com.orangeone.app'
+    if (details.get('CFBundleIdentifier') != 'ch.orangepos.productscanner'
             or details.get('CFBundleShortVersionString') != version
             or details.get('CFBundleVersion') != build_number):
         raise ValueError('Candidate bundle/version/build does not match the manual request.')

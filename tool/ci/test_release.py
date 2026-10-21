@@ -48,7 +48,7 @@ class ProvisioningValidationTest(unittest.TestCase):
             'UUID': '12345678-1234-1234-1234-123456789abc', 'Name': 'Example App Store',
             'TeamIdentifier': ['ABC123DE45'], 'ApplicationIdentifierPrefix': ['ABC123DE45'],
             'ExpirationDate': dt.datetime(2031, 1, 1),
-            'Entitlements': {'application-identifier': 'ABC123DE45.com.orangeone.app', 'get-task-allow': False},
+            'Entitlements': {'application-identifier': 'ABC123DE45.ch.orangepos.productscanner', 'get-task-allow': False},
         }
 
     def test_valid_production_store_profile(self):
@@ -56,11 +56,13 @@ class ProvisioningValidationTest(unittest.TestCase):
 
     def test_wrong_team_expired_or_nonstore_profiles_rejected(self):
         for change in [
-            {'TeamIdentifier': ['OTHER12345']}, {'ExpirationDate': dt.datetime(2029, 1, 1)},
+            {'TeamIdentifier': ['OTHER12345']},
+            {'Entitlements': {'application-identifier': 'ABC123DE45.com.orangeone.app', 'get-task-allow': False}},
+            {'ExpirationDate': dt.datetime(2029, 1, 1)},
             {'ProvisionedDevices': ['fixture']}, {'ProvisionsAllDevices': True},
             {'UUID': '../../escape'}, {'Name': 'bad\nvalue'},
-            {'Entitlements': {'application-identifier': 'ABC123DE45.com.orangeone.app.dev', 'get-task-allow': False}},
-            {'Entitlements': {'application-identifier': 'ABC123DE45.com.orangeone.app', 'get-task-allow': True}},
+            {'Entitlements': {'application-identifier': 'ABC123DE45.ch.orangepos.productscanner.dev', 'get-task-allow': False}},
+            {'Entitlements': {'application-identifier': 'ABC123DE45.ch.orangepos.productscanner', 'get-task-allow': True}},
         ]:
             with self.subTest(change=change), self.assertRaises(ValueError):
                 validate_profile({**copy.deepcopy(self.profile), **change}, 'ABC123DE45', self.now)

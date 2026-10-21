@@ -106,18 +106,18 @@ Replace `DEVICE_ID` with an ID reported by `flutter devices`.
 
 ## Run configurations
 
-| Flavor | Entry point | Application / bundle ID |
-| --- | --- | --- |
-| Development | `lib/main_development.dart` | `com.orangeone.app.dev` |
-| Staging | `lib/main_staging.dart` | `com.orangeone.app.stg` |
-| Production | `lib/main_production.dart` | `com.orangeone.app` |
+| Flavor | Entry point | Android application ID | iOS bundle ID |
+| --- | --- | --- | --- |
+| Development | `lib/main_development.dart` | `com.orangeone.app.dev` | `ch.orangepos.productscanner.dev` |
+| Staging | `lib/main_staging.dart` | `com.orangeone.app.stg` | `ch.orangepos.productscanner.stg` |
+| Production | `lib/main_production.dart` | `com.orangeone.app` | `ch.orangepos.productscanner` |
 
 ```powershell
 flutter run --flavor staging --target lib/main_staging.dart
 flutter run --flavor production --target lib/main_production.dart
 ```
 
-Always match the native flavor with its Dart entry point. These identifiers are provisional until ownership is confirmed for store and Firebase registration.
+Always match the native flavor with its Dart entry point. Production iOS signing uses the existing Apple Product Scanner identifier. Development/staging iOS builds remain unsigned in CI; signing them would require their own matching provisioning. Android identifiers are unchanged.
 
 See [environment configuration and logging](docs/environments-and-logging.md) for per-flavor templates, validation, and production logging policy.
 

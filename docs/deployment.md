@@ -42,7 +42,7 @@ Android signing key workflow separately; do not reuse debug keys for that purpos
 ## Apple setup (owner action before the first signed run)
 
 1. Enroll the organization in the Apple Developer Program and accept current
-   agreements. Confirm ownership of production bundle ID `com.orangeone.app`.
+   agreements. Confirm ownership of production bundle ID `ch.orangepos.productscanner`.
    Create its App Store Connect app record. If that ID is unavailable, change all
    bundle/signing references consistently before building; no Apple account or
    app record is created by these files.
@@ -214,7 +214,7 @@ owner secret setup and actual hosted/device runs.
   the workflow source. No secrets are required in a contributor's fork.
 - A new PR commit or a closed PR invalidates the candidate before signing. Rerun
   manually and review the new immutable SHA; do not approve stale source.
-- Main and PR uploads share `com.orangeone.app` and the production flavor. Use a
+- Main and PR uploads share `ch.orangepos.productscanner` and the production flavor. Use a
   distinct build number for every upload. TestFlight's changelog names PR/main
   and the SHA. Development/staging TestFlight distribution is not enabled.
 - Existing automatic unsigned iOS checks remain. They do not sign or upload to

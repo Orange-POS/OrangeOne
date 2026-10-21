@@ -16,7 +16,7 @@ def candidate(root):
     (root / 'Info.plist').write_bytes(plistlib.dumps({'ApplicationProperties': {'ApplicationPath': 'Applications/Runner.app'}}))
     app = root / 'Products/Applications/Runner.app'
     app.mkdir(parents=True, exist_ok=True)
-    data = {'CFBundleIdentifier': 'com.orangeone.app', 'CFBundleShortVersionString': '1.0.0',
+    data = {'CFBundleIdentifier': 'ch.orangepos.productscanner', 'CFBundleShortVersionString': '1.0.0',
             'CFBundleVersion': '12', 'CFBundleExecutable': 'Runner'}
     (app / 'Info.plist').write_bytes(plistlib.dumps(data))
     (app / 'Runner').write_bytes(b'fixture executable')
@@ -56,11 +56,11 @@ class ArchiveTest(unittest.TestCase):
             app = root / 'Products/Applications/Runner.app'
             app.mkdir(parents=True)
             path = app / 'Info.plist'
-            data = {'CFBundleIdentifier': 'com.orangeone.app', 'CFBundleShortVersionString': '1.0.0', 'CFBundleVersion': '12', 'CFBundleExecutable': 'Runner'}
+            data = {'CFBundleIdentifier': 'ch.orangepos.productscanner', 'CFBundleShortVersionString': '1.0.0', 'CFBundleVersion': '12', 'CFBundleExecutable': 'Runner'}
             (app / 'Runner').write_bytes(b'fixture executable')
             path.write_bytes(plistlib.dumps(data))
             validate_app(root, '1.0.0', '12')
-            for key, value in [('CFBundleIdentifier', 'com.orangeone.app.dev'), ('CFBundleVersion', '13'), ('CFBundleShortVersionString', '2.0.0')]:
+            for key, value in [('CFBundleIdentifier', 'ch.orangepos.productscanner.dev'), ('CFBundleVersion', '13'), ('CFBundleShortVersionString', '2.0.0')]:
                 path.write_bytes(plistlib.dumps({**data, key: value}))
                 with self.assertRaises(ValueError):
                     validate_app(root, '1.0.0', '12')
@@ -79,7 +79,7 @@ class ArchiveTest(unittest.TestCase):
                     patch('export_ipa.subprocess.run', side_effect=export_only):
                 export()
             options = plistlib.loads((root / 'store-export.plist').read_bytes())
-            self.assertEqual(options['provisioningProfiles'], {'com.orangeone.app': 'fixture'})
+            self.assertEqual(options['provisioningProfiles'], {'ch.orangepos.productscanner': 'fixture'})
             self.assertEqual(options['method'], 'app-store-connect')
 
     def test_missing_archive_never_reaches_export_tool(self):
