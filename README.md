@@ -202,7 +202,9 @@ Native checks use [Android](.github/workflows/android.yaml) and
 The [license policy](.github/workflows/license_check.yaml) remains enforced.
 iOS distribution is manual from main, with protected approval and separate
 archive/export runners. TestFlight does not publish the app publicly.
-Read [Deployment](docs/deployment.md) for inputs, environments and release checks.
+Keep native and license branch protection checks; only the legacy quality job is
+replaced by **Format, analyze and test**. Read [Deployment](docs/deployment.md)
+for inputs, environments and release checks.
 
 ## Security and release notes
 

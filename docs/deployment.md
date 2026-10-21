@@ -1,20 +1,19 @@
 # Android and iOS deployment
 
-## PR #9 dependency and review scope
+## Testing and deployment ownership
 
-PR #15 depends on PR #9's testing strategy and restored license policy. The
-canonical workflow names remain `android.yaml`, `ios.yaml`, `license_check.yaml`
-and `flutter_tests.yml`; the production-only `android_apk.yml`, `ios_unsigned.yml`
-and automatic `ios_testflight.yml` replacements are retired to prevent duplicate
-builds or automatic signing after the dependency lands. The Git repair integrates the corrected PR #9 branch using a normal merge
-commit into PR #15. Main is unchanged and history is preserved. Review the
-incremental PR #15 diff against PR #9 before merging either dependent change.
+PR #9's testing strategy and restored license policy are merged into main.
+PR #15 retains those gates and adds release regression safeguards. The canonical
+workflow names remain `android.yaml`, `ios.yaml`, `license_check.yaml` and
+`flutter_tests.yml`; production-only replacement workflows are retired to avoid
+duplicate builds and automatic signing.
 
-The main-only manual release, protected environments and split archive/export
-pipeline are retained from the PR #9 baseline because Issue #11 explicitly
-requires those controls. This supersedes the earlier automatic-main-upload plan.
-Version/build numbers are explicit inputs; reserve a unique integer in App Store
-Connect before dispatch. No release runs are triggered by local regression tests.
+Distribution remains manual from main, with protected approval and separate
+secret-free compilation and signing/export runners. Version/build numbers are
+explicit inputs; reserve a unique build number in App Store Connect. Local
+regression tests never trigger signing or upload. Main was merged into PR #15
+using a normal merge to resolve the overlap after PR #9's squash merge; no
+history rewriting or automatic merge of PR #15 into main is required.
 
 ## Workflow behavior
 
