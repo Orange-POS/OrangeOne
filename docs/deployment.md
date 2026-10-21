@@ -23,7 +23,7 @@ PR #19 into main.
 | `flutter_tests.yml` | Every push, every PR, main merge queue, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax and Fastlane lane guards; device integration remains manual |
 | `android.yaml` | Every push, PR to main, main merge queue, manual | Development/staging/production debug APK artifacts; no Play Store upload |
 | `ios.yaml` / `ios` | Every push, PR to main, main merge queue | Unsigned release `.app` ZIPs on GitHub-hosted `macos-26`; no Apple secrets |
-| `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as production, then exported/signed on a fresh runner and uploaded to internal TestFlight |
+| `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as the selected flavor (production by default), then exported/signed on a fresh runner and uploaded to internal TestFlight |
 | `ios.yaml` / `submit` | Manual `submit_for_review` from main after release checks, iPhone confirmation and separate environment approval | Submit existing tested build for review; public release remains manual |
 | `license_check.yaml` | Every push, PR to main, main merge queue, manual | Flutter dependency license policy |
 
@@ -43,21 +43,21 @@ Android signing key workflow separately; do not reuse debug keys for that purpos
 
 1. Enroll the organization in the Apple Developer Program and accept current
    agreements. Confirm ownership of production bundle ID `ch.orangepos.productscanner`.
-   Create its App Store Connect app record. If that ID is unavailable, change all
-   bundle/signing references consistently before building; no Apple account or
-   app record is created by these files.
-2. Create an **Apple Distribution** certificate and export it with its private key
+   Preserve its existing App Store Connect record and bundle ID. Verify the additional
+   development (`ch.orangepos.productscanner.dev`) and staging
+   (`ch.orangepos.productscanner.stg`) records. No Apple resources are created by CI.
+2. Reuse the existing valid **Apple Distribution** certificate with its private key
    as a password-protected `.p12` from a trusted Mac. A `.cer` without its private
    key cannot sign. Create an **App Store Connect distribution** provisioning
-   profile for the exact production bundle ID, team, capabilities and certificate.
-   Development, ad-hoc, enterprise, wildcard, expired or development-flavor
-   profiles are rejected. Runner currently uses the keychain access group.
+   profile for each exact flavor bundle ID, team, capabilities and certificate.
+   Debug/development signing, ad-hoc, enterprise, wildcard and expired profiles
+   are rejected. All TestFlight flavors require App Store distribution profiles. Runner currently uses the keychain access group.
 3. Create an App Store Connect team API key with an appropriate role (App Manager
    for submission; least required access for upload). Record Key ID and Issuer ID
    and securely download its `.p8` private key. Apple ID passwords and Fastlane
    session cookies are not used. Ensure the account has app access and agreements
    required for both upload and review submission.
-4. In GitHub **Settings → Environments**, create `ios-production` and
+4. In GitHub **Settings → Environments**, verify `ios-development`, `ios-staging`, `ios-production` and
    `ios-app-store`. Restrict deployment branches to **main**, require a reviewer,
    prevent self-review where supported, and disallow admin bypass if appropriate.
    These are repository settings you must configure; YAML cannot enforce reviewer
@@ -243,3 +243,49 @@ TestFlight processing, protected-environment approval or physical iPhone flows.
 These require a reviewed manual run on GitHub macOS after owner approval; do not
 trigger distribution merely to validate this change. No public release occurs:
 `automatic_release: false` is preserved and the owner releases in App Store Connect.
+
+
+## Three-flavor protected TestFlight distribution
+
+Dispatch `ios.yaml` from **main** with operation `testflight` and choose
+`development`, `staging`, or `production` (default). One dispatch builds one app.
+Use the optional open PR number for candidate source; signing scripts always
+come from the dispatched main commit, never the PR. These workflow/script
+changes must first be reviewed and integrated into protected main before use.
+The unsigned three-flavor push/PR/merge-queue jobs remain unchanged.
+
+| Flavor | Bundle ID | Signing environment |
+| --- | --- | --- |
+| development | ch.orangepos.productscanner.dev | ios-development |
+| staging | ch.orangepos.productscanner.stg | ios-staging |
+| production | ch.orangepos.productscanner | ios-production |
+
+Keep shared repository Apple certificate/API Secrets unchanged. Each development
+and staging environment must contain its own `IOS_PROVISION_PROFILE_BASE64`;
+that environment Secret overrides the same-named repository Secret. Missing or
+wrong overrides fail bundle validation rather than signing another flavor.
+Production retains its existing profile fallback; do not replace that repository
+Secret until its compatibility has been verified. Confirm environment branch
+restrictions and approval rules in GitHub Settings before deployment; YAML
+cannot establish those rules. Repository credentials remain reachable to other
+trusted workflows that explicitly reference them, so protect main and review
+workflow changes. Candidate jobs neither reference credentials nor enter signing
+environments.
+
+Before export, validate the requested archive identity, profile capabilities,
+keychain grant, and imported certificate fingerprint. Unsigned archives may omit
+signed entitlements; included xcent/signature entitlements are checked, and the
+exported IPA's signature, embedded profile and entitlements are checked again.
+New capabilities require an explicit policy update, not a permissive fallback.
+The protected runner exports without recompiling and uploads only after checks.
+Cleanup runs even after import, verification or upload failure.
+
+App Store submission accepts production only, requires an already tested build
+and iPhone confirmation, and never automatically publishes. Give testers access
+to each separate App Store Connect record. Install all three through TestFlight
+and verify distinct labels, simultaneous installation and separate sessions.
+A version/build pair must be unused for its corresponding application.
+
+Firebase, Android configuration, application code, bundle IDs and iOS minimum
+versions are unchanged by this extension. Apple resource existence and hosted
+signing remain owner/runner verification steps.

@@ -34,6 +34,7 @@ end
 class FastfileTest < Minitest::Test
   def setup
     @previous = ENV.to_h
+    ENV.delete('RELEASE_FLAVOR')
     ENV.update('GITHUB_REF' => 'refs/heads/main', 'GITHUB_EVENT_NAME' => 'workflow_dispatch',
                'APP_STORE_CONNECT_KEY_ID' => 'fixture', 'APP_STORE_CONNECT_ISSUER_ID' => 'fixture',
                'APP_STORE_CONNECT_KEY_FILE' => 'fixture.p8', 'APPLE_TEAM_ID' => 'ABC123DE45',
@@ -93,6 +94,26 @@ class FastfileTest < Minitest::Test
     @harness.define_singleton_method(:sh) { |*| raise 'synthetic export failure' }
     assert_raises(RuntimeError) { @harness.lanes[:beta].call }
     refute @harness.calls.assoc(:testflight)
+  end
+  def test_all_flavors_upload_to_matching_app_without_rebuilding
+    { 'development' => '.dev', 'staging' => '.stg', 'production' => '' }.each do |flavor, suffix|
+      ENV['RELEASE_FLAVOR'] = flavor
+      @harness.calls.clear
+      Dir.stub(:[], @ipa_stub) { @harness.lanes[:beta].call }
+      assert_equal 'ch.orangepos.productscanner' + suffix, @harness.calls.assoc(:testflight).last[:app_identifier]
+      refute @harness.calls.assoc(:build)
+    end
+  end
+  def test_nonproduction_submission_and_unknown_flavor_fail_before_key_loading
+    ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
+    ['development', 'staging', 'unknown', ''].each do |flavor|
+      ENV['RELEASE_FLAVOR'] = flavor
+      assert_raises(ArgumentError) { @harness.lanes[:submit].call }
+      assert_empty @harness.calls
+    end
+    ENV['RELEASE_FLAVOR'] = 'unknown'
+    assert_raises(ArgumentError) { @harness.lanes[:beta].call }
+    assert_empty @harness.calls
   end
   def test_submit_requires_iphone_attestation_and_does_not_rebuild_or_release
     ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'false'

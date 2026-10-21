@@ -6,6 +6,7 @@ import posixpath
 import stat
 import subprocess
 import zipfile
+from release_flavors import bundle_id
 
 
 def validate_zip(path):
@@ -26,15 +27,15 @@ def validate_zip(path):
                 raise ValueError('Archive contains an unsupported file type.')
 
 
-def validate_app(archive, version, build_number):
+def validate_app(archive, version, build_number, flavor=None):
     root = Path(archive)
     info = plistlib.loads((root / 'Info.plist').read_bytes())
     relative = info.get('ApplicationProperties', {}).get('ApplicationPath')
     if relative != 'Applications/Runner.app':
-        raise ValueError('Archive must contain the production Runner app.')
+        raise ValueError('Archive must contain the Runner app.')
     app = root / 'Products' / relative
     details = plistlib.loads((app / 'Info.plist').read_bytes())
-    if (details.get('CFBundleIdentifier') != 'ch.orangepos.productscanner'
+    if (details.get('CFBundleIdentifier') != bundle_id(flavor)
             or details.get('CFBundleShortVersionString') != version
             or details.get('CFBundleVersion') != build_number):
         raise ValueError('Candidate bundle/version/build does not match the manual request.')

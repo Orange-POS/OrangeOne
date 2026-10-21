@@ -1,9 +1,14 @@
 """Fail closed before a manual distribution job receives protected secrets."""
 import os
 import re
+from release_flavors import bundle_id
 
 
 def validate(values):
+    flavor = values.get('RELEASE_FLAVOR', 'production')
+    bundle_id(flavor)
+    if values.get('OPERATION') == 'submit_for_review' and flavor != 'production':
+        raise ValueError('App Store submission is production-only.')
     if values.get('GITHUB_REF') != 'refs/heads/main' or values.get('GITHUB_EVENT_NAME') != 'workflow_dispatch':
         raise ValueError('Distribution must be manually dispatched from main.')
     if not re.fullmatch(r'\d+\.\d+\.\d+', values.get('RELEASE_VERSION', '')):

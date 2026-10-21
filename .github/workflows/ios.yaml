@@ -8,10 +8,16 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Manual production distribution (workflow runs from main)
+        description: Manual distribution (workflow runs from main)
         required: true
         type: choice
         options: [testflight, submit_for_review]
+      flavor:
+        description: TestFlight flavor; submission is production-only
+        required: true
+        type: choice
+        default: production
+        options: [development, staging, production]
       pr_number:
         description: Optional PR number for TestFlight; leave blank to build main
         required: false
@@ -77,6 +83,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate manual release request
         env:
+          RELEASE_FLAVOR: ${{ inputs.flavor || 'production' }}
           RELEASE_VERSION: ${{ inputs.version }}
           RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
           OPERATION: ${{ inputs.operation }}
@@ -103,7 +110,7 @@ jobs:
             if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid source commit.');
             core.setOutput('sha', sha);
             core.setOutput('pr_number', number);
-            await core.summary.addHeading('Production TestFlight source')
+            await core.summary.addHeading('TestFlight candidate source')
               .addTable([['Source', 'Commit'], [number ? `PR #${number}` : 'main', sha]])
               .write();
       - uses: subosito/flutter-action@v2
@@ -124,6 +131,8 @@ jobs:
           ruby tool/ci/test_fastlane.rb
 
   candidate:
+    env:
+      RELEASE_FLAVOR: ${{ inputs.flavor || 'production' }}
     needs: release_checks
     if: github.event_name == 'workflow_dispatch' && inputs.operation == 'testflight'
     runs-on: macos-26
@@ -150,12 +159,12 @@ jobs:
         env:
           RELEASE_VERSION: ${{ inputs.version }}
           RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
-        run: flutter build ipa --release --no-codesign --flavor production --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$RELEASE_BUILD_NUMBER"
+        run: flutter build ipa --release --no-codesign --flavor "$RELEASE_FLAVOR" --target "lib/main_${RELEASE_FLAVOR}.dart" --dart-define-from-file="config/${RELEASE_FLAVOR}.example.json" --build-name="$RELEASE_VERSION" --build-number="$RELEASE_BUILD_NUMBER"
       - name: Package unsigned archive as data
         run: ditto -c -k --norsrc --noextattr --keepParent build/ios/archive/Runner.xcarchive candidate.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: unsigned-production-candidate
+          name: unsigned-${{ inputs.flavor || 'production' }}-candidate
           path: candidate.zip
           if-no-files-found: error
           retention-days: 1
@@ -163,13 +172,14 @@ jobs:
   beta:
     needs: [release_checks, candidate]
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'testflight'
-    environment: ios-production
+    environment: ${{ format('ios-{0}', inputs.flavor || 'production') }}
     runs-on: macos-26
     timeout-minutes: 60
     permissions:
       contents: read
       pull-requests: read
     env:
+      RELEASE_FLAVOR: ${{ inputs.flavor || 'production' }}
       FASTLANE_SKIP_UPDATE_CHECK: 'true'
       FASTLANE_HIDE_CHANGELOG: 'true'
       FASTLANE_OPT_OUT_USAGE: 'true'
@@ -196,7 +206,7 @@ jobs:
       - run: bundle install
       - uses: actions/download-artifact@v4
         with:
-          name: unsigned-production-candidate
+          name: unsigned-${{ inputs.flavor || 'production' }}-candidate
           path: ${{ runner.temp }}/candidate-download
       - name: Check that selected PR has not changed since compilation
         uses: actions/github-script@v7
@@ -227,7 +237,7 @@ jobs:
         run: bundle exec fastlane ios beta
       - uses: actions/upload-artifact@v4
         with:
-          name: ios-production-${{ inputs.version }}-${{ inputs.build_number }}
+          name: ios-${{ inputs.flavor || 'production' }}-${{ inputs.version }}-${{ inputs.build_number }}
           path: build/ios/ipa/*.ipa
           if-no-files-found: error
           retention-days: 7
@@ -236,11 +246,12 @@ jobs:
         run: python3 tool/ci/ios_signing.py cleanup
   submit:
     needs: release_checks
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'submit_for_review'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'submit_for_review' && (inputs.flavor == 'production' || inputs.flavor == '')
     environment: ios-app-store
     runs-on: macos-26
     timeout-minutes: 30
     env:
+      RELEASE_FLAVOR: ${{ inputs.flavor || 'production' }}
       FASTLANE_SKIP_UPDATE_CHECK: 'true'
       FASTLANE_HIDE_CHANGELOG: 'true'
       FASTLANE_OPT_OUT_USAGE: 'true'

@@ -11,11 +11,11 @@ import shlex
 import shutil
 import subprocess
 import sys
+import hashlib
+import zipfile
+from release_flavors import bundle_id
 
-BUNDLE_ID = 'ch.orangepos.productscanner'
-
-
-def validate_profile(profile, team, now=None):
+def validate_profile(profile, team, now=None, flavor=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     entitlements = profile.get('Entitlements', {})
     prefixes = profile.get('ApplicationIdentifierPrefix', [])
@@ -25,7 +25,7 @@ def validate_profile(profile, team, now=None):
     if (not re.fullmatch(r'[A-Z0-9]{10}', team)
             or team not in profile.get('TeamIdentifier', [])
             or len(prefixes) != 1
-            or entitlements.get('application-identifier') != prefixes[0] + '.' + BUNDLE_ID
+            or entitlements.get('application-identifier') != prefixes[0] + '.' + bundle_id(flavor)
             or entitlements.get('get-task-allow') is not False
             or profile.get('ProvisionedDevices') is not None
             or profile.get('ProvisionsAllDevices', False)
@@ -33,8 +33,67 @@ def validate_profile(profile, team, now=None):
             or not re.fullmatch(r'[A-Fa-f0-9-]{36}', profile.get('UUID', ''))
             or not profile.get('Name')
             or any(c in profile['Name'] for c in '\r\n')):
-        raise ValueError('Use an unexpired App Store distribution profile for the production bundle and team.')
+        raise ValueError('Use an unexpired App Store distribution profile for the selected bundle and team.')
     return profile['UUID'], profile['Name']
+
+
+def validate_entitlements(entitlements, profile, team):
+    """Current app requests only its own keychain group, never extra capabilities."""
+    prefix = profile['ApplicationIdentifierPrefix'][0]
+    expected = prefix + '.' + bundle_id()
+    allowed = {'application-identifier', 'com.apple.developer.team-identifier',
+               'keychain-access-groups', 'get-task-allow', 'beta-reports-active'}
+    if not isinstance(entitlements, dict) or set(entitlements) - allowed:
+        raise ValueError('Unsupported application entitlement.')
+    for key, value in entitlements.items():
+        if key == 'keychain-access-groups':
+            grants = profile['Entitlements'].get(key, [])
+            if value != [expected] or not any(g in (expected, prefix + '.*') for g in grants):
+                raise ValueError('Profile does not grant the application keychain group.')
+        elif key == 'application-identifier':
+            if value != expected:
+                raise ValueError('Wrong entitlement application identifier.')
+        elif key == 'com.apple.developer.team-identifier':
+            if value != team:
+                raise ValueError('Wrong entitlement team.')
+        elif value != profile['Entitlements'].get(key):
+            raise ValueError('Entitlement is not granted by profile.')
+
+
+def validate_certificate(profile, identities):
+    certificates = profile.get('DeveloperCertificates', [])
+    for cert in certificates:
+        if isinstance(cert, bytes):
+            fingerprint = hashlib.sha1(cert).hexdigest().upper()
+            if fingerprint.encode() in identities.upper():
+                return fingerprint
+    raise ValueError('Imported distribution identity does not match the profile certificate.')
+
+
+def verify_export(ipa):
+    """Verify exported identity/profile and signed entitlements without running app code."""
+    with zipfile.ZipFile(ipa) as archive:
+        info = plistlib.loads(archive.read('Payload/Runner.app/Info.plist'))
+    if (info.get('CFBundleIdentifier') != bundle_id()
+            or info.get('CFBundleShortVersionString') != required('RELEASE_VERSION')
+            or info.get('CFBundleVersion') != required('RELEASE_BUILD_NUMBER')):
+        raise ValueError('Exported IPA identity does not match release request.')
+    destination = folder() / 'export-check'
+    destination.mkdir(mode=0o700)
+    run('/usr/bin/ditto', '-x', '-k', str(ipa), str(destination))
+    app = destination / 'Payload/Runner.app'
+    run('/usr/bin/codesign', '--verify', '--deep', '--strict', str(app))
+    profile = plistlib.loads(run('/usr/bin/security', 'cms', '-D', '-i', str(app / 'embedded.mobileprovision')))
+    uuid, _ = validate_profile(profile, required('APPLE_TEAM_ID'))
+    if uuid != required('IOS_PROFILE_UUID'):
+        raise ValueError('Export used a different provisioning profile.')
+    entitlements = plistlib.loads(run('/usr/bin/codesign', '-d', '--entitlements', ':-', str(app)))
+    expected = profile['ApplicationIdentifierPrefix'][0] + '.' + bundle_id()
+    if (entitlements.get('application-identifier') != expected
+            or entitlements.get('com.apple.developer.team-identifier') != required('APPLE_TEAM_ID')
+            or entitlements.get('get-task-allow', False) is not False):
+        raise ValueError('Exported signing entitlements do not match release.')
+    validate_entitlements(entitlements, profile, required('APPLE_TEAM_ID'))
 
 
 def run(*args):
@@ -86,6 +145,16 @@ def install_signing():
     private_file(source_profile, decode('IOS_PROVISION_PROFILE_BASE64'))
     profile = plistlib.loads(run('/usr/bin/security', 'cms', '-D', '-i', str(source_profile)))
     uuid, name = validate_profile(profile, required('APPLE_TEAM_ID'))
+    expected = profile['ApplicationIdentifierPrefix'][0] + '.' + bundle_id()
+    validate_entitlements({'keychain-access-groups': [expected]}, profile, required('APPLE_TEAM_ID'))
+    # Unsigned archives may omit xcent files; any included requests must be safe.
+    archive = Path(required('RUNNER_TEMP')) / 'candidate/Runner.xcarchive'
+    for path in archive.rglob('*.xcent'):
+        validate_entitlements(plistlib.loads(path.read_bytes()), profile, required('APPLE_TEAM_ID'))
+    app = archive / 'Products/Applications/Runner.app'
+    if (app / '_CodeSignature').exists():
+        entitlements = plistlib.loads(run('/usr/bin/codesign', '-d', '--entitlements', ':-', str(app)))
+        validate_entitlements(entitlements, profile, required('APPLE_TEAM_ID'))
     profile_dir = Path.home() / 'Library/MobileDevice/Provisioning Profiles'
     profile_dir.mkdir(parents=True, exist_ok=True)
     destination = profile_dir / (uuid + '.mobileprovision')
@@ -106,6 +175,8 @@ def install_signing():
     identities = run('/usr/bin/security', 'find-identity', '-v', '-p', 'codesigning', str(keychain))
     if b'Apple Distribution' not in identities:
         raise ValueError('No valid Apple Distribution signing identity was imported.')
+    fingerprint = validate_certificate(profile, identities)
+    env_value('IOS_CERTIFICATE_SHA1', fingerprint)
     env_value('IOS_PROFILE_UUID', uuid)
     env_value('IOS_PROFILE_NAME', name)
 
