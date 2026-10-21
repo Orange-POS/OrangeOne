@@ -144,3 +144,28 @@ allowlist alongside MIT, BSD-3-Clause, BSD-2-Clause and Apache-2.0. The policy
 still checks direct, development and transitive dependencies, skips no packages,
 and fails on retrieval errors or licenses outside the explicit allowlist.
 Adding a license to CI does not remove its license/notice obligations.
+
+
+## Explicit read-only recovery (Issue #20)
+
+Scanner Retry and Create Product Check pass `refresh: true` through their domain
+repository contracts. Data repositories reuse `EncryptedReadCache.retryRead()`
+before loading, allowing one authoritative read attempt even if the network
+interface has not changed. Normal reads retain the offline short-circuit.
+A failed probe keeps offline safety; a successful server read restores fresh
+status and checks current permissions. Creation Check preserves the draft and
+only checks availability/references; it never submits or replays a save.
+
+## Authoritative reads and persistence failures (Issue #21)
+
+`loadResult` returns per-operation server provenance separately from the product
+sync phase. Successful Odoo reads recover connectivity even when SQLite cannot
+save or remove the snapshot; the sync indicator remains failed in that case.
+Products retain only permissions verified by that operation's server response.
+Cached fallback results never carry verified permissions.
+
+After a failed snapshot replacement/removal, that barcode is unavailable for
+cache fallback in the current cache instance until a later persistence attempt
+succeeds. Fresh server data remains usable. Mutations still invalidate snapshots
+before dispatch: failed invalidation produces a typed storage failure and sends
+no backend mutation. No offline writes are enabled.

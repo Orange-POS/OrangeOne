@@ -10,6 +10,12 @@ enum ReadSyncPhase { pending, online, offline, failed }
 
 typedef ReadSyncStatus = ({ReadSyncPhase phase, DateTime? verifiedAt});
 
+/// Provenance belongs to this read, independently of local persistence status.
+typedef ProductReadResult = ({
+  Map<String, dynamic>? product,
+  bool serverVerified,
+});
+
 /// Session-scoped read cache. Tokens and permissions are never persisted.
 class EncryptedReadCache {
   new(this.database, {required String sessionSecret, DateTime Function()? now})
@@ -23,7 +29,8 @@ class EncryptedReadCache {
   final _events = StreamController<int>.broadcast();
   final _recovery = StreamController<int>.broadcast();
   final _statuses = <String, ReadSyncStatus>{};
-  final _pending = <String, Future<Map<String, dynamic>?>>{};
+  final _pending = <String, Future<ProductReadResult>>{};
+  final _unavailable = <String>{};
   int _revision = 0;
   int _changeSequence = 0;
   int _recoverySequence = 0;
@@ -81,19 +88,24 @@ class EncryptedReadCache {
   Future<Map<String, dynamic>?> load(
     String barcode,
     Future<Map<String, dynamic>?> Function() fetch,
+  ) async => (await loadResult(barcode, fetch)).product;
+
+  Future<ProductReadResult> loadResult(
+    String barcode,
+    Future<Map<String, dynamic>?> Function() fetch,
   ) async =>
       await (_pending[barcode] ??= _load(barcode, fetch).whenComplete(() {
         _pending.removeWhere((key, value) => key == barcode);
       }));
 
-  Future<Map<String, dynamic>?> _load(
+  Future<ProductReadResult> _load(
     String barcode,
     Future<Map<String, dynamic>?> Function() fetch,
   ) async {
     if (_closed || _writing) throw cancelledOperation;
     if (offline && !_probe) {
       final cached = await read(barcode);
-      if (cached != null) return cached;
+      if (cached != null) return (product: cached, serverVerified: false);
       throw const AppFailure(
         FailureKind.network,
         'No cached product is available. Reconnect to look it up.',
@@ -160,12 +172,18 @@ class EncryptedReadCache {
         }
       } on Exception {
         // A cache failure must not hide a valid server response.
+        if (_closed || revision != _revision) throw cancelledOperation;
+        // A failed replacement/removal must not expose the older snapshot.
+        offline = false;
+        _unavailable.add(barcode);
         _set(barcode, ReadSyncPhase.failed, time);
-        return product;
+        return (product: product, serverVerified: true);
       }
+      if (_closed || revision != _revision) throw cancelledOperation;
       offline = false;
+      _unavailable.remove(barcode);
       _set(barcode, ReadSyncPhase.online, time);
-      return product;
+      return (product: product, serverVerified: true);
     } on AppFailure catch (failure) {
       if (_closed || revision != _revision) throw cancelledOperation;
       if (failure.kind != FailureKind.network &&
@@ -183,7 +201,7 @@ class EncryptedReadCache {
       _set(barcode, ReadSyncPhase.offline);
       final cached = await read(barcode);
       if (cached == null) rethrow;
-      return cached;
+      return (product: cached, serverVerified: false);
     }
   }
 
@@ -195,7 +213,7 @@ class EncryptedReadCache {
   }
 
   Future<Map<String, dynamic>?> read(String barcode) async {
-    if (_closed) return null;
+    if (_closed || _unavailable.contains(barcode)) return null;
     try {
       final row = await database
           .customSelect(
@@ -219,7 +237,7 @@ class EncryptedReadCache {
           value['product'] is! Map<String, dynamic>) {
         throw const FormatException('Invalid cached product.');
       }
-      if (_closed) return null;
+      if (_closed || _unavailable.contains(barcode)) return null;
       final time = DateTime.parse(value['at'] as String);
       if (_now().toUtc().difference(time) > const Duration(days: 1)) {
         return null;
@@ -248,10 +266,18 @@ class EncryptedReadCache {
     _revision++;
     try {
       // Invalidate before uncertain writes; never reuse pre-write data.
-      await database.customStatement(
-        'DELETE FROM product_reads WHERE owner = ?',
-        [await owner],
-      );
+      try {
+        await database.customStatement(
+          'DELETE FROM product_reads WHERE owner = ?',
+          [await owner],
+        );
+      } on Exception {
+        throw const AppFailure(
+          FailureKind.storage,
+          'Unable to invalidate cached data. No changes were sent. '
+          'Resolve the storage problem and retry.',
+        );
+      }
       return await operation();
     } on AppFailure catch (failure) {
       if (failure.kind == FailureKind.network ||

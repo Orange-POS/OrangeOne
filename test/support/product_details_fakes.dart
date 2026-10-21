@@ -20,7 +20,10 @@ class FakeDetailsRepository implements ProductDetailsRepository {
   int creates = 0;
   Completer<ProductCreationContext>? pendingCreation;
   @override
-  Future<ProductCreationContext> prepareCreation(String barcode) async {
+  Future<ProductCreationContext> prepareCreation(
+    String barcode, {
+    bool refresh = false,
+  }) async {
     if (pendingCreation != null) return await pendingCreation!.future;
     if (error != null) Error.throwWithStackTrace(error!, StackTrace.current);
     if (referencesError != null) {

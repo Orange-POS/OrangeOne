@@ -21,6 +21,12 @@ void main() {
     expect(await lookup(' 00Ab12 '), fixtureProduct);
     verify(() => repository.findByBarcode('00Ab12')).called(1);
   });
+  test('explicit retry forwards read-only refresh intent', () async {
+    when(() => repository.findByBarcode('123', refresh: true))
+        .thenAnswer((_) async => fixtureProduct);
+    expect(await lookup(' 123 ', refresh: true), fixtureProduct);
+    verify(() => repository.findByBarcode('123', refresh: true)).called(1);
+  });
   test('invalid input never reaches the repository', () {
     for (final value in [
       '',

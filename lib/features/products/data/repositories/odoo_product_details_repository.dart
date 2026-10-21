@@ -15,8 +15,13 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
   final _loads = <String, Future<ProductDetailsState>>{};
 
   @override
-  Future<ProductCreationContext> prepareCreation(String barcode) =>
-      _authenticated(() => _prepareCreation(barcode));
+  Future<ProductCreationContext> prepareCreation(
+    String barcode, {
+    bool refresh = false,
+  }) => _authenticated(() {
+    if (refresh) cache?.retryRead();
+    return _prepareCreation(barcode);
+  });
 
   Future<ProductCreationContext> _prepareCreation(String barcode) async {
     final details = await _load(barcode);
@@ -164,14 +169,13 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
       return product;
     }
 
-    final product = cache == null
-        ? await fetch()
-        : await cache!.load(barcode, fetch);
+    final result = cache == null
+        ? (product: await fetch(), serverVerified: true)
+        : await cache!.loadResult(barcode, fetch);
+    final product = result.product;
     return ProductDetailsState(
       product == null ? null : ProductDetailsModel.parse(product, barcode),
-      cache != null && cache!.status(barcode).phase != ReadSyncPhase.online
-          ? const ProductAccess()
-          : access,
+      result.serverVerified ? access : const ProductAccess(),
     );
   }
 

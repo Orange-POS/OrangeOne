@@ -3,7 +3,11 @@ import 'package:orange_one/features/products/domain/entities/product_details.dar
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
 
 abstract interface class ProductDetailsRepository {
-  Future<ProductCreationContext> prepareCreation(String barcode);
+  /// Explicit checks request an authoritative read without performing writes.
+  Future<ProductCreationContext> prepareCreation(
+    String barcode, {
+    bool refresh = false,
+  });
   Future<ProductDetails> createProduct(NewProduct product);
   Future<ProductDetailsState> load(String barcode);
   Future<void> updateName(int id, String name);

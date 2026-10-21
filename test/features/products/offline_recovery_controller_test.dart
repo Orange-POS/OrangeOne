@@ -15,9 +15,12 @@ import '../../support/product_details_fakes.dart';
 class CountingCreationRepository extends FakeDetailsRepository {
   int preparations = 0;
   @override
-  Future<ProductCreationContext> prepareCreation(String barcode) {
+  Future<ProductCreationContext> prepareCreation(
+    String barcode, {
+    bool refresh = false,
+  }) {
     preparations++;
-    return super.prepareCreation(barcode);
+    return super.prepareCreation(barcode, refresh: refresh);
   }
 }
 

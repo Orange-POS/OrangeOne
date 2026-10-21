@@ -237,7 +237,7 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
       ),
     );
     try {
-      final context = await repository.prepareCreation(barcode);
+      final context = await repository.prepareCreation(barcode, refresh: true);
       if (!ref.mounted || generation != _generation) return;
       state = AsyncData(
         ProductCreationState(

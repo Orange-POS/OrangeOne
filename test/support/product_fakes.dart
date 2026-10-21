@@ -34,7 +34,7 @@ class FakeProductRepository implements ProductRepository {
   final barcodes = <String>[];
 
   @override
-  Future<Product?> findByBarcode(String barcode) async {
+  Future<Product?> findByBarcode(String barcode, {bool refresh = false}) async {
     barcodes.add(barcode);
     if (failure != null) throw failure!;
     if (pending != null) return await pending!.future;

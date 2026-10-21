@@ -55,7 +55,7 @@ class ProductLookupController extends AsyncNotifier<ProductLookup?> {
       _retryBarcode = barcode;
       final lookup = ref.read(lookupProductProvider);
       state = const AsyncLoading();
-      final product = await lookup(barcode);
+      final product = await lookup(barcode, refresh: retry);
       if (ref.mounted && generation == _generation) {
         state = AsyncData(ProductLookup(barcode: barcode, product: product));
       }

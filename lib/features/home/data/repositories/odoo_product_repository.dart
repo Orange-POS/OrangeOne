@@ -12,8 +12,9 @@ class OdooProductRepository implements ProductRepository {
   final Future<void> Function() onSessionRejected;
 
   @override
-  Future<Product?> findByBarcode(String barcode) async {
+  Future<Product?> findByBarcode(String barcode, {bool refresh = false}) async {
     try {
+      if (refresh) cache?.retryRead();
       Future<Map<String, dynamic>?> fetch() async {
         final result = await _remote.find(barcode);
         ProductRemoteDataSource.checkResult(result);
