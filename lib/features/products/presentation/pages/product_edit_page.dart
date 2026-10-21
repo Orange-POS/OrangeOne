@@ -43,12 +43,7 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
 
   Future<void> _refresh() async {
     final provider = productEditControllerProvider(widget.barcode);
-    if (ref.read(provider).hasError) {
-      ref.invalidate(provider);
-      await AsyncValue.guard(() => ref.read(provider.future));
-    } else {
-      await ref.read(provider.notifier).refresh();
-    }
+    await ref.read(provider.notifier).refresh();
   }
 
   Future<void> _taxes(ProductEditState value) async {

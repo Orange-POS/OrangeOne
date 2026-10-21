@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
@@ -14,8 +15,13 @@ import 'package:orange_one/features/home/data/repositories/odoo_product_reposito
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
 import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
+import 'package:orange_one/features/products/presentation/pages/product_creation_page.dart';
+import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
+import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
+import 'package:orange_one/features/products/presentation/providers/price_update_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_creation_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
 
 import '../../support/product_fakes.dart';
 
@@ -23,6 +29,7 @@ void main() {
   late ReadCacheDatabase database;
   late EncryptedReadCache cache;
   late Dio dio;
+  WidgetTester? widgetTester;
   late ProviderContainer container;
   late OdooProductRepository lookup;
   late OdooProductDetailsRepository details;
@@ -36,6 +43,7 @@ void main() {
   const code = '0010101010';
 
   setUp(() {
+    widgetTester = null;
     database = ReadCacheDatabase(NativeDatabase.memory());
     cache = EncryptedReadCache(database, sessionSecret: 'test-session');
     dio = Dio();
@@ -126,12 +134,131 @@ void main() {
       ],
     );
     addTearDown(() async {
-      container.dispose();
-      dio.close(force: true);
-      await cache.close();
-      await database.close();
+      Future<void> cleanup() async {
+        container.dispose();
+        dio.close(force: true);
+        await cache.close();
+        await database.close();
+      }
+
+      if (widgetTester case final tester?) {
+        await tester.runAsync(cleanup);
+      } else {
+        await cleanup();
+      }
     });
   });
+
+  for (final screen in ['creation', 'edit', 'price']) {
+    testWidgets('$screen initial error retry probes on the same Wi-Fi', (
+      tester,
+    ) async {
+      widgetTester = tester;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      available = false;
+      found = screen == 'creation' ? null : productJson();
+      final page = switch (screen) {
+        'creation' => const ProductCreationPage(barcode: code),
+        'edit' => const ProductEditPage(barcode: code),
+        _ => const ProductPriceUpdatePage(barcode: code),
+      };
+      Future<Object?> currentLoad() => switch (screen) {
+        'creation' => container.read(
+          productCreationControllerProvider(code).future,
+        ),
+        'edit' => container.read(productEditControllerProvider(code).future),
+        _ => container.read(priceUpdateControllerProvider(code).future),
+      };
+      await tester.runAsync(() async {
+        switch (screen) {
+          case 'creation':
+            container.listen(
+              productCreationControllerProvider(code),
+              (_, _) {},
+            );
+          case 'edit':
+            container.listen(productEditControllerProvider(code), (_, _) {});
+          case 'price':
+            container.listen(priceUpdateControllerProvider(code), (_, _) {});
+        }
+        await expectLater(currentLoad(), throwsA(isA<AppFailure>()));
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(home: page),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Try again'), findsOneWidget);
+      expect(cache.offline, isTrue);
+      expect(paths, ['/mupi/mobile/auth/token/check']);
+
+      // Ordinary reads stay local; a failed tap makes just one probe.
+      await tester.runAsync(() async {
+        await expectLater(details.load(code), throwsA(isA<AppFailure>()));
+      });
+      expect(paths.length, 1);
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Try again'));
+        await expectLater(currentLoad(), throwsA(isA<AppFailure>()));
+      });
+      await tester.pumpAndSettle();
+      expect(paths.length, 2);
+      expect(cache.offline, isTrue);
+
+      available = true; // No connectivity-interface event.
+      final before = paths.length;
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Try again'));
+        await currentLoad();
+      });
+      await tester.pumpAndSettle();
+      expect(find.text('Try again'), findsNothing);
+      expect(cache.offline, isFalse);
+      expect(cache.status(code).phase, ReadSyncPhase.online);
+      expect(paths.skip(before), [
+        '/mupi/mobile/auth/token/check',
+        '/mupi/mobile/api/products/find',
+        if (screen != 'price') '/mupi/mobile/api/products/references',
+      ]);
+      switch (screen) {
+        case 'creation':
+          expect(
+            container
+                .read(productCreationControllerProvider(code))
+                .requireValue
+                .context
+                .canCreate,
+            isTrue,
+          );
+        case 'edit':
+          expect(
+            container
+                .read(productEditControllerProvider(code))
+                .requireValue
+                .canEdit,
+            isTrue,
+          );
+        case 'price':
+          expect(
+            container
+                .read(priceUpdateControllerProvider(code))
+                .requireValue
+                .details
+                .access
+                .updatePrice,
+            isTrue,
+          );
+      }
+      expect(signOuts, 0);
+      // The transport rejects all write endpoints.
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   test('scanner retries probe once per action on the same interface', () async {
     container.listen(productLookupControllerProvider, (_, _) {});

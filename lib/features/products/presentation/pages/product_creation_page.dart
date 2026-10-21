@@ -202,7 +202,8 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                       ),
                       if (error is! FormatException)
                         TextButton(
-                          onPressed: () => ref.invalidate(provider),
+                          onPressed: () =>
+                              ref.read(provider.notifier).retryInitialLoad(),
                           child: const Text('Try again'),
                         ),
                     ],

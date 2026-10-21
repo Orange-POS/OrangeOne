@@ -209,9 +209,23 @@ class PriceUpdateController extends AsyncNotifier<PriceUpdateState> {
   }
 
   Future<void> refresh() async {
-    ref.read(readCacheProvider)?.retryRead();
+    if (state.isLoading) return;
+    if (state.hasError) {
+      ref.read(readCacheProvider)?.retryRead();
+      final generation = _generation;
+      state = const AsyncLoading();
+      final result = await AsyncValue.guard(() async {
+        final details = await ManageProductDetails(
+          ref.read(productDetailsRepositoryProvider),
+        ).load(barcode);
+        return PriceUpdateState(details: details);
+      });
+      if (ref.mounted && generation == _generation) state = result;
+      return;
+    }
     final current = state.value;
-    if (state.isLoading || current == null || current.busy) return;
+    if (current == null || current.busy) return;
+    ref.read(readCacheProvider)?.retryRead();
     final generation = _generation;
     final repository = ref.read(productDetailsRepositoryProvider);
     state = AsyncData(

@@ -70,13 +70,7 @@ class _ProductPriceUpdatePageState
 
   Future<void> _refresh() async {
     final provider = priceUpdateControllerProvider(widget.barcode);
-    if (ref.read(provider).hasError) {
-      ref.invalidate(provider);
-      // The provider exposes retry failures in the page's error state.
-      await AsyncValue.guard(() => ref.read(provider.future));
-    } else {
-      await ref.read(provider.notifier).refresh();
-    }
+    await ref.read(provider.notifier).refresh();
   }
 
   @override

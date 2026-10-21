@@ -118,6 +118,26 @@ void main() {
         expect(cache.status(code).verifiedAt, isNotNull);
         expect(await cache.read(code), isNull);
 
+        // A new instance must be safe even before the old cache is closed.
+        final replacement = EncryptedReadCache(
+          database,
+          sessionSecret: 'synthetic-session',
+        )..connectionChanged(connected: false);
+        var probes = 0;
+        await expectLater(
+          replacement.load(code, () async {
+            probes++;
+            return productJson();
+          }),
+          throwsA(isA<AppFailure>()),
+        );
+        expect(probes, 0);
+        expect(
+          await database.customSelect('SELECT * FROM product_reads').get(),
+          isEmpty,
+        );
+        await replacement.close();
+
         // Old SQLite contents cannot be reused after failed replacement.
         available = false;
         await expectLater(repository.load(code), throwsA(isA<AppFailure>()));
@@ -132,6 +152,35 @@ void main() {
       },
     );
   }
+
+  test(
+    'failed durable cleanup keeps local guard until persistence recovers',
+    () async {
+      await repository.load(code);
+      await failSql('INSERT');
+      await failSql('DELETE');
+      found = productJson()..['name'] = 'Fresh but not cached';
+      final fresh = await repository.load(code);
+      expect(fresh.product?.name, 'Fresh but not cached');
+      expect(fresh.access.updatePrice, isTrue);
+      expect(cache.offline, isFalse);
+      expect(cache.status(code).phase, ReadSyncPhase.failed);
+      expect(
+        await database.customSelect('SELECT * FROM product_reads').get(),
+        hasLength(1),
+      );
+      expect(await cache.read(code), isNull);
+      available = false;
+      await expectLater(repository.load(code), throwsA(isA<AppFailure>()));
+      await database.customStatement('DROP TRIGGER fail_insert');
+      await database.customStatement('DROP TRIGGER fail_delete');
+      available = true;
+      cache.retryRead();
+      await repository.load(code);
+      expect(cache.status(code).phase, ReadSyncPhase.online);
+      expect((await cache.read(code))?['name'], 'Fresh but not cached');
+    },
+  );
 
   test(
     'failed DELETE preserves fresh not-found and blocks unsafe writes',

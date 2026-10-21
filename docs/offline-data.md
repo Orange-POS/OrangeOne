@@ -164,8 +164,19 @@ save or remove the snapshot; the sync indicator remains failed in that case.
 Products retain only permissions verified by that operation's server response.
 Cached fallback results never carry verified permissions.
 
-After a failed snapshot replacement/removal, that barcode is unavailable for
-cache fallback in the current cache instance until a later persistence attempt
-succeeds. Fresh server data remains usable. Mutations still invalidate snapshots
+After a failed snapshot replacement/removal, the older persisted snapshot is
+deleted before returning fresh data. The barcode also remains unavailable for
+cache fallback in the current instance until a later persistence attempt succeeds,
+including when durable cleanup itself fails. Fresh server data remains usable. Mutations still invalidate snapshots
 before dispatch: failed invalidation produces a typed storage failure and sends
 no backend mutation. No offline writes are enabled.
+
+
+## Persistence ordering (Issue #24)
+
+Snapshot encryption and identifier resolution finish before the revision/closed
+check at SQL dispatch. A session-local persistence queue orders snapshot INSERT,
+eviction/removal, mutation invalidation and session purge. An already dispatched
+INSERT finishes before its purge; a read still preparing its INSERT is cancelled
+when its revision changes. Backend mutations remain single-flight and are never
+queued or replayed by this mechanism.

@@ -40,6 +40,22 @@ class EncryptedReadCache {
   bool _writing = false;
   Future<SecretKey>? _key;
   Future<String>? _owner;
+  Future<void>? _persistence;
+
+  // Order snapshot changes and purges, never backend mutations.
+  Future<T> _persist<T>(Future<T> Function() operation) {
+    final previous = _persistence;
+    final completed = Completer<void>();
+    _persistence = completed.future;
+    return () async {
+      if (previous != null) await previous;
+      try {
+        return await operation();
+      } finally {
+        completed.complete();
+      }
+    }();
+  }
 
   void retryRead() => _probe = true;
 
@@ -146,7 +162,7 @@ class EncryptedReadCache {
       }
       try {
         if (approved == null) {
-          await _remove(barcode);
+          await _remove(barcode, revision: revision);
         } else {
           final box = await _cipher.encrypt(
             utf8.encode(
@@ -155,27 +171,34 @@ class EncryptedReadCache {
             secretKey: await key,
             aad: utf8.encode(barcode),
           );
-          if (!_closed && revision == _revision) {
+          // Finish async preparation before the generation check at dispatch.
+          final identity = await owner;
+          final code = await _hash(barcode);
+          final payload = base64Encode(box.concatenation());
+          await _persist(() async {
+            if (_closed || revision != _revision) throw cancelledOperation;
             await database.customStatement(
               'INSERT OR REPLACE INTO product_reads VALUES (?, ?, ?)',
-              [
-                await owner,
-                await _hash(barcode),
-                base64Encode(box.concatenation()),
-              ],
+              [identity, code, payload],
             );
             await database.customStatement(
               'DELETE FROM product_reads WHERE rowid NOT IN '
               '(SELECT rowid FROM product_reads ORDER BY rowid DESC LIMIT 500)',
             );
-          }
+          });
         }
       } on Exception {
         // A cache failure must not hide a valid server response.
         if (_closed || revision != _revision) throw cancelledOperation;
-        // A failed replacement/removal must not expose the older snapshot.
-        offline = false;
+        // Block local fallback while removing the old snapshot durably.
         _unavailable.add(barcode);
+        try {
+          await _remove(barcode, revision: revision);
+        } on Exception {
+          // Keep the instance-local guard if durable cleanup also fails.
+        }
+        if (_closed || revision != _revision) throw cancelledOperation;
+        offline = false;
         _set(barcode, ReadSyncPhase.failed, time);
         return (product: product, serverVerified: true);
       }
@@ -189,7 +212,7 @@ class EncryptedReadCache {
       if (failure.kind != FailureKind.network &&
           failure.kind != FailureKind.timeout) {
         try {
-          await _remove(barcode);
+          await _remove(barcode, revision: revision);
         } on Exception {
           // Preserve authentication rejection even when cache cleanup fails.
           // Session key removal still makes its encrypted payload inaccessible.
@@ -205,10 +228,25 @@ class EncryptedReadCache {
     }
   }
 
-  Future<void> _remove(String barcode) async {
-    await database.customStatement(
-      'DELETE FROM product_reads WHERE owner = ? AND code = ?',
-      [await owner, await _hash(barcode)],
+  Future<void> _remove(String barcode, {required int revision}) async {
+    final identity = await owner;
+    final code = await _hash(barcode);
+    await _persist(() async {
+      if (_closed || revision != _revision) throw cancelledOperation;
+      await database.customStatement(
+        'DELETE FROM product_reads WHERE owner = ? AND code = ?',
+        [identity, code],
+      );
+    });
+  }
+
+  Future<void> _purge() async {
+    final identity = await owner;
+    await _persist(
+      () => database.customStatement(
+        'DELETE FROM product_reads WHERE owner = ?',
+        [identity],
+      ),
     );
   }
 
@@ -267,10 +305,7 @@ class EncryptedReadCache {
     try {
       // Invalidate before uncertain writes; never reuse pre-write data.
       try {
-        await database.customStatement(
-          'DELETE FROM product_reads WHERE owner = ?',
-          [await owner],
-        );
+        await _purge();
       } on Exception {
         throw const AppFailure(
           FailureKind.storage,
@@ -278,6 +313,7 @@ class EncryptedReadCache {
           'Resolve the storage problem and retry.',
         );
       }
+      if (_closed) throw cancelledOperation;
       return await operation();
     } on AppFailure catch (failure) {
       if (failure.kind == FailureKind.network ||
@@ -294,10 +330,7 @@ class EncryptedReadCache {
     _closed = true;
     _revision++;
     try {
-      await database.customStatement(
-        'DELETE FROM product_reads WHERE owner = ?',
-        [await owner],
-      );
+      await _purge();
     } finally {
       await _events.close();
       await _recovery.close();

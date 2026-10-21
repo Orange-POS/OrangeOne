@@ -100,6 +100,21 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
     );
   }
 
+  /// Retry an initial read failure without submitting or replaying a save.
+  Future<void> retryInitialLoad() async {
+    if (state.isLoading || !state.hasError) return;
+    final generation = _generation;
+    state = const AsyncLoading();
+    final result = await AsyncValue.guard(() async {
+      NewProduct.validateBarcode(barcode);
+      final context = await ref
+          .read(productDetailsRepositoryProvider)
+          .prepareCreation(barcode, refresh: true);
+      return ProductCreationState(context: context);
+    });
+    if (ref.mounted && generation == _generation) state = result;
+  }
+
   Future<void> _recover() async {
     final current = state.value;
     if (_recovering ||
