@@ -85,21 +85,17 @@ committing. Keep the existing format-on-save settings and staged-format hook.
 
 ## CI
 
-`.github/workflows/flutter_tests.yml` replaces the former quality workflow only.
-**Flutter Tests / Format, analyze and test** runs on every push/PR, main merge
-queue and manual dispatch. It checks locked dependencies, formatting, analysis,
-offline unit/widget tests, coverage and the preserved deployment-script tests.
-Missing coverage or any failed gate fails the job. Device integration is manual.
+`.github/workflows/flutter_tests.yml` preserves PR #9's format, analyze, offline
+unit/widget and coverage gates on pushes, PRs, main merge queues and manual runs.
+It also executes `python3 -m unittest discover -s tool/ci -p 'test_*.py'`,
+`ruby -c fastlane/Fastfile` and `ruby tool/ci/test_fastlane.rb`.
+The deployment tests use synthetic profiles/archives and mocked subprocesses and
+Fastlane actions; they never sign, upload, contact Apple or access credentials.
 
-Native compilation remains in `android.yaml` and `ios.yaml`, including all three
-flavors. The independent `license_check.yaml` enforces the existing direct,
-development and transitive dependency policy and fails on retrieval errors.
-Manual iOS signing/submission and its protected environments are preserved;
-see [Deployment](deployment.md). None of these checks require a live Odoo server.
-
-Update only the old quality required status to **Format, analyze and test** after
-its first run. Keep native and license requirements; repository settings are not
-changed by workflow files. PR #15 owns further native/deployment changes.
+Keep the independent native flavor builds and license workflow required statuses.
+Only the legacy quality status is replaced by **Format, analyze and test**.
+GitHub branch protection/environment settings require owner configuration.
+See [Deployment](deployment.md) for manual protected release controls.
 
 ## Adding a feature or fixing a regression
 
@@ -110,9 +106,9 @@ changed by workflow files. PR #15 owns further native/deployment changes.
 5. Review coverage changes for missing paths; do not add arbitrary exclusions or
    thresholds to make CI pass. Record physical-device checks separately.
 
-Passing host tests alone does not prove native compilation, real camera behavior
-or production backend compatibility. Native compilation has separate workflows;
-physical-device verification remains a separate release requirement.
+Native builds and deployment are separate workflows documented in
+[deployment.md](deployment.md). Passing this suite does not prove Android/iOS compilation, real camera
+behavior or production backend compatibility.
 
 Local verification on 2026-10-20: all 355 unit/widget tests passed with coverage,
 including all six domain use-case source files. The exact format gate reported

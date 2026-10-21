@@ -178,6 +178,8 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       PR_NUMBER: ${{ needs.release_checks.outputs.pr_number }}
       SOURCE_SHA: ${{ needs.release_checks.outputs.source_sha }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
     steps:
       # Trusted control-plane files only. Never checkout or execute PR source here.
       - uses: actions/checkout@v4

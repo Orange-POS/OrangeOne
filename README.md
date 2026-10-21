@@ -197,11 +197,14 @@ formatting, analysis and offline unit/widget tests on every push and pull reques
 main merge queues and manual dispatch. Coverage is uploaded as an artifact.
 Read [Testing strategy](docs/testing.md) for conventions, examples and commands.
 
-The existing Android and unsigned iOS builds, dependency license checks and manual
-iOS TestFlight/App Store review path are preserved. Only the former quality job
-is replaced by **Format, analyze and test**; keep native and license branch
-protection checks. See [Deployment](docs/deployment.md) for the existing release
-procedure. PR #15 owns detailed build/deployment enhancements.
+Native checks use [Android](.github/workflows/android.yaml) and
+[iOS](.github/workflows/ios.yaml) matrices for development, staging and production.
+The [license policy](.github/workflows/license_check.yaml) remains enforced.
+iOS distribution is manual from main, with protected approval and separate
+archive/export runners. TestFlight does not publish the app publicly.
+Keep native and license branch protection checks; only the legacy quality job is
+replaced by **Format, analyze and test**. Read [Deployment](docs/deployment.md)
+for inputs, environments and release checks.
 
 ## Security and release notes
 
@@ -209,7 +212,7 @@ procedure. PR #15 owns detailed build/deployment enhancements.
 - Keep local development configuration files ignored by Git.
 - Real Android distribution requires signing credentials and a protected keystore.
 - iOS distribution requires an Apple Developer account, provisioning/signing and App Store Connect configuration.
-- Native build/signing pipelines are preserved; detailed enhancements belong to PR #15. Firebase integrations remain future work.
+- Production distribution requires a manual main-branch request and protected approval. Actual signing and iPhone testing require recorded run evidence. Firebase integrations remain future work.
 - Verify permissions, network behavior and backend compatibility with real devices and a test Odoo environment before production use.
 
 ## Project documentation

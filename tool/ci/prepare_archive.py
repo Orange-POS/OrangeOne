@@ -38,6 +38,13 @@ def validate_app(archive, version, build_number):
             or details.get('CFBundleShortVersionString') != version
             or details.get('CFBundleVersion') != build_number):
         raise ValueError('Candidate bundle/version/build does not match the manual request.')
+    executable = details.get('CFBundleExecutable')
+    if (not isinstance(executable, str) or not executable
+            or '/' in executable or '\\' in executable or executable in ('.', '..')):
+        raise ValueError('Candidate has no valid application executable.')
+    binary = app / executable
+    if not binary.is_file() or binary.stat().st_size == 0:
+        raise ValueError('Candidate application executable is missing or empty.')
 
 
 if __name__ == '__main__':

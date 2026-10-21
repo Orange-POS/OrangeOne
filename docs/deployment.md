@@ -1,8 +1,19 @@
 # Android and iOS deployment
 
-PR #9 preserves the main-branch native/release implementation and helper tests.
-PR #15 owns its detailed replacement or enhancement; this restoration does not
-claim that Apple signing or device testing has completed.
+## Testing and deployment ownership
+
+PR #9's testing strategy and restored license policy are merged into main.
+PR #15 retains those gates and adds release regression safeguards. The canonical
+workflow names remain `android.yaml`, `ios.yaml`, `license_check.yaml` and
+`flutter_tests.yml`; production-only replacement workflows are retired to avoid
+duplicate builds and automatic signing.
+
+Distribution remains manual from main, with protected approval and separate
+secret-free compilation and signing/export runners. Version/build numbers are
+explicit inputs; reserve a unique build number in App Store Connect. Local
+regression tests never trigger signing or upload. Main was merged into PR #15
+using a normal merge to resolve the overlap after PR #9's squash merge; no
+history rewriting or automatic merge of PR #15 into main is required.
 
 ## Workflow behavior
 
@@ -214,3 +225,20 @@ owner secret setup and actual hosted/device runs.
 The split unsigned-archive/export path is validated locally through mocked export
 commands, archive checks and workflow linting. Actual signing/export and upload
 still need a hosted macOS run with Apple credentials; no success is claimed here.
+
+
+## Secret-free review validation
+
+Release tests cover profile/team/bundle/expiry/device-list rejection, manual-main
+restrictions, required iPhone attestation, archive identity/executable validation,
+export-only invocation, missing/empty/multiple IPA rejection and cleanup after
+partial installation or damaged cleanup state. Signing cleanup errors fail the
+job rather than reporting success. A destroyed state file can prevent restoring
+the old keychain list or locating an installed profile; use ephemeral hosted
+runners, inspect failed cleanup and never reuse a runner for another release.
+
+Local Windows validation cannot prove Xcode export, real Apple asset validity,
+TestFlight processing, protected-environment approval or physical iPhone flows.
+These require a reviewed manual run on GitHub macOS after owner approval; do not
+trigger distribution merely to validate this change. No public release occurs:
+`automatic_release: false` is preserved and the owner releases in App Store Connect.

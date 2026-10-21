@@ -3,10 +3,15 @@ import os
 from pathlib import Path
 import plistlib
 import subprocess
+from prepare_archive import validate_app
 
 def export():
+    archive = Path(os.environ['RUNNER_TEMP']) / 'candidate/Runner.xcarchive'
+    validate_app(archive, os.environ['RELEASE_VERSION'], os.environ['RELEASE_BUILD_NUMBER'])
     destination = Path.cwd() / 'build/ios/ipa'
     destination.mkdir(parents=True, exist_ok=True)
+    if list(destination.glob('*.ipa')):
+        raise ValueError('Export destination must not contain a previous IPA.')
     options = Path(os.environ['RUNNER_TEMP']) / 'store-export.plist'
     options.write_bytes(plistlib.dumps({
         'method': 'app-store-connect',
@@ -17,7 +22,7 @@ def export():
     }))
     subprocess.run([
         '/usr/bin/xcodebuild', '-exportArchive',
-        '-archivePath', str(Path(os.environ['RUNNER_TEMP']) / 'candidate/Runner.xcarchive'),
+        '-archivePath', str(archive),
         '-exportPath', str(destination), '-exportOptionsPlist', str(options),
     ], check=True)
     ipas = list(destination.glob('*.ipa'))

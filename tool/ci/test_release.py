@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 from unittest.mock import patch
-from ios_signing import validate_profile, cleanup
+from ios_signing import validate_profile, cleanup, install_signing
 from validate_release import validate
 
 
@@ -85,6 +85,33 @@ class CleanupTest(unittest.TestCase):
                 self.assertEqual(command.call_count, 2)
             self.assertFalse(root.exists())
             self.assertFalse(profile.exists())
+
+    def test_corrupt_state_still_deletes_keychain_and_private_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'orangeone-signing'
+            root.mkdir()
+            (root / 'state.json').write_text('{broken')
+            (root / 'signing.keychain-db').write_bytes(b'fixture')
+            (root / 'AuthKey.p8').write_bytes(b'fixture')
+            with patch.dict(os.environ, {'RUNNER_TEMP': temporary}), patch('ios_signing.run', return_value=b'') as command:
+                with self.assertRaises(ValueError):
+                    cleanup()
+                self.assertEqual(command.call_args.args[1], 'delete-keychain')
+            self.assertFalse(root.exists())
+
+    def test_partial_install_failure_is_cleaned_without_live_credentials(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            values = {'RUNNER_TEMP': temporary, 'IOS_CERTIFICATE_BASE64': 'Zml4dHVyZQ==',
+                      'IOS_PROVISION_PROFILE_BASE64': 'Zml4dHVyZQ=='}
+            with patch.dict(os.environ, values), patch('ios_signing.run', side_effect=subprocess.CalledProcessError(1, 'fixture')):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    install_signing()
+            root = Path(temporary) / 'orangeone-signing'
+            self.assertTrue((root / 'distribution.p12').exists())
+            with patch.dict(os.environ, values), patch('ios_signing.run') as command:
+                cleanup()
+                command.assert_not_called()
+            self.assertFalse(root.exists())
 
 if __name__ == '__main__':
     unittest.main()

@@ -118,8 +118,8 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
 
 ## Testing CI (Task 11)
-- Read `docs/testing.md`. `.github/workflows/flutter_tests.yml` replaces only the quality workflow: format, analysis, offline unit/widget tests, coverage and preserved deployment-script checks on every push/PR, main merge queue and manual dispatch.
-- Preserve Android/iOS compilation, manual signing/submission, dependency license enforcement and their existing helpers. PR #15 owns detailed native/deployment enhancements; do not duplicate them in testing-only work.
+- Read `docs/testing.md`. `.github/workflows/flutter_tests.yml` replaces only the quality workflow: format, analysis, offline unit/widget tests, coverage and deployment-script checks on every push/PR, main merge queue and manual dispatch.
+- Native checks in `android.yaml` and `ios.yaml` cover all three flavors; preserve `license_check.yaml`. Distribution is manual from main through protected `ios-production` / `ios-app-store` environments. Compile candidate source without secrets, then validate/sign/export on a fresh trusted runner without rebuilding. Preserve regression tests in `tool/ci`, cleanup on partial failure and explicit iPhone confirmation before submission. Never automatically publish. Read `docs/deployment.md`.
 - Preserve existing test suites and use mirrored feature/layer folders for new suites. Reuse Mocktail, service overrides and controlled fakes; no live Odoo or credential dependencies.
 
 ## Tests and definition of done
@@ -138,7 +138,7 @@ dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test
 ```
-Use repository-specific flavor/build commands rather than assuming entry-point names. Host tests do not replace the preserved native build checks or protected release verification. Never commit keys or certificates.
+Use repository-specific flavor/build commands rather than assuming entry-point names. Task 12 native workflows are separate from Flutter testing CI; verify actual signing/upload and device results before claiming success. Never commit keys or certificates.
 
 ## Scope, quality, and handoff rules
 - Implement only requested acceptance criteria; identify blockers or prerequisites instead of silently expanding scope.

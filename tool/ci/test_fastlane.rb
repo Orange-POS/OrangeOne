@@ -56,6 +56,15 @@ class FastfileTest < Minitest::Test
     assert_raises(ArgumentError) { @harness.lanes[:beta].call }
     assert_empty @harness.calls
   end
+  def test_submit_rejects_nonmain_and_nonmanual_before_loading_key
+    ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
+    ENV['GITHUB_REF'] = 'refs/heads/feature'
+    assert_raises(ArgumentError) { @harness.lanes[:submit].call }
+    ENV['GITHUB_REF'] = 'refs/heads/main'
+    ENV['GITHUB_EVENT_NAME'] = 'workflow_run'
+    assert_raises(ArgumentError) { @harness.lanes[:submit].call }
+    assert_empty @harness.calls
+  end
   def test_beta_exports_selected_pr_without_rebuilding_and_uploads_internal_testflight
     ENV['PR_NUMBER'] = '42'
     Dir.stub(:[], @ipa_stub) { @harness.lanes[:beta].call }
@@ -70,6 +79,19 @@ class FastfileTest < Minitest::Test
     refute upload[:distribute_external]
     refute upload[:skip_waiting_for_build_processing]
     refute @harness.calls.assoc(:submit)
+  end
+  def test_missing_or_ambiguous_ipa_never_uploads
+    [[], ['one.ipa', 'two.ipa']].each do |paths|
+      Dir.stub(:[], proc { paths }) do
+        assert_raises(ArgumentError) { @harness.lanes[:beta].call }
+      end
+      refute @harness.calls.assoc(:testflight)
+    end
+  end
+  def test_failed_export_never_uploads
+    @harness.define_singleton_method(:sh) { |*| raise 'synthetic export failure' }
+    assert_raises(RuntimeError) { @harness.lanes[:beta].call }
+    refute @harness.calls.assoc(:testflight)
   end
   def test_submit_requires_iphone_attestation_and_does_not_rebuild_or_release
     ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'false'

@@ -124,12 +124,20 @@ def cleanup():
 
     state_file = root / 'state.json'
     if state_file.exists():
-        state = json.loads(state_file.read_text())
-        attempt(lambda: run('/usr/bin/security', 'list-keychains', '-d', 'user', '-s', *state['previous']))
-        profile = Path(state['profile'])
-        expected = Path.home() / 'Library/MobileDevice/Provisioning Profiles'
-        if profile.parent == expected and re.fullmatch(r'[A-Fa-f0-9-]{36}\.mobileprovision', profile.name):
-            attempt(lambda: profile.unlink(missing_ok=True))
+        try:
+            state = json.loads(state_file.read_text())
+            previous = state['previous']
+            profile = Path(state['profile'])
+            if not isinstance(previous, list) or not all(isinstance(p, str) for p in previous):
+                raise ValueError('Invalid cleanup state')
+        except (OSError, ValueError, KeyError, TypeError):
+            # A damaged record must not skip private files/keychain cleanup.
+            errors.append(True)
+        else:
+            attempt(lambda: run('/usr/bin/security', 'list-keychains', '-d', 'user', '-s', *previous))
+            expected = Path.home() / 'Library/MobileDevice/Provisioning Profiles'
+            if profile.parent == expected and re.fullmatch(r'[A-Fa-f0-9-]{36}\.mobileprovision', profile.name):
+                attempt(lambda: profile.unlink(missing_ok=True))
     keychain = root / 'signing.keychain-db'
     if keychain.exists():
         attempt(lambda: run('/usr/bin/security', 'delete-keychain', str(keychain)))
