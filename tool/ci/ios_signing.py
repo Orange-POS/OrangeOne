@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 
-BUNDLE_ID = 'com.orangeone.app'
+BUNDLE_ID = 'ch.orangepos.productscanner'
 
 
 def validate_profile(profile, team, now=None):

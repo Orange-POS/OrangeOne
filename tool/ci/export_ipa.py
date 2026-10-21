@@ -18,7 +18,7 @@ def export():
         'signingStyle': 'manual',
         'signingCertificate': 'Apple Distribution',
         'teamID': os.environ['APPLE_TEAM_ID'],
-        'provisioningProfiles': {'com.orangeone.app': os.environ['IOS_PROFILE_NAME']},
+        'provisioningProfiles': {'ch.orangepos.productscanner': os.environ['IOS_PROFILE_NAME']},
     }))
     subprocess.run([
         '/usr/bin/xcodebuild', '-exportArchive',

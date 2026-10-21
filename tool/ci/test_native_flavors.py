@@ -1,5 +1,6 @@
 """Check repository flavor wiring without Gradle, Xcode or distribution secrets."""
 from pathlib import Path
+import re
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -23,6 +24,23 @@ class NativeFlavorTest(unittest.TestCase):
                 scheme = ET.parse(ROOT / f'ios/Runner.xcodeproj/xcshareddata/xcschemes/{flavor}.xcscheme')
                 self.assertEqual(scheme.find('ArchiveAction').get('buildConfiguration'), f'Release-{flavor}')
                 self.assertIn(f'Release-{flavor}', project)
+
+    def test_xcode_bundle_ids_match_signing_identity_and_flavor(self):
+        project = (ROOT / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
+        blocks = re.findall(r'/\* ([^*]+) \*/ = \{\s*isa = XCBuildConfiguration;(.*?)\n\t\t\};', project, re.S)
+        checked = 0
+        for configuration, body in blocks:
+            match = re.search(r'PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);', body)
+            if not match:
+                continue
+            bundle = match.group(1)
+            suffix = '.RunnerTests' if bundle.endswith('.RunnerTests') else (
+                '.dev' if configuration.endswith('development') else
+                '.stg' if configuration.endswith('staging') else '')
+            with self.subTest(configuration=configuration, bundle=bundle):
+                self.assertEqual(bundle, 'ch.orangepos.productscanner' + suffix)
+            checked += 1
+        self.assertGreater(checked, 0)
 
     def test_native_workflows_keep_flavor_matrices_and_merge_queue_coverage(self):
         for name in ('android.yaml', 'ios.yaml'):
