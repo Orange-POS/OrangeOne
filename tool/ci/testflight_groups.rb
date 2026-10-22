@@ -75,13 +75,13 @@ class OrangeoneTestflight
           end
           group = selected_group
           raise Error, 'Selected tester group changed during processing.' unless group.id == @group.id
-          if group.is_internal_group == false && build.build_beta_detail && !build.ready_for_external_testing?
-            raise Error, 'External group requires Beta App Review eligibility for this exact build. Complete review manually; no automatic review is submitted.'
-          end
-          ready = group.is_internal_group ? build.ready_for_internal_testing? : build.ready_for_external_testing?
+          ready = group.is_internal_group ? internal_testing_ready?(build) : external_testing_ready?(build)
+          # Existing access is authoritative even while initial readiness lags.
+          # Identity, validity, compliance and group checks must precede this.
+          return build.id if request { @api.assigned?(build, group) }
           if ready
             # Relationship POST is additive and receives only the allowlisted group.
-            request { @api.assign(build, group) } unless request { @api.assigned?(build, group) }
+            request { @api.assign(build, group) }
             loop do
               return build.id if request { @api.assigned?(build, group) }
               pause(deadline)
@@ -94,6 +94,48 @@ class OrangeoneTestflight
   end
 
   private
+
+  def internal_testing_ready?(build)
+    detail = build.build_beta_detail
+    return false unless detail
+    case detail.internal_build_state
+    when nil, 'PROCESSING'
+      false
+    when 'READY_FOR_BETA_TESTING', 'IN_BETA_TESTING'
+      true
+    when 'MISSING_EXPORT_COMPLIANCE', 'IN_EXPORT_COMPLIANCE_REVIEW'
+      raise Error, 'Complete or await export compliance for this exact build in App Store Connect; no compliance answer is assumed.'
+    when 'PROCESSING_EXCEPTION', 'EXPIRED'
+      raise Error, 'Internal processing failed or this exact build expired. Inspect the build in App Store Connect.'
+    else
+      raise Error, 'Unrecognized internal build state. Inspect this exact build in App Store Connect before distribution.'
+    end
+  end
+
+  def external_testing_ready?(build)
+    # Fastlane 2.241.1 Build delegates external readiness to a nonexistent
+    # BuildBetaDetail method. Read the dependency's supported state instead.
+    detail = build.build_beta_detail
+    return false unless detail
+    case detail.external_build_state
+    when nil, 'PROCESSING'
+      false # Missing/eventually consistent details share the existing deadline.
+    when 'BETA_APPROVED', 'READY_FOR_BETA_TESTING', 'IN_BETA_TESTING'
+      true
+    when 'READY_FOR_BETA_SUBMISSION'
+      raise Error, 'This exact build requires manual Beta App Review submission in App Store Connect; no automatic review is submitted.'
+    when 'WAITING_FOR_BETA_REVIEW', 'IN_BETA_REVIEW'
+      raise Error, 'Beta App Review is pending for this exact build. Wait for Apple review in App Store Connect, then assign the approved build manually.'
+    when 'BETA_REJECTED'
+      raise Error, 'Beta App Review rejected this exact build. Resolve the rejection in App Store Connect before external distribution.'
+    when 'MISSING_EXPORT_COMPLIANCE', 'IN_EXPORT_COMPLIANCE_REVIEW'
+      raise Error, 'Complete or await export compliance for this exact build in App Store Connect; no compliance answer is assumed.'
+    when 'PROCESSING_EXCEPTION', 'EXPIRED'
+      raise Error, 'External processing failed or this exact build expired. Inspect the build in App Store Connect.'
+    else
+      raise Error, 'Unrecognized external build state. Inspect this exact build in App Store Connect before distribution.'
+    end
+  end
 
   def selected_group
     matches = request { @api.groups(@app) }.select { |group| group.name == @name }

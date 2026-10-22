@@ -311,7 +311,11 @@ existing pinned Spaceship client for Apple's official App Store Connect API:
   is fabricated. External review eligibility is checked separately.
 - Add only the selected group's relationship to that exact build ID, then read
   the group/build relationship back. API errors or unconfirmed assignments fail
-  the workflow. An existing matching assignment is treated idempotently.
+  the workflow. An existing matching assignment is treated idempotently: after
+  identity, validity, compliance and group validation, check the relationship
+  before waiting for initial readiness. Internal `IN_BETA_TESTING` builds can
+  retain their existing assignment or receive another selected allowed group;
+  no upload is replayed and new assignments still require read-back confirmation.
 
 If processing/compliance/review or assignment fails after upload, the binary may
 already be in TestFlight. Inspect **that exact version/build** in App Store Connect
@@ -341,8 +345,14 @@ The target-group input is irrelevant to submission. Selecting Production Testers
 with operation `testflight` never submits or publishes the public App Store app.
 Public release remains manual (`automatic_release: false`).
 
-The existing Ruby CI entry point (`ruby tool/ci/test_fastlane.rb`) also loads the
-controlled group-coordinator tests, without Fastlane or Apple services. Hosted
+After `bundle install` installs the pinned Fastlane dependency, the existing Ruby
+CI entry point (`ruby tool/ci/test_fastlane.rb`) also loads the controlled group
+coordinator tests. These load the actual Fastlane 2.241.1 `BuildBetaDetail` model
+without initializing an Apple client or making network requests. External states
+`BETA_APPROVED`, `READY_FOR_BETA_TESTING` and `IN_BETA_TESTING` permit assignment.
+Missing details/state and `PROCESSING` wait within the deadline; review-required,
+pending/rejected review, compliance and terminal failures stop with manual guidance.
+Unknown external states fail closed. No absent external-readiness method is called. Hosted
 macOS verification is still required for real signing, API permissions, group
 eligibility/processing, TestFlight installation and protected-environment rules.
 Firebase is not integrated by this change.

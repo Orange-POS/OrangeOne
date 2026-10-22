@@ -127,6 +127,8 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
+      - run: bundle config set --local frozen true
+      - run: bundle install
       - run: |
           ruby -c fastlane/Fastfile
           ruby tool/ci/test_fastlane.rb

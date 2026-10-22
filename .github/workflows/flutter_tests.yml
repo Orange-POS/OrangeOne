@@ -43,6 +43,8 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
+      - run: bundle config set --local frozen true
+      - run: bundle install
       - name: Check preserved Fastlane guards
         run: |
           ruby -c fastlane/Fastfile

@@ -1,4 +1,4 @@
-# Evaluate the real Fastfile with recording actions; never load Fastlane or Apple services.
+# Evaluate the real Fastfile with recording actions; model tests never call Apple services.
 require 'minitest/autorun'
 require_relative 'test_testflight_groups'
 
@@ -33,6 +33,20 @@ module UI
 end
 
 class FastfileTest < Minitest::Test
+  def test_frozen_bundle_has_current_lockfile_and_exact_fastlane_pin
+    require 'bundler'
+    root = File.expand_path('../..', __dir__)
+    lockfile = File.join(root, 'Gemfile.lock')
+    assert File.file?(lockfile), 'Frozen CI installation requires Gemfile.lock'
+    parser = Bundler::LockfileParser.new(File.read(lockfile))
+    assert_equal '= 2.241.1', parser.dependencies.fetch('fastlane').requirement.to_s
+    assert_equal ['2.241.1'], parser.specs.select { |spec| spec.name == 'fastlane' }.map { |spec| spec.version.to_s }.uniq
+    Dir.chdir(root) { Bundler.definition.ensure_equivalent_gemfile_and_lockfile }
+    %w[x86_64-linux arm64-darwin x86_64-darwin].each do |platform|
+      assert_includes parser.platforms.map(&:to_s), platform
+    end
+  end
+
   def setup
     @previous = ENV.to_h
     ENV.delete('RELEASE_FLAVOR')
