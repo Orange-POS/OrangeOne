@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/use_cases/manage_product_details.dart';
 import 'package:orange_one/features/products/domain/use_cases/update_product_price.dart';
@@ -51,6 +54,9 @@ class PriceUpdateController extends AsyncNotifier<PriceUpdateState> {
   @override
   Future<PriceUpdateState> build() async {
     _generation++;
+    ref.listen(readCacheRecoveryProvider, (previous, next) {
+      if (next.hasValue) unawaited(refresh());
+    });
     final repository = ref.watch(productDetailsRepositoryProvider);
     final details = await ManageProductDetails(repository).load(barcode);
     return PriceUpdateState(details: details);
@@ -203,8 +209,23 @@ class PriceUpdateController extends AsyncNotifier<PriceUpdateState> {
   }
 
   Future<void> refresh() async {
+    if (state.isLoading) return;
+    if (state.hasError) {
+      ref.read(readCacheProvider)?.retryRead();
+      final generation = _generation;
+      state = const AsyncLoading();
+      final result = await AsyncValue.guard(() async {
+        final details = await ManageProductDetails(
+          ref.read(productDetailsRepositoryProvider),
+        ).load(barcode);
+        return PriceUpdateState(details: details);
+      });
+      if (ref.mounted && generation == _generation) state = result;
+      return;
+    }
     final current = state.value;
-    if (state.isLoading || current == null || current.busy) return;
+    if (current == null || current.busy) return;
+    ref.read(readCacheProvider)?.retryRead();
     final generation = _generation;
     final repository = ref.read(productDetailsRepositoryProvider);
     state = AsyncData(

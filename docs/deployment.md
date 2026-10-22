@@ -2,18 +2,19 @@
 
 ## Testing and deployment ownership
 
-PR #9's testing strategy and restored license policy are merged into main.
-PR #15 retains those gates and adds release regression safeguards. The canonical
-workflow names remain `android.yaml`, `ios.yaml`, `license_check.yaml` and
-`flutter_tests.yml`; production-only replacement workflows are retired to avoid
-duplicate builds and automatic signing.
+PR #9's testing strategy and PR #15's native build/deployment implementation
+are merged into main. PR #19 preserves those gates and adds offline data access,
+recovery fixes and the production iOS bundle identity correction.
+The canonical workflow names remain `android.yaml`, `ios.yaml`,
+`license_check.yaml` and `flutter_tests.yml`; production-only replacement
+workflows are retired to avoid duplicate builds and automatic signing.
 
 Distribution remains manual from main, with protected approval and separate
 secret-free compilation and signing/export runners. Version/build numbers are
 explicit inputs; reserve a unique build number in App Store Connect. Local
-regression tests never trigger signing or upload. Main was merged into PR #15
-using a normal merge to resolve the overlap after PR #9's squash merge; no
-history rewriting or automatic merge of PR #15 into main is required.
+regression tests never trigger signing or upload. Main is integrated into
+PR #19 using a normal merge; no history is rewritten and this does not merge
+PR #19 into main.
 
 ## Workflow behavior
 
@@ -41,7 +42,7 @@ Android signing key workflow separately; do not reuse debug keys for that purpos
 ## Apple setup (owner action before the first signed run)
 
 1. Enroll the organization in the Apple Developer Program and accept current
-   agreements. Confirm ownership of production bundle ID `com.orangeone.app`.
+   agreements. Confirm ownership of production bundle ID `ch.orangepos.productscanner`.
    Create its App Store Connect app record. If that ID is unavailable, change all
    bundle/signing references consistently before building; no Apple account or
    app record is created by these files.
@@ -213,7 +214,7 @@ owner secret setup and actual hosted/device runs.
   the workflow source. No secrets are required in a contributor's fork.
 - A new PR commit or a closed PR invalidates the candidate before signing. Rerun
   manually and review the new immutable SHA; do not approve stale source.
-- Main and PR uploads share `com.orangeone.app` and the production flavor. Use a
+- Main and PR uploads share `ch.orangepos.productscanner` and the production flavor. Use a
   distinct build number for every upload. TestFlight's changelog names PR/main
   and the SHA. Development/staging TestFlight distribution is not enabled.
 - Existing automatic unsigned iOS checks remain. They do not sign or upload to

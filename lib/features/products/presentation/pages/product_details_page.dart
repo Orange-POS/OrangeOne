@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/mock_discount_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_action_bar.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/app_logo.dart';
+import 'package:orange_one/shared/widgets/product_sync_indicator.dart';
 import 'package:orange_one/shared/widgets/stock_badge.dart';
 
 class ProductDetailsPage extends ConsumerStatefulWidget {
@@ -39,11 +41,11 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(readCacheChangesProvider);
+    final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = productDetailsControllerProvider(widget.barcode);
     final state = ref.watch(provider);
-    final product = state.isLoading || state.hasError
-        ? null
-        : state.value?.product;
+    final product = state.hasError ? null : state.value?.product;
     return Scaffold(
       // Neutral backing prevents the glass footer picking up an orange cast.
       backgroundColor: Colors.white,
@@ -81,7 +83,10 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                   ),
                   IconButton(
                     tooltip: 'Edit product name',
-                    onPressed: product != null && state.value!.access.editName
+                    onPressed:
+                        product != null &&
+                            !offline &&
+                            state.value!.access.editName
                         ? () => context.pushNamed<bool>(
                             'productEdit',
                             queryParameters: {'barcode': widget.barcode},
@@ -104,7 +109,8 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
       bottomNavigationBar: product == null
           ? null
           : ProductActionBar(
-              onUpdatePrice: state.value!.access.updatePrice
+              offline: offline,
+              onUpdatePrice: !offline && state.value!.access.updatePrice
                   ? () => context.pushNamed<bool>(
                       'productPrice',
                       queryParameters: {'barcode': widget.barcode},
@@ -143,7 +149,13 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const AppLogo(),
+                          Row(
+                            children: [
+                              const AppLogo(),
+                              const Spacer(),
+                              ProductSyncIndicator(barcode: product.barcode),
+                            ],
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             product.name,

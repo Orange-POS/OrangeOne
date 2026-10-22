@@ -128,19 +128,16 @@ successful logout. New login is blocked while the actual platform deletion remai
 pending; writes/deletes stay ordered so a late deletion cannot erase a new login.
 
 A successful QR login stays in secure storage across process restarts until local
-logout, backend expiry/rejection, or a detected server outage. Ordinary background /
+logout or backend expiry/rejection. Ordinary background /
 foreground transitions do not revalidate or poll. The server's eight-hour token
 expiry still applies; the app cannot extend backend token validity.
 
-During authenticated product lookup, details, reference or update operations, the
-first network/timeout failure (including HTTP 502/503/504 unavailability) invokes
-local sign-out without a retry or additional ping. Authenticated requests are
-cancelled as their session dependencies are disposed, protected navigation resets,
-and product controllers/drafts lose their previous session dependencies. Operation
-permission denials and validation errors do not imply the whole server is offline.
-An outage is detected when a request fails, not while the app is idle. A lost write
-response may mean a change was applied: after a new login, inspect fresh server
-data before attempting that operation again; no writes are automatically replayed.
+Task 13 permits read-only cached access during a network outage inside an already
+verified, unexpired session. Transient product network/timeout failures no longer
+sign out this session; they disable writes and expose only approved cached data.
+Cache misses remain network errors. Startup validation remains strict, and backend
+session rejection, expiry and logout still reset session-dependent state. No
+periodic ping or write replay is introduced. See [Offline reads](offline-data.md).
 
 Home exposes a visible **Logout** action. Expiry and logout hide protected UI and
 clear local secure storage. Logout is local because the supplied controller has no

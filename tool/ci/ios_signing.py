@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 
-BUNDLE_ID = 'com.orangeone.app'
+BUNDLE_ID = 'ch.orangepos.productscanner'
 
 
 def validate_profile(profile, team, now=None):
@@ -163,4 +163,3 @@ if __name__ == '__main__':
     except (ValueError, KeyError, IndexError, OSError, subprocess.SubprocessError, plistlib.InvalidFileException):
         # CalledProcessError may include password arguments. Never echo it.
         sys.exit('Apple signing operation failed. Check required secrets, profile, team and certificate validity.')
-

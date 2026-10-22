@@ -3,8 +3,9 @@ import 'package:orange_one/features/products/presentation/widgets/product_action
 
 /// Fixed, safe-area-aware actions; the page body scrolls independently.
 class ProductActionBar extends StatelessWidget {
-  const new({required this.onUpdatePrice, super.key});
+  const new({required this.onUpdatePrice, this.offline = false, super.key});
   final VoidCallback? onUpdatePrice;
+  final bool offline;
 
   @override
   Widget build(BuildContext context) => ProductActionSurface(
@@ -58,10 +59,12 @@ class ProductActionBar extends StatelessWidget {
               stock,
             ],
             const SizedBox(height: 8),
-            const Text(
-              'Stock updates are not supported by the current server.',
+            Text(
+              offline
+                  ? 'Offline: read-only. Reconnect to update products.'
+                  : 'Stock updates are not supported by the current server.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Color(0xFF5F6368)),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF5F6368)),
             ),
           ],
         );

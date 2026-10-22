@@ -17,6 +17,7 @@ jobs:
     with:
       flutter_version: '3.47.5'
       runs_on: ubuntu-24.04
-      allowed: 'MIT,BSD-3-Clause,BSD-2-Clause,Apache-2.0'
+      # Offline connectivity includes dbus/nm under MPL-2.0; keep all packages checked.
+      allowed: 'MIT,BSD-3-Clause,BSD-2-Clause,Apache-2.0,MPL-2.0'
       dependency_type: 'direct-main,direct-dev,transitive'
       ignore_retrieval_failures: false

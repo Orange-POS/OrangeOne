@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
@@ -42,12 +43,7 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
 
   Future<void> _refresh() async {
     final provider = productEditControllerProvider(widget.barcode);
-    if (ref.read(provider).hasError) {
-      ref.invalidate(provider);
-      await AsyncValue.guard(() => ref.read(provider.future));
-    } else {
-      await ref.read(provider.notifier).refresh();
-    }
+    await ref.read(provider.notifier).refresh();
   }
 
   Future<void> _taxes(ProductEditState value) async {
@@ -76,6 +72,8 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(readCacheChangesProvider);
+    final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = productEditControllerProvider(widget.barcode);
     final async = ref.watch(provider);
     final value = async.isLoading || async.hasError ? null : async.value;
@@ -131,7 +129,7 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                       ? () => _leave(true)
                       : uncertain
                       ? _refresh
-                      : value?.canSubmit == true
+                      : value?.canSubmit == true && !offline
                       ? () async {
                           _focus.unfocus();
                           await ref.read(provider.notifier).save();

@@ -74,6 +74,7 @@ class FastfileTest < Minitest::Test
     refute @harness.calls.assoc(:build)
     refute @harness.calls.assoc(:signing)
     upload = @harness.calls.assoc(:testflight).last
+    assert_equal 'ch.orangepos.productscanner', upload[:app_identifier]
     assert_equal 'fixture.ipa', upload[:ipa]
     assert_equal 'Production PR #42 @ ' + 'a' * 40, upload[:changelog]
     refute upload[:distribute_external]
@@ -100,6 +101,7 @@ class FastfileTest < Minitest::Test
     ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
     @harness.lanes[:submit].call
     submit = @harness.calls.assoc(:submit).last
+    assert_equal 'ch.orangepos.productscanner', submit[:app_identifier]
     assert_equal '1.0.0', submit[:app_version]
     assert_equal '12', submit[:build_number]
     assert submit[:skip_binary_upload]

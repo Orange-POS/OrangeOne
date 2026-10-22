@@ -16,5 +16,6 @@ class LookupProduct {
     return barcode;
   }
 
-  Future<Product?> call(String raw) => _repository.findByBarcode(validate(raw));
+  Future<Product?> call(String raw, {bool refresh = false}) =>
+      _repository.findByBarcode(validate(raw), refresh: refresh);
 }
