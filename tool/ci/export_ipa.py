@@ -4,6 +4,8 @@ from pathlib import Path
 import plistlib
 import subprocess
 from prepare_archive import validate_app
+from release_flavors import bundle_id
+from ios_signing import verify_export
 
 def export():
     archive = Path(os.environ['RUNNER_TEMP']) / 'candidate/Runner.xcarchive'
@@ -16,9 +18,9 @@ def export():
     options.write_bytes(plistlib.dumps({
         'method': 'app-store-connect',
         'signingStyle': 'manual',
-        'signingCertificate': 'Apple Distribution',
+        'signingCertificate': os.environ.get('IOS_CERTIFICATE_SHA1', 'Apple Distribution'),
         'teamID': os.environ['APPLE_TEAM_ID'],
-        'provisioningProfiles': {'ch.orangepos.productscanner': os.environ['IOS_PROFILE_NAME']},
+        'provisioningProfiles': {bundle_id(): os.environ['IOS_PROFILE_NAME']},
     }))
     subprocess.run([
         '/usr/bin/xcodebuild', '-exportArchive',
@@ -27,7 +29,8 @@ def export():
     ], check=True)
     ipas = list(destination.glob('*.ipa'))
     if len(ipas) != 1 or ipas[0].stat().st_size == 0:
-        raise SystemExit('Expected exactly one nonempty exported production IPA.')
+        raise SystemExit('Expected exactly one nonempty exported IPA.')
+    verify_export(ipas[0])
 
 
 if __name__ == '__main__':

@@ -1,0 +1,8 @@
+{
+  "bundle_id": "ch.orangepos.productscanner",
+  "groups": {
+    "dev": "Dev Testers",
+    "staging": "Staging Testers",
+    "production": "Production Testers"
+  }
+}

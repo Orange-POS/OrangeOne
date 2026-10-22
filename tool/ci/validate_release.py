@@ -1,9 +1,13 @@
 """Fail closed before a manual distribution job receives protected secrets."""
 import os
 import re
+from release_flavors import bundle_id, target_group
 
 
 def validate(values):
+    flavor = values.get('RELEASE_FLAVOR', 'production')
+    bundle_id(flavor)
+    target_group(values.get('TARGET_GROUP', 'production'))
     if values.get('GITHUB_REF') != 'refs/heads/main' or values.get('GITHUB_EVENT_NAME') != 'workflow_dispatch':
         raise ValueError('Distribution must be manually dispatched from main.')
     if not re.fullmatch(r'\d+\.\d+\.\d+', values.get('RELEASE_VERSION', '')):
