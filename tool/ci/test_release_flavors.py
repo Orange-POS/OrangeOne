@@ -4,14 +4,13 @@ import hashlib
 import os
 from pathlib import Path
 import plistlib
-import re
 import shutil
 import tempfile
 import unittest
 import zipfile
 from unittest.mock import patch
 
-from release_flavors import BUNDLES, bundle_id
+from release_flavors import BUNDLES, GROUPS, bundle_id, target_group
 from validate_release import validate
 from ios_signing import validate_profile, validate_certificate, validate_entitlements, verify_export
 from prepare_archive import validate_app
@@ -20,15 +19,18 @@ from export_ipa import export
 
 
 class FlavorReleaseTest(unittest.TestCase):
-    def test_python_and_fastlane_bundle_maps_match(self):
+    def test_shared_production_identity_and_group_allowlist(self):
+        self.assertEqual(BUNDLES, {'production': 'ch.orangepos.productscanner'})
+        self.assertEqual(GROUPS, {'dev': 'Dev Testers', 'staging': 'Staging Testers', 'production': 'Production Testers'})
         fastfile = (Path(__file__).resolve().parents[2] / 'fastlane/Fastfile').read_text()
-        maps = re.findall(r'\bbundles\s*=\s*\{([^{}]*)\}', fastfile)
-        self.assertEqual(len(maps), 1, 'Expected one literal Fastlane bundle map; update this parity test if its syntax changes.')
-        entries = re.findall(r"'([^']+)'\s*=>\s*'([^']+)'", maps[0])
-        remainder = re.sub(r"'([^']+)'\s*=>\s*'([^']+)'", '', maps[0])
-        self.assertRegex(remainder, r'^[\s,]*$', 'Unsupported Fastlane map expression must not bypass parity checking.')
-        self.assertEqual(len(entries), len(dict(entries)), 'Duplicate Fastlane flavor keys are forbidden.')
-        self.assertEqual(dict(entries), BUNDLES, 'Python archive/export and Fastlane upload identities must match.')
+        helper = (Path(__file__).with_name('testflight_groups.rb')).read_text()
+        self.assertIn('testflight_targets.json', helper)
+        self.assertIn('app_identifier: OrangeoneTestflight::BUNDLE_ID', fastfile)
+        self.assertNotIn('bundles =', fastfile)
+        self.assertEqual(target_group(), 'Production Testers')
+        for invalid in ('', 'development', 'Dev Testers', 'group-id', 'production;bad'):
+            with self.assertRaises(ValueError):
+                target_group(invalid)
 
     def test_export_mapping_for_each_flavor_and_certificate(self):
         for flavor, bundle in BUNDLES.items():
@@ -83,7 +85,7 @@ class FlavorReleaseTest(unittest.TestCase):
     def test_default_and_invalid_flavors(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(bundle_id(), BUNDLES['production'])
-        for value in ('', 'Production', '../production', 'unknown'):
+        for value in ('', 'development', 'staging', 'Production', '../production', 'unknown'):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 bundle_id(value)
 
@@ -107,12 +109,6 @@ class FlavorReleaseTest(unittest.TestCase):
                     info['CFBundleIdentifier'] = bundle
                     (app / 'Info.plist').write_bytes(plistlib.dumps(info))
                     validate_app(root, '1.0.0', '12')
-                    for other in BUNDLES:
-                        if other != flavor:
-                            with self.assertRaises(ValueError):
-                                validate_app(root, '1.0.0', '12', other)
-                            with self.assertRaises(ValueError):
-                                validate_profile(profile, 'ABC123DE45', flavor=other)
                 for request in ({'get-task-allow': True}, {'com.apple.security.application-groups': ['unexpected']},
                                 {'keychain-access-groups': ['ABC123DE45.other']},
                                 {'com.apple.developer.team-identifier': 'OTHER12345'}):
@@ -127,21 +123,42 @@ class FlavorReleaseTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_certificate(profile, identity)
 
-    def test_release_protection_for_all_flavors(self):
+    def test_release_protection_for_all_groups(self):
         values = {'GITHUB_REF': 'refs/heads/main', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
                   'OPERATION': 'testflight', 'RELEASE_VERSION': '1.0.0', 'RELEASE_BUILD_NUMBER': '12'}
-        for flavor in BUNDLES:
-            selected = {**values, 'RELEASE_FLAVOR': flavor}
+        for group in GROUPS:
+            selected = {**values, 'TARGET_GROUP': group}
             validate(selected)
-            for change in ({'GITHUB_REF': 'refs/heads/feature'}, {'GITHUB_EVENT_NAME': 'pull_request'}):
+            self.assertEqual(bundle_id(), 'ch.orangepos.productscanner')
+            for change in ({'GITHUB_REF': 'refs/heads/feature'}, {'GITHUB_EVENT_NAME': 'pull_request'},
+                           {'RELEASE_FLAVOR': 'development'}, {'RELEASE_FLAVOR': 'staging'}):
                 with self.assertRaises(ValueError):
                     validate({**selected, **change})
-            submission = {**selected, 'OPERATION': 'submit_for_review', 'IPHONE_SMOKE_TEST_CONFIRMED': 'true'}
-            if flavor == 'production':
-                validate(submission)
-            else:
+        for group in ('', 'Development', 'Dev Testers', 'unknown'):
+            with self.assertRaises(ValueError):
+                validate({**values, 'TARGET_GROUP': group})
+        with self.assertRaises(ValueError):
+            validate({**values, 'OPERATION': 'submit_for_review', 'TARGET_GROUP': 'production'})
+
+    def test_nonproduction_archives_and_profiles_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = candidate(root)
+            original = plistlib.loads((app / 'Info.plist').read_bytes())
+            for suffix in ('.dev', '.stg'):
+                (app / 'Info.plist').write_bytes(plistlib.dumps({**original,
+                    'CFBundleIdentifier': 'ch.orangepos.productscanner' + suffix}))
                 with self.assertRaises(ValueError):
-                    validate(submission)
+                    validate_app(root, '1.0.0', '12')
+                profile = {
+                    'UUID': '12345678-1234-1234-1234-123456789abc', 'Name': 'Fixture',
+                    'TeamIdentifier': ['ABC123DE45'], 'ApplicationIdentifierPrefix': ['ABC123DE45'],
+                    'ExpirationDate': dt.datetime(2040, 1, 1),
+                    'Entitlements': {'application-identifier': 'ABC123DE45.ch.orangepos.productscanner' + suffix,
+                                     'get-task-allow': False},
+                }
+                with self.assertRaises(ValueError):
+                    validate_profile(profile, 'ABC123DE45')
 
     def test_workflow_keeps_candidate_secret_free_and_signing_trusted(self):
         workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/ios.yaml').read_text()
@@ -149,9 +166,12 @@ class FlavorReleaseTest(unittest.TestCase):
         beta_job = workflow.split('\n  beta:')[1].split('\n  submit:')[0]
         self.assertNotIn('secrets.', candidate_job)
         self.assertNotIn('environment:', candidate_job)
-        self.assertIn('--flavor "$RELEASE_FLAVOR"', candidate_job)
+        self.assertIn('--flavor production --target lib/main_production.dart', candidate_job)
         self.assertIn('ref: ${{ github.sha }}', beta_job)
         self.assertNotIn('flutter build', beta_job)
-        self.assertIn("environment: ${{ format('ios-{0}', inputs.flavor || 'production') }}", beta_job)
+        self.assertIn('environment: ios-production', beta_job)
+        self.assertNotIn('inputs.flavor', workflow)
+        self.assertIn('options: [dev, staging, production]', workflow)
+        self.assertIn('TARGET_GROUP:', beta_job)
         self.assertIn('if: always()', beta_job)
         self.assertIn('default: production', workflow)

@@ -1,5 +1,6 @@
 # Evaluate the real Fastfile with recording actions; never load Fastlane or Apple services.
 require 'minitest/autorun'
+require_relative 'test_testflight_groups'
 
 class FastfileHarness
   attr_reader :lanes, :calls
@@ -35,6 +36,7 @@ class FastfileTest < Minitest::Test
   def setup
     @previous = ENV.to_h
     ENV.delete('RELEASE_FLAVOR')
+    ENV.delete('TARGET_GROUP')
     ENV.update('GITHUB_REF' => 'refs/heads/main', 'GITHUB_EVENT_NAME' => 'workflow_dispatch',
                'APP_STORE_CONNECT_KEY_ID' => 'fixture', 'APP_STORE_CONNECT_ISSUER_ID' => 'fixture',
                'APP_STORE_CONNECT_KEY_FILE' => 'fixture.p8', 'APPLE_TEAM_ID' => 'ABC123DE45',
@@ -44,17 +46,24 @@ class FastfileTest < Minitest::Test
     @harness = FastfileHarness.new
     file = File.expand_path('../../fastlane/Fastfile', __dir__)
     @harness.instance_eval(File.read(file), file)
+    @distribution = Object.new
+    calls = @harness.calls
+    @distribution.define_singleton_method(:prepare) { |target| calls << [:prepare, target]; self }
+    @distribution.define_singleton_method(:distribute) { |**values| calls << [:assign, values] }
     @ipa_stub = proc { ['fixture.ipa'] }
+  end
+  def run_beta
+    OrangeoneTestflight.stub(:new, @distribution) { @harness.lanes[:beta].call }
   end
   def teardown
     ENV.replace(@previous)
   end
   def test_nonmain_or_automatic_runs_cannot_distribute
     ENV['GITHUB_REF'] = 'refs/heads/feature'
-    assert_raises(ArgumentError) { @harness.lanes[:beta].call }
+    assert_raises(ArgumentError) { run_beta }
     ENV['GITHUB_REF'] = 'refs/heads/main'
     ENV['GITHUB_EVENT_NAME'] = 'push'
-    assert_raises(ArgumentError) { @harness.lanes[:beta].call }
+    assert_raises(ArgumentError) { run_beta }
     assert_empty @harness.calls
   end
   def test_submit_rejects_nonmain_and_nonmanual_before_loading_key
@@ -68,7 +77,7 @@ class FastfileTest < Minitest::Test
   end
   def test_beta_exports_selected_pr_without_rebuilding_and_uploads_internal_testflight
     ENV['PR_NUMBER'] = '42'
-    Dir.stub(:[], @ipa_stub) { @harness.lanes[:beta].call }
+    Dir.stub(:[], @ipa_stub) { run_beta }
     command = @harness.calls.assoc(:export).last
     assert_equal 'python3', command.first
     assert command.last.end_with?('/tool/ci/export_ipa.py')
@@ -77,32 +86,54 @@ class FastfileTest < Minitest::Test
     upload = @harness.calls.assoc(:testflight).last
     assert_equal 'ch.orangepos.productscanner', upload[:app_identifier]
     assert_equal 'fixture.ipa', upload[:ipa]
-    assert_equal 'Production PR #42 @ ' + 'a' * 40, upload[:changelog]
+    assert_equal '1.0.0', upload[:app_version]
+    assert_equal '12', upload[:build_number]
+    assert upload[:skip_submission]
+    refute upload[:submit_beta_review]
+    assert_equal [:assign, { version: '1.0.0', number: '12' }], @harness.calls.last
     refute upload[:distribute_external]
-    refute upload[:skip_waiting_for_build_processing]
+    assert upload[:skip_waiting_for_build_processing]
     refute @harness.calls.assoc(:submit)
   end
   def test_missing_or_ambiguous_ipa_never_uploads
     [[], ['one.ipa', 'two.ipa']].each do |paths|
       Dir.stub(:[], proc { paths }) do
-        assert_raises(ArgumentError) { @harness.lanes[:beta].call }
+        assert_raises(ArgumentError) { run_beta }
       end
       refute @harness.calls.assoc(:testflight)
     end
   end
   def test_failed_export_never_uploads
     @harness.define_singleton_method(:sh) { |*| raise 'synthetic export failure' }
-    assert_raises(RuntimeError) { @harness.lanes[:beta].call }
+    assert_raises(RuntimeError) { run_beta }
     refute @harness.calls.assoc(:testflight)
   end
-  def test_all_flavors_upload_to_matching_app_without_rebuilding
-    { 'development' => '.dev', 'staging' => '.stg', 'production' => '' }.each do |flavor, suffix|
-      ENV['RELEASE_FLAVOR'] = flavor
+  def test_all_groups_upload_only_production_without_rebuilding
+    { 'dev' => 'Dev Testers', 'staging' => 'Staging Testers', 'production' => 'Production Testers' }.each do |target, name|
+      ENV['TARGET_GROUP'] = target
       @harness.calls.clear
-      Dir.stub(:[], @ipa_stub) { @harness.lanes[:beta].call }
-      assert_equal 'ch.orangepos.productscanner' + suffix, @harness.calls.assoc(:testflight).last[:app_identifier]
+      Dir.stub(:[], @ipa_stub) { run_beta }
+      assert_equal name, OrangeoneTestflight.group_name(target)
+      assert_equal 'ch.orangepos.productscanner', @harness.calls.assoc(:testflight).last[:app_identifier]
+      assert_equal [:prepare, target], @harness.calls.assoc(:prepare)
       refute @harness.calls.assoc(:build)
+      refute @harness.calls.assoc(:submit)
     end
+  end
+  def test_group_errors_fail_the_lane
+    ENV['TARGET_GROUP'] = 'unknown'
+    assert_raises(ArgumentError) { run_beta }
+    assert_empty @harness.calls
+    ENV['TARGET_GROUP'] = 'dev'
+    @distribution.define_singleton_method(:prepare) { |*| raise OrangeoneTestflight::Error, 'Missing group' }
+    assert_raises(ArgumentError) { run_beta }
+    refute @harness.calls.assoc(:testflight)
+  end
+  def test_assignment_failure_after_upload_fails_lane
+    @distribution.define_singleton_method(:distribute) { |**| raise OrangeoneTestflight::Error, 'Assignment failed' }
+    Dir.stub(:[], @ipa_stub) { assert_raises(ArgumentError) { run_beta } }
+    assert @harness.calls.assoc(:testflight)
+    refute @harness.calls.assoc(:submit)
   end
   def test_nonproduction_submission_and_unknown_flavor_fail_before_key_loading
     ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
@@ -112,7 +143,7 @@ class FastfileTest < Minitest::Test
       assert_empty @harness.calls
     end
     ENV['RELEASE_FLAVOR'] = 'unknown'
-    assert_raises(ArgumentError) { @harness.lanes[:beta].call }
+    assert_raises(ArgumentError) { run_beta }
     assert_empty @harness.calls
   end
   def test_submit_requires_iphone_attestation_and_does_not_rebuild_or_release

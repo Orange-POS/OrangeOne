@@ -1,3 +1,4 @@
+require_relative '../tool/ci/testflight_groups'
 default_platform(:ios)
 ROOT = File.expand_path('..', __dir__)
 
@@ -18,16 +19,15 @@ def require_main
 end
 
 platform :ios do
-  desc 'Sign selected flavor and upload to internal TestFlight (no public release)'
+  desc 'Upload production and assign the exact build to one approved TestFlight group'
   lane :beta do
     require_main
-    flavor = ENV.fetch('RELEASE_FLAVOR', 'production')
-    bundles = { 'production' => 'ch.orangepos.productscanner',
-                'development' => 'ch.orangepos.productscanner.dev',
-                'staging' => 'ch.orangepos.productscanner.stg' }
-    UI.user_error!('Unsupported release flavor') unless bundles.key?(flavor)
-    bundle_id = bundles.fetch(flavor)
+    UI.user_error!('Signed releases must use production') unless
+      ENV.fetch('RELEASE_FLAVOR', 'production') == 'production'
+    target = ENV.fetch('TARGET_GROUP', 'production')
+    OrangeoneTestflight.group_name(target) # Reject arbitrary names/IDs before loading keys.
     key = connect_key
+    distribution = OrangeoneTestflight.new.prepare(target)
     # Export on a fresh trusted runner; never rebuild PR code with Apple keys.
     sh('python3', File.join(ROOT, 'tool/ci/export_ipa.py'))
     candidates = Dir[File.join(ROOT, 'build/ios/ipa/*.ipa')]
@@ -35,12 +35,19 @@ platform :ios do
     ipa = candidates.first
     upload_to_testflight(
       api_key: key,
-      app_identifier: bundle_id,
+      app_identifier: OrangeoneTestflight::BUNDLE_ID,
       ipa: ipa,
-      changelog: "#{flavor.capitalize} #{ENV['PR_NUMBER'].to_s.empty? ? 'main' : 'PR #' + ENV['PR_NUMBER']} @ #{ENV['SOURCE_SHA']}",
+      app_version: ENV.fetch('RELEASE_VERSION'),
+      build_number: ENV.fetch('RELEASE_BUILD_NUMBER'),
+      skip_submission: true,
       distribute_external: false,
-      skip_waiting_for_build_processing: false
+      submit_beta_review: false,
+      notify_external_testers: false,
+      skip_waiting_for_build_processing: true
     )
+    distribution.distribute(version: ENV.fetch('RELEASE_VERSION'), number: ENV.fetch('RELEASE_BUILD_NUMBER'))
+  rescue OrangeoneTestflight::Error => error
+    UI.user_error!(error.message)
   end
 
   desc 'Submit an existing iPhone-tested TestFlight build; release remains manual'
@@ -52,7 +59,7 @@ platform :ios do
       ENV['IPHONE_SMOKE_TEST_CONFIRMED'] == 'true'
     upload_to_app_store(
       api_key: connect_key,
-      app_identifier: 'ch.orangepos.productscanner',
+      app_identifier: OrangeoneTestflight::BUNDLE_ID,
       app_version: ENV.fetch('RELEASE_VERSION'),
       build_number: ENV.fetch('RELEASE_BUILD_NUMBER'),
       skip_binary_upload: true,

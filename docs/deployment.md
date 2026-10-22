@@ -6,7 +6,7 @@ PR #9's testing strategy and PR #15's native build/deployment implementation
 are merged into main. PR #19 preserves those gates and adds offline data access,
 recovery fixes and the production iOS bundle identity correction.
 The canonical workflow names remain `android.yaml`, `ios.yaml`,
-`license_check.yaml` and `flutter_tests.yml`; production-only replacement
+`license_check.yaml` and `flutter_tests.yml`; duplicate replacement
 workflows are retired to avoid duplicate builds and automatic signing.
 
 Distribution remains manual from main, with protected approval and separate
@@ -23,7 +23,7 @@ PR #19 into main.
 | `flutter_tests.yml` | Every push, every PR, main merge queue, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax and Fastlane lane guards; device integration remains manual |
 | `android.yaml` | Every push, PR to main, main merge queue, manual | Development/staging/production debug APK artifacts; no Play Store upload |
 | `ios.yaml` / `ios` | Every push, PR to main, main merge queue | Unsigned release `.app` ZIPs on GitHub-hosted `macos-26`; no Apple secrets |
-| `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as the selected flavor (production by default), then exported/signed on a fresh runner and uploaded to internal TestFlight |
+| `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as production; exact uploaded build assigned to the selected tester group, then exported/signed on a fresh runner and uploaded to internal TestFlight |
 | `ios.yaml` / `submit` | Manual `submit_for_review` from main after release checks, iPhone confirmation and separate environment approval | Submit existing tested build for review; public release remains manual |
 | `license_check.yaml` | Every push, PR to main, main merge queue, manual | Flutter dependency license policy |
 
@@ -43,22 +43,21 @@ Android signing key workflow separately; do not reuse debug keys for that purpos
 
 1. Enroll the organization in the Apple Developer Program and accept current
    agreements. Confirm ownership of production bundle ID `ch.orangepos.productscanner`.
-   Preserve its existing App Store Connect record and bundle ID. Verify the additional
-   development (`ch.orangepos.productscanner.dev`) and staging
-   (`ch.orangepos.productscanner.stg`) records. No Apple resources are created by CI.
-2. Reuse the existing valid **Apple Distribution** certificate with its private key
-   as a password-protected `.p12` from a trusted Mac. A `.cer` without its private
-   key cannot sign. Create an **App Store Connect distribution** provisioning
-   profile for each exact flavor bundle ID, team, capabilities and certificate.
-   Debug/development signing, ad-hoc, enterprise, wildcard and expired profiles
-   are rejected. All TestFlight flavors require App Store distribution profiles. Runner currently uses the keychain access group.
+   Preserve its existing App Store Connect record and bundle ID. Development and
+   staging App IDs/records may remain registered but are unused by signed CD.
+2. Reuse the existing valid **Apple Distribution** certificate and its existing
+   password-protected `.p12` containing the private key. Keep the existing
+   production App Store Connect distribution profile. No new certificate or
+   profile is required for tester groups. Debug/development signing, ad-hoc,
+   enterprise, wildcard, expired and nonproduction profiles are rejected.
+   Runner currently uses its own keychain access group.
 3. Create an App Store Connect team API key with an appropriate role (App Manager
    for submission; least required access for upload). Record Key ID and Issuer ID
    and securely download its `.p8` private key. Apple ID passwords and Fastlane
    session cookies are not used. Ensure the account has app access and agreements
    required for both upload and review submission.
-4. In GitHub **Settings → Environments**, verify `ios-development`, `ios-staging`, `ios-production` and
-   `ios-app-store`. Restrict deployment branches to **main**, require a reviewer,
+4. In GitHub **Settings → Environments**, verify `ios-production` and `ios-app-store`. Leave unused
+   `ios-development` and `ios-staging` resources and Secrets untouched. Restrict deployment branches to **main**, require a reviewer,
    prevent self-review where supported, and disallow admin bypass if appropriate.
    These are repository settings you must configure; YAML cannot enforce reviewer
    rules until the environments are protected. Use separate approvers for store
@@ -245,47 +244,105 @@ trigger distribution merely to validate this change. No public release occurs:
 `automatic_release: false` is preserved and the owner releases in App Store Connect.
 
 
-## Three-flavor protected TestFlight distribution
+## One production application, three TestFlight groups
 
-Dispatch `ios.yaml` from **main** with operation `testflight` and choose
-`development`, `staging`, or `production` (default). One dispatch builds one app.
-Use the optional open PR number for candidate source; signing scripts always
-come from the dispatched main commit, never the PR. These workflow/script
-changes must first be reviewed and integrated into protected main before use.
-The unsigned three-flavor push/PR/merge-queue jobs remain unchanged.
+Signed CD always compiles scheme `production`, `lib/main_production.dart`, and
+bundle ID `ch.orangepos.productscanner`, using the existing production profile,
+certificate and protected `ios-production` environment. Android CI and all three
+unsigned iOS flavors are unchanged. No native identifiers or schemes are changed.
 
-| Flavor | Bundle ID | Signing environment |
+A **Flutter flavor** controls compiled application configuration and native
+identity. A **TestFlight group** controls tester access to builds of the same
+App Store Connect app. The `target_group` input changes only distribution, never
+the Flutter flavor, backend configuration, signing identity or application data.
+
+| `target_group` | Exact group name | Signed application |
 | --- | --- | --- |
-| development | ch.orangepos.productscanner.dev | ios-development |
-| staging | ch.orangepos.productscanner.stg | ios-staging |
-| production | ch.orangepos.productscanner | ios-production |
+| `dev` | Dev Testers | Production OrangeONE |
+| `staging` | Staging Testers | Production OrangeONE |
+| `production` (default) | Production Testers | Production OrangeONE |
 
-Keep shared repository Apple certificate/API Secrets unchanged. Each development
-and staging environment must contain its own `IOS_PROVISION_PROFILE_BASE64`;
-that environment Secret overrides the same-named repository Secret. Missing or
-wrong overrides fail bundle validation rather than signing another flavor.
-Production retains its existing profile fallback; do not replace that repository
-Secret until its compatibility has been verified. Confirm environment branch
-restrictions and approval rules in GitHub Settings before deployment; YAML
-cannot establish those rules. Repository credentials remain reachable to other
-trusted workflows that explicitly reference them, so protect main and review
-workflow changes. Candidate jobs neither reference credentials nor enter signing
-environments.
+### Owner setup before deployment
 
-Before export, validate the requested archive identity, profile capabilities,
-keychain grant, and imported certificate fingerprint. Unsigned archives may omit
-signed entitlements; included xcent/signature entitlements are checked, and the
-exported IPA's signature, embedded profile and entitlements are checked again.
-New capabilities require an explicit policy update, not a permissive fallback.
-The protected runner exports without recompiling and uploads only after checks.
-Cleanup runs even after import, verification or upload failure.
+1. In the existing production App Store Connect record, open TestFlight and
+   create or verify the three exact group names above. Use internal groups for
+   eligible App Store Connect team users. Disable automatic distribution / access
+   to all builds on the selected groups so builds can be assigned explicitly.
+2. Check automatic distribution on every other group, existing direct tester
+   access and Apple's built-in internal-tester access. The workflow does not
+   remove anyone's access, change membership or revoke access granted by Apple.
+   It adds only the selected group, but **cannot promise exclusive access** if
+   account settings, overlapping memberships or other users grant more access.
+3. Internal testers must be eligible App Store Connect users with app access.
+   External testers require an external group and applicable Beta App Review.
+   The helper accepts external groups only when the exact build is already
+   eligible for external testing. Otherwise it fails with manual-review guidance;
+   it does not silently submit Beta App Review or publicly release anything.
+4. Verify the existing production profile matches the production bundle, team,
+   keychain entitlement and imported certificate. Preserve repository Secrets;
+   do not change the production profile Secret without verifying compatibility.
+5. Verify `ios-production` / `ios-app-store` branch restrictions and reviewer
+   approvals in GitHub Settings. Keep unused development/staging environment
+   profile Secrets untouched. Repository credentials remain reachable by other
+   workflows that explicitly reference them; protect main and review workflow
+   changes. Candidate jobs never reference those Secrets.
 
-App Store submission accepts production only, requires an already tested build
-and iPhone confirmation, and never automatically publishes. Give testers access
-to each separate App Store Connect record. Install all three through TestFlight
-and verify distinct labels, simultaneous installation and separate sessions.
-A version/build pair must be unused for its corresponding application.
+### Dispatch and exact-build assignment
 
-Firebase, Android configuration, application code, bundle IDs and iOS minimum
-versions are unchanged by this extension. Apple resource existence and hosted
-signing remain owner/runner verification steps.
+After review and integration into protected main, select `ios.yaml` -> Run workflow:
+branch **main**, operation `testflight`, target group, version and a new build number.
+Leave PR blank to compile main, or select an open PR targeting main. Its SHA is
+pinned and checked again before signing. Candidate compilation is credential-free;
+privileged jobs run scripts from the dispatched main SHA on a fresh runner.
+One version/build sequence is shared by all groups because this is one app.
+
+Archive checks, certificate/profile matching, entitlement checks, export-only
+signing, exported IPA verification and unconditional cleanup remain enabled.
+After export, Fastlane Pilot uploads with distribution/review disabled and does
+not rely on upload-time automatic group assignment. The trusted helper uses the
+existing pinned Spaceship client for Apple's official App Store Connect API:
+
+- Resolve the production app and the one exact allowlisted group; missing,
+  duplicate or automatic/all-build groups fail preflight before upload.
+- Query builds by that app ID, iOS platform, marketing version and build number.
+  Wait up to 15 minutes for that exact build and testing eligibility; never use
+  an unrelated latest build. Invalid, failed, expired or ambiguous builds fail.
+- Complete export compliance manually if Apple requires it; no encryption answer
+  is fabricated. External review eligibility is checked separately.
+- Add only the selected group's relationship to that exact build ID, then read
+  the group/build relationship back. API errors or unconfirmed assignments fail
+  the workflow. An existing matching assignment is treated idempotently.
+
+If processing/compliance/review or assignment fails after upload, the binary may
+already be in TestFlight. Inspect **that exact version/build** in App Store Connect
+and complete compliance/review or assignment manually; do not re-upload the same
+version/build or choose a different latest build as a substitute. There is no
+separate assignment-only workflow in this change. API assignment success does
+not guarantee notification delivery or installation; verify on a tester device.
+
+### Testers, backend safety and public release
+
+Testers install OrangeONE from TestFlight. Under the app's Previous Builds / build
+selection, they can select another available build granted to them. Installing a
+build replaces the installed version of this same app; three copies cannot coexist
+under one bundle ID. App data/session may persist across build changes. A tester
+belonging to multiple groups can have access to builds assigned to any of them.
+
+**Dev Testers and Staging Testers still receive production-flavor binaries.**
+Group selection does not establish a test backend or sandbox, and selected PR
+code can change app behavior. Follow existing QR-selected POS/session rules;
+use an authorized test POS and test inventory for destructive testing. Verify the
+connected backend before editing real stock/prices. No authentication or product
+logic is changed by this distribution strategy.
+
+Operation `submit_for_review` remains a separate manual production action through
+`ios-app-store`, requiring an already tested version/build and iPhone confirmation.
+The target-group input is irrelevant to submission. Selecting Production Testers
+with operation `testflight` never submits or publishes the public App Store app.
+Public release remains manual (`automatic_release: false`).
+
+The existing Ruby CI entry point (`ruby tool/ci/test_fastlane.rb`) also loads the
+controlled group-coordinator tests, without Fastlane or Apple services. Hosted
+macOS verification is still required for real signing, API permissions, group
+eligibility/processing, TestFlight installation and protected-environment rules.
+Firebase is not integrated by this change.
