@@ -159,8 +159,8 @@ ratings, export-compliance information, support URLs and reviewer credentials/
 instructions for a test POS account. Keep reviewer credentials in App Store
 Connect, not GitHub logs. Explain local-network/camera access and the existing LAN
 HTTP/ATS behavior where required; prefer HTTPS for deployment. Check third-party
-privacy manifests and Apple validation results. Do not invent compliance answers
-or mark encryption exemption automatically.
+privacy manifests and Apple validation results. Do not invent compliance answers;
+the encryption exemption is the reviewed Info.plist declaration described below.
 
 After the exact version/build passes the iPhone checklist, dispatch the same
 workflow from **main**, operation **submit_for_review**, leaving **pr_number** empty and supplying that version
@@ -307,8 +307,11 @@ existing pinned Spaceship client for Apple's official App Store Connect API:
 - Query builds by that app ID, iOS platform, marketing version and build number.
   Wait up to 15 minutes for that exact build and testing eligibility; never use
   an unrelated latest build. Invalid, failed, expired or ambiguous builds fail.
-- Complete export compliance manually if Apple requires it; no encryption answer
-  is fabricated. External review eligibility is checked separately.
+- Export compliance comes from the reviewed `ITSAppUsesNonExemptEncryption`
+  declaration in the production Info.plist (see "Encryption declaration" below),
+  so new builds need no manual answer. If Apple still reports missing compliance
+  (for example a build uploaded before the declaration), the helper stops without
+  assuming an answer. External review eligibility is checked separately.
 - Add only the selected group's relationship to that exact build ID, then read
   the group/build relationship back. API errors or unconfirmed assignments fail
   the workflow. An existing matching assignment is treated idempotently: after
@@ -406,24 +409,30 @@ https://developer.apple.com/help/app-store-connect/reference/app-information/exp
 
 On the stated standard-algorithm/non-France facts, that table does not require
 that French document. `ITSAppUsesNonExemptEncryption = false` is appropriate
-**if the responsible owner confirms the app uses only encryption exempt from
+**because the responsible owner confirmed the app uses only encryption exempt from
 Apple's documentation requirements**, not because the app lacks encryption.
-The territory settings, any other jurisdictional obligations, and the completed
-questionnaire outcome cannot be verified from source. This change therefore
-leaves both native plists unchanged and does not automatically answer Apple's
-questionnaire or add an unsupported compliance code. Existing uploaded build 33
-retains its own declaration; source changes cannot amend that binary.
 
-After the classification is confirmed, approve the boolean in the production
-`ios/Runner/Info.plist` through normal review and compile a new candidate. If Apple
-requires documentation instead, submit it under App Encryption Documentation,
-obtain Apple's approved code and review the corresponding true flag/code. Never
-invent the code or bypass the questionnaire. See Apple's key semantics:
+**Approved declaration (2026-10-23):** the owner confirmed this classification and
+that France is excluded from App Store availability. `ios/Runner/Info.plist` now
+declares `ITSAppUsesNonExemptEncryption = false` (no compliance code). Builds
+compiled from that source are processed as compliant, so `testflight` reaches
+`READY_FOR_BETA_TESTING` and assigns the selected group without a manual
+App Store Connect step. `tool/ci/test_release.py` fails if the declaration is
+removed or changed. Revisit this, through review, before adding France or any
+encryption beyond HTTPS and the local AES-256-GCM product cache; if Apple then
+requires documentation, submit it under App Encryption Documentation, obtain
+Apple's approved code and review the corresponding true flag/code. Never invent
+the code or bypass the questionnaire. See Apple's key semantics:
 https://developer.apple.com/documentation/bundleresources/information-property-list/itsappusesnonexemptencryption
 
-Export verification now compares the final IPA's boolean/code (including missing
+Builds uploaded before this declaration keep their own (missing) answer; source
+changes cannot amend those binaries. For such a build, answer the export
+compliance questionnaire for that exact version/build in App Store Connect, then
+run `distribute_existing` with the same version/build; do not reupload it.
+The helper still stops on `MISSING_EXPORT_COMPLIANCE` as a safety net.
+
+Export verification compares the final IPA's boolean/code (including missing
 keys and exact types) to the trusted production plist. An omitted/changed or
-unapproved declaration fails before upload. No declaration remains a deliberate
-manual-compliance state, not an exemption assertion. This also prevents a PR
-candidate from independently changing a declaration without trusted-main review.
+unapproved declaration fails before upload. This also prevents a PR candidate
+from independently changing a declaration without trusted-main review.
 No certificate, provisioning profile or GitHub Secret changes are needed.

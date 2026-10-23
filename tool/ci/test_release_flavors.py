@@ -62,7 +62,8 @@ class FlavorReleaseTest(unittest.TestCase):
                 ipa = root / 'fixture.ipa'
                 with zipfile.ZipFile(ipa, 'w') as archive:
                     archive.writestr('Payload/Runner.app/Info.plist', plistlib.dumps({
-                        'CFBundleIdentifier': bundle, 'CFBundleShortVersionString': '1.0.0', 'CFBundleVersion': '12'}))
+                        'CFBundleIdentifier': bundle, 'CFBundleShortVersionString': '1.0.0', 'CFBundleVersion': '12',
+                        'ITSAppUsesNonExemptEncryption': False}))
                 entitlements = {'application-identifier': 'ABC123DE45.' + bundle,
                                 'com.apple.developer.team-identifier': 'ABC123DE45',
                                 'keychain-access-groups': ['ABC123DE45.' + bundle], 'get-task-allow': False}
