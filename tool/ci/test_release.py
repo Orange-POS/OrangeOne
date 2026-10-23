@@ -6,8 +6,10 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import plistlib
+import zipfile
 from unittest.mock import patch
-from ios_signing import validate_profile, cleanup, install_signing
+from ios_signing import validate_profile, validate_export_compliance, verify_export, cleanup, install_signing
 from validate_release import validate
 
 
@@ -34,6 +36,21 @@ class ReleaseValidationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate({**self.values, 'PR_NUMBER': '42', 'OPERATION': 'submit_for_review',
                       'IPHONE_SMOKE_TEST_CONFIRMED': 'true'})
+    def test_existing_distribution_requires_main_manual_no_pr_and_allowlisted_group(self):
+        for group in ('dev', 'staging', 'production'):
+            values = {**self.values, 'OPERATION': 'distribute_existing', 'TARGET_GROUP': group}
+            validate(values)
+            for change in ({'PR_NUMBER': '42'}, {'GITHUB_REF': 'refs/heads/feature'},
+                           {'GITHUB_EVENT_NAME': 'push'}, {'TARGET_GROUP': 'unknown'},
+                           {'RELEASE_FLAVOR': 'staging'}, {'RELEASE_VERSION': ''},
+                           {'RELEASE_BUILD_NUMBER': '0'}):
+                with self.subTest(group=group, change=change), self.assertRaises(ValueError):
+                    validate({**values, **change})
+
+    def test_existing_distribution_accepts_whitespace_only_pr_number(self):
+        for number in ('   ', '\t \n'):
+            validate({**self.values, 'OPERATION': 'distribute_existing', 'PR_NUMBER': number})
+
     def test_appstore_submission_requires_device_confirmation(self):
         values = {**self.values, 'OPERATION': 'submit_for_review'}
         with self.assertRaises(ValueError):
@@ -66,6 +83,39 @@ class ProvisioningValidationTest(unittest.TestCase):
         ]:
             with self.subTest(change=change), self.assertRaises(ValueError):
                 validate_profile({**copy.deepcopy(self.profile), **change}, 'ABC123DE45', self.now)
+
+
+class ComplianceDeclarationTest(unittest.TestCase):
+    def test_export_preserves_only_the_approved_declaration(self):
+        for declaration in ({}, {'ITSAppUsesNonExemptEncryption': False},
+                            {'ITSAppUsesNonExemptEncryption': True,
+                             'ITSEncryptionExportComplianceCode': 'approved-fixture'}):
+            validate_export_compliance(dict(declaration), approved=declaration)
+
+    def test_final_ipa_with_unapproved_exemption_never_reaches_native_verification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ipa = Path(directory) / 'fixture.ipa'
+            with zipfile.ZipFile(ipa, 'w') as archive:
+                archive.writestr('Payload/Runner.app/Info.plist', plistlib.dumps({
+                    'ITSAppUsesNonExemptEncryption': False}))
+            with patch('ios_signing.Path.read_bytes', return_value=plistlib.dumps({})), \
+                    patch('ios_signing.run') as native:
+                with self.assertRaisesRegex(ValueError, 'differs from trusted'):
+                    verify_export(ipa)
+                native.assert_not_called()
+
+    def test_unapproved_missing_changed_or_malformed_declarations_rejected(self):
+        for exported, approved in (
+            ({'ITSAppUsesNonExemptEncryption': False}, {}),
+            ({}, {'ITSAppUsesNonExemptEncryption': False}),
+            ({'ITSAppUsesNonExemptEncryption': True}, {'ITSAppUsesNonExemptEncryption': False}),
+            ({'ITSAppUsesNonExemptEncryption': 0}, {'ITSAppUsesNonExemptEncryption': False}),
+            ({'ITSAppUsesNonExemptEncryption': 'false'}, {}),
+            ({'ITSEncryptionExportComplianceCode': 'fabricated'}, {}),
+            ({'ITSEncryptionExportComplianceCode': ''}, {'ITSEncryptionExportComplianceCode': ''}),
+        ):
+            with self.subTest(exported=exported), self.assertRaises(ValueError):
+                validate_export_compliance(exported, approved=approved)
 
 
 class CleanupTest(unittest.TestCase):

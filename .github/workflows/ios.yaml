@@ -11,7 +11,7 @@ on:
         description: Manual distribution (workflow runs from main)
         required: true
         type: choice
-        options: [testflight, submit_for_review]
+        options: [testflight, distribute_existing, submit_for_review]
       target_group:
         description: TestFlight tester group (does not change the production app)
         required: true
@@ -248,6 +248,47 @@ jobs:
       - name: Remove signing keychain, profile and API key
         if: always()
         run: python3 tool/ci/ios_signing.py cleanup
+  distribute_existing:
+    needs: release_checks
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'distribute_existing'
+    environment: ios-production
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      RELEASE_FLAVOR: production
+      TARGET_GROUP: ${{ inputs.target_group || 'production' }}
+      PR_NUMBER: ${{ inputs.pr_number }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+      FASTLANE_SKIP_UPDATE_CHECK: 'true'
+      FASTLANE_HIDE_CHANGELOG: 'true'
+      FASTLANE_OPT_OUT_USAGE: 'true'
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+    steps:
+      # Only the dispatched protected-main control plane; no candidate checkout/artifact.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: false
+      - run: bundle config set --local frozen true
+      - run: bundle install
+      - name: Load only the App Store Connect API key
+        env:
+          APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+        run: python3 tool/ci/ios_signing.py api-key
+      - name: Verify eligibility and assign the selected exact existing build
+        run: bundle exec fastlane ios distribute_existing
+      - name: Remove temporary API key after success or failure
+        if: always()
+        run: python3 tool/ci/ios_signing.py cleanup
+
   submit:
     needs: release_checks
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'submit_for_review'

@@ -46,7 +46,7 @@ class FlavorReleaseTest(unittest.TestCase):
                 values = {'RUNNER_TEMP': directory, 'RELEASE_FLAVOR': flavor, 'APPLE_TEAM_ID': 'ABC123DE45',
                           'IOS_PROFILE_NAME': 'selected-profile', 'IOS_CERTIFICATE_SHA1': 'A' * 40,
                           'RELEASE_VERSION': '1.0.0', 'RELEASE_BUILD_NUMBER': '12'}
-                with patch.dict(os.environ, values), patch('export_ipa.Path.cwd', return_value=root), \
+                with patch.dict(os.environ, values), patch('export_ipa.EXPORT_DIRECTORY', root / 'build/ios/ipa'), \
                         patch('export_ipa.subprocess.run', side_effect=produce), patch('export_ipa.verify_export') as verify:
                     export()
                     verify.assert_called_once()
@@ -117,7 +117,8 @@ class FlavorReleaseTest(unittest.TestCase):
 
     def test_certificate_must_belong_to_profile(self):
         certificate = b'fixture DER bytes'
-        identity = hashlib.sha1(certificate).hexdigest().upper().encode()
+        identity = (b'  1) ' + hashlib.sha1(certificate).hexdigest().upper().encode()
+                    + b' "Apple Distribution: Fixture (ABC123DE45)"\n  1 valid identities found\n')
         validate_certificate({'DeveloperCertificates': [certificate]}, identity)
         for profile in ({}, {'DeveloperCertificates': [b'other']}):
             with self.assertRaises(ValueError):
@@ -163,7 +164,7 @@ class FlavorReleaseTest(unittest.TestCase):
     def test_workflow_keeps_candidate_secret_free_and_signing_trusted(self):
         workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/ios.yaml').read_text()
         candidate_job = workflow.split('\n  candidate:')[1].split('\n  beta:')[0]
-        beta_job = workflow.split('\n  beta:')[1].split('\n  submit:')[0]
+        beta_job = workflow.split('\n  beta:')[1].split('\n  distribute_existing:')[0]
         self.assertNotIn('secrets.', candidate_job)
         self.assertNotIn('environment:', candidate_job)
         self.assertIn('--flavor production --target lib/main_production.dart', candidate_job)
@@ -175,3 +176,20 @@ class FlavorReleaseTest(unittest.TestCase):
         self.assertIn('TARGET_GROUP:', beta_job)
         self.assertIn('if: always()', beta_job)
         self.assertIn('default: production', workflow)
+
+    def test_existing_distribution_job_is_api_only_and_protected(self):
+        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/ios.yaml').read_text()
+        job = workflow.split('\n  distribute_existing:')[1].split('\n  submit:')[0]
+        for expected in ('needs: release_checks', "github.event_name == 'workflow_dispatch'",
+                         "github.ref == 'refs/heads/main'", "inputs.operation == 'distribute_existing'",
+                         'environment: ios-production', 'ref: ${{ github.sha }}',
+                         'persist-credentials: false', 'contents: read', 'TARGET_GROUP:',
+                         'python3 tool/ci/ios_signing.py api-key',
+                         'bundle exec fastlane ios distribute_existing',
+                         'if: always()', 'python3 tool/ci/ios_signing.py cleanup'):
+            self.assertIn(expected, job)
+        for forbidden in ('IOS_CERTIFICATE', 'IOS_PROVISION_PROFILE', 'APPLE_TEAM_ID',
+                          'download-artifact', 'source_sha', 'flutter build', 'export_ipa.py',
+                          'ios_signing.py install', 'fastlane ios beta', 'fastlane ios submit'):
+            self.assertNotIn(forbidden, job)
+        self.assertIn('options: [testflight, distribute_existing, submit_for_review]', workflow)
