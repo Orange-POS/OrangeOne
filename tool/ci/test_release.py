@@ -86,6 +86,14 @@ class ProvisioningValidationTest(unittest.TestCase):
 
 
 class ComplianceDeclarationTest(unittest.TestCase):
+    def test_production_plist_carries_the_owner_approved_exemption(self):
+        # Without it every upload stops at MISSING_EXPORT_COMPLIANCE before group assignment.
+        source = Path(__file__).resolve().parents[2] / 'ios/Runner/Info.plist'
+        info = plistlib.loads(source.read_bytes())
+        self.assertIs(info.get('ITSAppUsesNonExemptEncryption'), False)
+        self.assertNotIn('ITSEncryptionExportComplianceCode', info)
+        validate_export_compliance(dict(info), approved=info)
+
     def test_export_preserves_only_the_approved_declaration(self):
         for declaration in ({}, {'ITSAppUsesNonExemptEncryption': False},
                             {'ITSAppUsesNonExemptEncryption': True,
