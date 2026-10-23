@@ -117,7 +117,8 @@ class FlavorReleaseTest(unittest.TestCase):
 
     def test_certificate_must_belong_to_profile(self):
         certificate = b'fixture DER bytes'
-        identity = hashlib.sha1(certificate).hexdigest().upper().encode()
+        identity = (b'  1) ' + hashlib.sha1(certificate).hexdigest().upper().encode()
+                    + b' "Apple Distribution: Fixture (ABC123DE45)"\n  1 valid identities found\n')
         validate_certificate({'DeveloperCertificates': [certificate]}, identity)
         for profile in ({}, {'DeveloperCertificates': [b'other']}):
             with self.assertRaises(ValueError):
