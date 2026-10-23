@@ -21,11 +21,23 @@ class App extends ConsumerWidget {
           systemNavigationBarIconBrightness: Brightness.dark,
           systemNavigationBarContrastEnforced: false,
         ),
-        child: child!,
+        child: MediaQuery(
+          data: _standardInsets(MediaQuery.of(context)),
+          child: child!,
+        ),
       ),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: ref.watch(routerProvider),
     );
   }
+
+  MediaQueryData _standardInsets(MediaQueryData data) => data.copyWith(
+    padding: data.padding.copyWith(
+      top: data.padding.top.clamp(OrangeTheme.topSafeArea, double.infinity),
+    ),
+    viewPadding: data.viewPadding.copyWith(
+      top: data.viewPadding.top.clamp(OrangeTheme.topSafeArea, double.infinity),
+    ),
+  );
 }

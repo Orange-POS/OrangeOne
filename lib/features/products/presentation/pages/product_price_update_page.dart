@@ -10,6 +10,7 @@ import 'package:orange_one/features/products/presentation/widgets/price_update_f
 import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class ProductPriceUpdatePage extends ConsumerStatefulWidget {
@@ -99,8 +100,7 @@ class _ProductPriceUpdatePageState
     });
     return PopScope(
       canPop: !busy,
-      child: Scaffold(
-        backgroundColor: Colors.white,
+      child: ProductScaffold(
         appBar: ProductNavbar(
           title: 'Update Price',
           onBack: busy ? null : () => _leave(saved),
@@ -156,16 +156,14 @@ class _ProductPriceUpdatePageState
         ),
         body: RefreshIndicator(
           onRefresh: _refresh,
-          child: ListView(
-            padding: EdgeInsets.zero,
+          child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            children: [
-              if (product != null) ProductNameCard(product: product),
-              DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: OrangeTheme.homeGradient,
-                ),
+            slivers: [
+              if (product != null)
+                SliverToBoxAdapter(child: ProductNameCard(product: product)),
+              SliverFillRemaining(
+                hasScrollBody: false,
                 child: Container(
                   decoration: const BoxDecoration(
                     color: Colors.white,

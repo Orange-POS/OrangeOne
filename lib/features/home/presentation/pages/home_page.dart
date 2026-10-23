@@ -35,8 +35,8 @@ class HomePage extends StatelessWidget {
                 children: [
                   Positioned(
                     top: math.max<double>(
-                      MediaQuery.paddingOf(context).top + 16,
-                      height * 75 / 844,
+                      MediaQuery.paddingOf(context).top,
+                      OrangeTheme.topSafeArea,
                     ),
                     left: 16,
                     right: 16,

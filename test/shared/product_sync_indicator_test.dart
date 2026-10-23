@@ -73,18 +73,20 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final action = find.widgetWithText(FilledButton, 'Update Price');
-    expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
+    final action = find.byWidgetPredicate(
+      (widget) => widget is IconButton && widget.tooltip == 'Update price',
+    );
+    expect(tester.widget<IconButton>(action).onPressed, isNotNull);
     for (var cycle = 0; cycle < 2; cycle++) {
       cache.connectionChanged(connected: false);
       await tester.pumpAndSettle();
-      expect(tester.widget<FilledButton>(action).onPressed, isNull);
+      expect(tester.widget<IconButton>(action).onPressed, isNull);
       await tester.runAsync(() async {
         cache.connectionChanged(connected: true);
         await cache.load('0010101010', () async => productJson());
       });
       await tester.pumpAndSettle();
-      expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
+      expect(tester.widget<IconButton>(action).onPressed, isNotNull);
     }
   });
 }
