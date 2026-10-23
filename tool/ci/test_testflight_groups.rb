@@ -366,6 +366,58 @@ class TestflightGroupsTest < Minitest::Test
     end
   end
 
+  def test_compliance_in_either_state_blocks_every_group_even_if_already_assigned
+    %w[MISSING_EXPORT_COMPLIANCE IN_EXPORT_COMPLIANCE_REVIEW].each do |state|
+      %w[internal external].each do |source|
+        OrangeoneTestflight::GROUPS.each_key do |target|
+          setup
+          @api.already_assigned = true
+          @build.build_beta_detail = source == 'internal' ? detail(internal: state) : detail(external: state)
+          error = assert_raises(OrangeoneTestflight::Error) { distribute(target) }
+          assert_includes error.message, 'export compliance'
+          assert_includes error.message, 'distribute_existing'
+          assert_empty assignments
+          refute @api.calls.any? { |call| call.first == :read_back }
+        end
+      end
+    end
+  end
+
+  def test_missing_compliance_metadata_cannot_bypass_checks_via_existing_assignment
+    @build.build_beta_detail = nil
+    @api.already_assigned = true
+    error = assert_raises(OrangeoneTestflight::Error) { distribute('dev') }
+    assert_includes error.message, 'Timed out'
+    assert_equal 30, @time
+    assert_empty assignments
+    refute @api.calls.any? { |call| call.first == :read_back }
+  end
+
+  def test_compliance_can_be_completed_then_distribution_retried_without_upload
+    @build.build_beta_detail = detail(internal: 'MISSING_EXPORT_COMPLIANCE', external: 'MISSING_EXPORT_COMPLIANCE')
+    error = assert_raises(OrangeoneTestflight::Error) { distribute('dev') }
+    assert_includes error.message, 'distribute_existing'
+    assert_empty assignments
+    @build.build_beta_detail = detail
+    assert_equal 'exact-build', distribute('dev')
+    assert_equal [[:assign, 'exact-build', 'dev']], assignments
+    @api.already_assigned = true
+    assert_equal 'exact-build', distribute('dev')
+    assert_equal 1, assignments.length
+  end
+
+  def test_group_change_during_read_back_is_rejected_without_second_post
+    api = @api
+    api.define_singleton_method(:assign) do |build, group|
+      @calls << [:assign, build.id, group.id]
+      @group_values = [OpenStruct.new(id: 'replacement', name: group.name,
+                                      is_internal_group: true, has_access_to_all_builds: false)]
+    end
+    error = assert_raises(OrangeoneTestflight::Error) { distribute('dev') }
+    assert_includes error.message, 'changed during assignment'
+    assert_equal [[:assign, 'exact-build', 'dev']], assignments
+  end
+
   def test_pinned_external_state_vocabulary_is_fully_accounted_for
     states = Spaceship::ConnectAPI::BuildBetaDetail::ExternalState
     assert_equal %w[PROCESSING PROCESSING_EXCEPTION MISSING_EXPORT_COMPLIANCE

@@ -29,6 +29,7 @@ class FastfileHarness
 end
 
 module UI
+  def self.success(message) = nil
   def self.user_error!(message) = raise(ArgumentError, message)
 end
 
@@ -170,6 +171,56 @@ class FastfileTest < Minitest::Test
     ENV['RELEASE_FLAVOR'] = 'unknown'
     assert_raises(ArgumentError) { run_beta }
     assert_empty @harness.calls
+  end
+  def run_existing
+    OrangeoneTestflight.stub(:new, @distribution) { @harness.lanes[:distribute_existing].call }
+  end
+  def test_existing_distribution_all_groups_never_export_sign_upload_or_submit
+    %w[dev staging production].each do |target|
+      ENV['TARGET_GROUP'] = target
+      ENV['RELEASE_VERSION'] = '1.0.6'
+      ENV['RELEASE_BUILD_NUMBER'] = '33'
+      @harness.calls.clear
+      success = []
+      UI.stub(:success, proc { |message| success << message }) { run_existing }
+      assert_equal [:prepare, target], @harness.calls.assoc(:prepare)
+      assert_equal [:assign, { version: '1.0.6', number: '33' }], @harness.calls.last
+      assert_equal [:key, :prepare, :assign], @harness.calls.map(&:first)
+      assert_equal 1, success.length
+    end
+  end
+  def test_existing_distribution_accepts_whitespace_only_pr_number
+    ["   ", "\t \n"].each do |number|
+      ENV['PR_NUMBER'] = number
+      @harness.calls.clear
+      run_existing
+      assert_equal [:key, :prepare, :assign], @harness.calls.map(&:first)
+    end
+  end
+  def test_existing_distribution_failure_never_reports_success
+    @distribution.define_singleton_method(:distribute) { |**| raise OrangeoneTestflight::Error, 'Compliance pending' }
+    success = []
+    UI.stub(:success, proc { |message| success << message }) do
+      assert_raises(ArgumentError) { run_existing }
+    end
+    assert_empty success
+    refute @harness.calls.assoc(:testflight)
+    refute @harness.calls.assoc(:submit)
+  end
+  def test_existing_distribution_is_manual_main_production_and_has_no_pr
+    [ ['GITHUB_REF', 'refs/heads/feature'], ['GITHUB_EVENT_NAME', 'push'],
+      ['RELEASE_FLAVOR', 'development'], ['RELEASE_FLAVOR', 'staging'],
+      ['PR_NUMBER', '42'], ['PR_NUMBER', ' 42 '], ['TARGET_GROUP', 'unknown'] ].each do |key, value|
+      previous = ENV[key]
+      ENV[key] = value
+      assert_raises(ArgumentError) { run_existing }
+      assert_empty @harness.calls
+      if previous.nil?
+        ENV.delete(key)
+      else
+        ENV[key] = previous
+      end
+    end
   end
   def test_submit_requires_iphone_attestation_and_does_not_rebuild_or_release
     ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'false'

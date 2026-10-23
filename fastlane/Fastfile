@@ -47,6 +47,25 @@ platform :ios do
       skip_waiting_for_build_processing: true
     )
     distribution.distribute(version: ENV.fetch('RELEASE_VERSION'), number: ENV.fetch('RELEASE_BUILD_NUMBER'))
+    UI.success('Exact production build assignment confirmed for the selected TestFlight group.')
+  rescue OrangeoneTestflight::Error => error
+    UI.user_error!(error.message)
+  end
+
+  desc 'Assign an existing exact production build without export, signing or upload'
+  lane :distribute_existing do
+    require_main
+    UI.user_error!('Distribution must use production') unless
+      ENV.fetch('RELEASE_FLAVOR', 'production') == 'production'
+    UI.user_error!('Existing-build distribution does not accept PR selection') unless
+      ENV.fetch('PR_NUMBER', '').strip.empty?
+    target = ENV.fetch('TARGET_GROUP', 'production')
+    OrangeoneTestflight.group_name(target)
+    connect_key
+    OrangeoneTestflight.new.prepare(target).distribute(
+      version: ENV.fetch('RELEASE_VERSION'), number: ENV.fetch('RELEASE_BUILD_NUMBER')
+    )
+    UI.success('Exact production build assignment confirmed for the selected TestFlight group.')
   rescue OrangeoneTestflight::Error => error
     UI.user_error!(error.message)
   end

@@ -69,9 +69,11 @@ class OrangeoneTestflight
         raise Error, 'Exact build identity changed during processing.' if build_id && build.id != build_id
         build_id = build.id
         raise Error, 'Exact uploaded build failed processing or is expired.' if build.expired || %w[FAILED INVALID].include?(build.processing_state)
-        if build.processing_state == 'VALID'
-          if build.build_beta_detail && build.missing_export_compliance?
-            raise Error, 'Complete export compliance for this exact build in App Store Connect; no compliance answer is assumed.'
+        if build.processing_state == 'VALID' && build.build_beta_detail
+          detail = build.build_beta_detail
+          compliance_states = %w[MISSING_EXPORT_COMPLIANCE IN_EXPORT_COMPLIANCE_REVIEW]
+          if [detail.internal_build_state, detail.external_build_state].any? { |state| compliance_states.include?(state) }
+            raise Error, 'Complete export compliance for this exact build in App Store Connect, then run distribute_existing with the same version/build; do not reupload. No compliance answer is assumed.'
           end
           group = selected_group
           raise Error, 'Selected tester group changed during processing.' unless group.id == @group.id
@@ -83,6 +85,8 @@ class OrangeoneTestflight
             # Relationship POST is additive and receives only the allowlisted group.
             request { @api.assign(build, group) }
             loop do
+              confirmed_group = selected_group
+              raise Error, 'Selected tester group changed during assignment verification.' unless confirmed_group.id == @group.id
               return build.id if request { @api.assigned?(build, group) }
               pause(deadline)
             end
@@ -104,7 +108,7 @@ class OrangeoneTestflight
     when 'READY_FOR_BETA_TESTING', 'IN_BETA_TESTING'
       true
     when 'MISSING_EXPORT_COMPLIANCE', 'IN_EXPORT_COMPLIANCE_REVIEW'
-      raise Error, 'Complete or await export compliance for this exact build in App Store Connect; no compliance answer is assumed.'
+      raise Error, 'Complete or await export compliance for this exact build in App Store Connect, then run distribute_existing; do not reupload. No compliance answer is assumed.'
     when 'PROCESSING_EXCEPTION', 'EXPIRED'
       raise Error, 'Internal processing failed or this exact build expired. Inspect the build in App Store Connect.'
     else
@@ -125,11 +129,11 @@ class OrangeoneTestflight
     when 'READY_FOR_BETA_SUBMISSION'
       raise Error, 'This exact build requires manual Beta App Review submission in App Store Connect; no automatic review is submitted.'
     when 'WAITING_FOR_BETA_REVIEW', 'IN_BETA_REVIEW'
-      raise Error, 'Beta App Review is pending for this exact build. Wait for Apple review in App Store Connect, then assign the approved build manually.'
+      raise Error, 'Beta App Review is pending for this exact build. Wait for Apple review in App Store Connect, then run distribute_existing for this same version/build; do not reupload.'
     when 'BETA_REJECTED'
       raise Error, 'Beta App Review rejected this exact build. Resolve the rejection in App Store Connect before external distribution.'
     when 'MISSING_EXPORT_COMPLIANCE', 'IN_EXPORT_COMPLIANCE_REVIEW'
-      raise Error, 'Complete or await export compliance for this exact build in App Store Connect; no compliance answer is assumed.'
+      raise Error, 'Complete or await export compliance for this exact build in App Store Connect, then run distribute_existing; do not reupload. No compliance answer is assumed.'
     when 'PROCESSING_EXCEPTION', 'EXPIRED'
       raise Error, 'External processing failed or this exact build expired. Inspect the build in App Store Connect.'
     else

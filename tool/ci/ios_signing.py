@@ -109,10 +109,30 @@ def validate_certificate(profile, identities):
     raise ValueError('Imported distribution identity does not match the profile certificate.')
 
 
+def validate_export_compliance(info, approved=None):
+    """Require exported declarations to match reviewed production configuration.
+
+    No legal classification or compliance code is invented on the signing runner.
+    An absent declaration keeps Apple's manual exact-build questionnaire in force.
+    """
+    if approved is None:
+        source = Path(__file__).resolve().parents[2] / 'ios/Runner/Info.plist'
+        approved = plistlib.loads(source.read_bytes())
+    for key, expected_type in (('ITSAppUsesNonExemptEncryption', bool),
+                               ('ITSEncryptionExportComplianceCode', str)):
+        for values in (approved, info):
+            if key in values and (type(values[key]) is not expected_type
+                                  or (expected_type is str and not values[key].strip())):
+                raise ValueError('Invalid export compliance declaration.')
+        if (key in approved) != (key in info) or approved.get(key) != info.get(key):
+            raise ValueError('Exported compliance declaration differs from trusted production configuration.')
+
+
 def verify_export(ipa):
     """Verify exported identity/profile and signed entitlements without running app code."""
     with zipfile.ZipFile(ipa) as archive:
         info = plistlib.loads(archive.read('Payload/Runner.app/Info.plist'))
+    validate_export_compliance(info)
     if (info.get('CFBundleIdentifier') != bundle_id()
             or info.get('CFBundleShortVersionString') != required('RELEASE_VERSION')
             or info.get('CFBundleVersion') != required('RELEASE_BUILD_NUMBER')):

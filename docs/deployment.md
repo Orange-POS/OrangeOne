@@ -319,9 +319,9 @@ existing pinned Spaceship client for Apple's official App Store Connect API:
 
 If processing/compliance/review or assignment fails after upload, the binary may
 already be in TestFlight. Inspect **that exact version/build** in App Store Connect
-and complete compliance/review or assignment manually; do not re-upload the same
-version/build or choose a different latest build as a substitute. There is no
-separate assignment-only workflow in this change. API assignment success does
+and complete any required compliance/review. Then use `distribute_existing` as
+described below; do not re-upload the same version/build or choose a different
+latest build as a substitute. API assignment success does
 not guarantee notification delivery or installation; verify on a tester device.
 
 ### Testers, backend safety and public release
@@ -356,3 +356,74 @@ Unknown external states fail closed. No absent external-readiness method is call
 macOS verification is still required for real signing, API permissions, group
 eligibility/processing, TestFlight installation and protected-environment rules.
 Firebase is not integrated by this change.
+
+
+### Recover assignment without another upload
+
+After this change is reviewed and integrated into protected main:
+
+1. In GitHub Actions, open **OrangeONE iOS** and select **Run workflow** on `main`.
+2. Choose operation `distribute_existing`, the target group (`dev`, `staging`, or
+   `production`), and the **existing** marketing version/build number. For the
+   reported uploaded build, enter version `1.0.6` and build `33`.
+3. Leave PR number empty. Approve the protected `ios-production` job as required.
+4. The job loads only the App Store Connect API key from trusted-main scripts.
+   It does not download a candidate, compile, import a distribution certificate,
+   sign/export an IPA, upload a binary, submit Beta App Review, or submit a public
+   App Store release. Production submission remains a separate approved action.
+5. It resolves the allowlisted group and exact production app/version/build,
+   waits within the existing 15-minute deadline for processing, checks compliance
+   and internal/external eligibility, and adds only the selected relationship.
+   Success is reported only after read-back confirms that exact build/group.
+   Already assigned eligible builds succeed without another relationship write.
+
+Compliance pending, review required/rejected, unknown states, changed groups,
+expired/invalid builds, API errors, and unconfirmed assignments fail safely.
+Missing build/eligibility metadata waits within the deadline, rather than
+bypassing compliance checks. Complete compliance or Beta App Review in App Store
+Connect and rerun **this mode**, not `testflight`, with the same version/build.
+No latest-build fallback or automatic repeat upload is performed. A failed
+relationship request may have reached Apple: rerunning this idempotent mode first
+reads the relationship instead of blindly repeating a mutation.
+
+Apple or another account user may independently grant access through automatic
+all-build settings, direct access or overlapping memberships. The workflow does
+not remove that access and cannot promise exclusive access. Review automatic
+settings on all groups; the selected group must not have all-build access.
+
+### Encryption declaration and France availability
+
+OrangeONE uses standard AES-256-GCM in Dart for encrypted product snapshots;
+this is **not** an Apple-OS-only or no-encryption application. Select standard
+algorithms beyond Apple OS encryption in Apple's questionnaire. Excluding France
+is a distribution decision, not an algorithm change. The owner must verify that
+France is actually excluded from App Store availability (and applicable testing
+territories); the workflow does not edit territory settings.
+
+Apple's documentation table lists a French declaration for standard algorithms
+outside Apple's OS **only when distributing on the App Store in France**:
+https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption/
+
+On the stated standard-algorithm/non-France facts, that table does not require
+that French document. `ITSAppUsesNonExemptEncryption = false` is appropriate
+**if the responsible owner confirms the app uses only encryption exempt from
+Apple's documentation requirements**, not because the app lacks encryption.
+The territory settings, any other jurisdictional obligations, and the completed
+questionnaire outcome cannot be verified from source. This change therefore
+leaves both native plists unchanged and does not automatically answer Apple's
+questionnaire or add an unsupported compliance code. Existing uploaded build 33
+retains its own declaration; source changes cannot amend that binary.
+
+After the classification is confirmed, approve the boolean in the production
+`ios/Runner/Info.plist` through normal review and compile a new candidate. If Apple
+requires documentation instead, submit it under App Encryption Documentation,
+obtain Apple's approved code and review the corresponding true flag/code. Never
+invent the code or bypass the questionnaire. See Apple's key semantics:
+https://developer.apple.com/documentation/bundleresources/information-property-list/itsappusesnonexemptencryption
+
+Export verification now compares the final IPA's boolean/code (including missing
+keys and exact types) to the trusted production plist. An omitted/changed or
+unapproved declaration fails before upload. No declaration remains a deliberate
+manual-compliance state, not an exemption assertion. This also prevents a PR
+candidate from independently changing a declaration without trusted-main review.
+No certificate, provisioning profile or GitHub Secret changes are needed.
