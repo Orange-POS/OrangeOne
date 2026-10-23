@@ -7,13 +7,17 @@ from prepare_archive import validate_app
 from release_flavors import bundle_id
 from ios_signing import verify_export
 
+# Resolve from the trusted script, never Fastlane's process working directory.
+EXPORT_DIRECTORY = Path(__file__).resolve().parents[2] / 'build/ios/ipa'
+
 def export():
     archive = Path(os.environ['RUNNER_TEMP']) / 'candidate/Runner.xcarchive'
     validate_app(archive, os.environ['RELEASE_VERSION'], os.environ['RELEASE_BUILD_NUMBER'])
-    destination = Path.cwd() / 'build/ios/ipa'
+    destination = EXPORT_DIRECTORY
     destination.mkdir(parents=True, exist_ok=True)
-    if list(destination.glob('*.ipa')):
-        raise ValueError('Export destination must not contain a previous IPA.')
+    previous = list(destination.glob('*.ipa'))
+    if previous:
+        raise ValueError(f'Export destination contains {len(previous)} previous IPA candidate(s): {destination}')
     options = Path(os.environ['RUNNER_TEMP']) / 'store-export.plist'
     options.write_bytes(plistlib.dumps({
         'method': 'app-store-connect',
@@ -29,7 +33,7 @@ def export():
     ], check=True)
     ipas = list(destination.glob('*.ipa'))
     if len(ipas) != 1 or ipas[0].stat().st_size == 0:
-        raise SystemExit('Expected exactly one nonempty exported IPA.')
+        raise SystemExit(f'Expected one nonempty exported IPA; found {len(ipas)} candidate(s) in {destination}')
     verify_export(ipas[0])
 
 

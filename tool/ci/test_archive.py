@@ -75,12 +75,56 @@ class ArchiveTest(unittest.TestCase):
                 self.assertNotIn('-workspace', command)
                 (root / 'build/ios/ipa/Runner.ipa').write_bytes(b'fixture')
             with patch.dict(os.environ, {'RUNNER_TEMP': directory, 'APPLE_TEAM_ID': 'ABC123DE45', 'IOS_PROFILE_NAME': 'fixture', 'RELEASE_VERSION': '1.0.0', 'RELEASE_BUILD_NUMBER': '12'}), \
-                    patch('export_ipa.verify_export'), patch('export_ipa.Path.cwd', return_value=root), \
+                    patch('export_ipa.verify_export'), patch('export_ipa.EXPORT_DIRECTORY', root / 'build/ios/ipa'), \
                     patch('export_ipa.subprocess.run', side_effect=export_only):
                 export()
             options = plistlib.loads((root / 'store-export.plist').read_bytes())
             self.assertEqual(options['provisioningProfiles'], {'ch.orangepos.productscanner': 'fixture'})
             self.assertEqual(options['method'], 'app-store-connect')
+
+    def test_export_directory_is_anchored_to_script_not_working_directory(self):
+        import export_ipa
+        expected = Path(export_ipa.__file__).resolve().parents[2] / 'build/ios/ipa'
+        self.assertEqual(export_ipa.EXPORT_DIRECTORY, expected)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            candidate(root / 'candidate/Runner.xcarchive')
+            destination = root / 'build/ios/ipa'
+            (root / 'fastlane').mkdir()
+            original = Path.cwd()
+            try:
+                os.chdir(root / 'fastlane')
+                def produce(command, **kwargs):
+                    self.assertEqual(Path(command[command.index('-exportPath') + 1]), destination)
+                    (destination / 'Runner.ipa').write_bytes(b'fixture')
+                with patch.dict(os.environ, {'RUNNER_TEMP': directory, 'APPLE_TEAM_ID': 'ABC123DE45',
+                                             'IOS_PROFILE_NAME': 'fixture', 'RELEASE_VERSION': '1.0.0',
+                                             'RELEASE_BUILD_NUMBER': '12'}), \
+                        patch('export_ipa.EXPORT_DIRECTORY', destination), \
+                        patch('export_ipa.subprocess.run', side_effect=produce), \
+                        patch('export_ipa.verify_export') as verify:
+                    export()
+                    verify.assert_called_once_with(destination / 'Runner.ipa')
+                self.assertFalse((root / 'fastlane/build').exists())
+            finally:
+                os.chdir(original)
+
+    def test_stale_ipa_blocks_export_and_verification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            candidate(root / 'candidate/Runner.xcarchive')
+            destination = root / 'build/ios/ipa'
+            destination.mkdir(parents=True)
+            (destination / 'previous.ipa').write_bytes(b'stale')
+            with patch.dict(os.environ, {'RUNNER_TEMP': directory, 'RELEASE_VERSION': '1.0.0',
+                                         'RELEASE_BUILD_NUMBER': '12'}), \
+                    patch('export_ipa.EXPORT_DIRECTORY', destination), \
+                    patch('export_ipa.subprocess.run') as command, \
+                    patch('export_ipa.verify_export') as verify:
+                with self.assertRaisesRegex(ValueError, '1 previous IPA candidate'):
+                    export()
+                command.assert_not_called()
+                verify.assert_not_called()
 
     def test_missing_archive_never_reaches_export_tool(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -117,7 +161,7 @@ class ArchiveTest(unittest.TestCase):
                     for name, content in outputs:
                         (root / 'build/ios/ipa' / name).write_bytes(content)
                 with patch.dict(os.environ, {'RUNNER_TEMP': directory, 'APPLE_TEAM_ID': 'ABC123DE45',
-                                             'IOS_PROFILE_NAME': 'fixture', 'RELEASE_VERSION': '1.0.0', 'RELEASE_BUILD_NUMBER': '12'}), patch('export_ipa.verify_export'), patch('export_ipa.Path.cwd', return_value=root), patch('export_ipa.subprocess.run', side_effect=produce):
+                                             'IOS_PROFILE_NAME': 'fixture', 'RELEASE_VERSION': '1.0.0', 'RELEASE_BUILD_NUMBER': '12'}), patch('export_ipa.verify_export'), patch('export_ipa.EXPORT_DIRECTORY', root / 'build/ios/ipa'), patch('export_ipa.subprocess.run', side_effect=produce):
                     with self.assertRaises(SystemExit):
                         export()
 

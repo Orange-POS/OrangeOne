@@ -30,8 +30,9 @@ platform :ios do
     distribution = OrangeoneTestflight.new.prepare(target)
     # Export on a fresh trusted runner; never rebuild PR code with Apple keys.
     sh('python3', File.join(ROOT, 'tool/ci/export_ipa.py'))
-    candidates = Dir[File.join(ROOT, 'build/ios/ipa/*.ipa')]
-    UI.user_error!('Expected one exported IPA') unless candidates.length == 1
+    ipa_directory = File.join(ROOT, 'build/ios/ipa')
+    candidates = Dir[File.join(ipa_directory, '*.ipa')]
+    UI.user_error!("Expected one exported IPA; found #{candidates.length} candidate(s) in #{ipa_directory}") unless candidates.length == 1
     ipa = candidates.first
     upload_to_testflight(
       api_key: key,
