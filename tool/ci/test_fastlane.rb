@@ -109,10 +109,21 @@ class FastfileTest < Minitest::Test
     assert upload[:skip_waiting_for_build_processing]
     refute @harness.calls.assoc(:submit)
   end
+  def test_ipa_discovery_is_repository_relative_from_fastlane_directory
+    expected = File.expand_path('../../build/ios/ipa/*.ipa', __dir__)
+    checked = []
+    Dir.chdir(File.expand_path('../../fastlane', __dir__)) do
+      Dir.stub(:[], proc { |pattern| checked << pattern; ['fixture.ipa'] }) { run_beta }
+    end
+    assert_equal [expected], checked
+    assert @harness.calls.assoc(:testflight)
+  end
   def test_missing_or_ambiguous_ipa_never_uploads
     [[], ['one.ipa', 'two.ipa']].each do |paths|
       Dir.stub(:[], proc { paths }) do
-        assert_raises(ArgumentError) { run_beta }
+        error = assert_raises(ArgumentError) { run_beta }
+        assert_includes error.message, "found #{paths.length} candidate(s)"
+        assert_includes error.message, File.expand_path('../../build/ios/ipa', __dir__)
       end
       refute @harness.calls.assoc(:testflight)
     end

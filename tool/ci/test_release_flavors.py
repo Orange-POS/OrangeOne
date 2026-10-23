@@ -46,7 +46,7 @@ class FlavorReleaseTest(unittest.TestCase):
                 values = {'RUNNER_TEMP': directory, 'RELEASE_FLAVOR': flavor, 'APPLE_TEAM_ID': 'ABC123DE45',
                           'IOS_PROFILE_NAME': 'selected-profile', 'IOS_CERTIFICATE_SHA1': 'A' * 40,
                           'RELEASE_VERSION': '1.0.0', 'RELEASE_BUILD_NUMBER': '12'}
-                with patch.dict(os.environ, values), patch('export_ipa.Path.cwd', return_value=root), \
+                with patch.dict(os.environ, values), patch('export_ipa.EXPORT_DIRECTORY', root / 'build/ios/ipa'), \
                         patch('export_ipa.subprocess.run', side_effect=produce), patch('export_ipa.verify_export') as verify:
                     export()
                     verify.assert_called_once()
