@@ -93,7 +93,7 @@ jobs:
         run: python3 tool/ci/validate_release.py
       - name: Resolve main or selected PR to an immutable commit
         id: source
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
         with:
@@ -213,7 +213,7 @@ jobs:
           name: unsigned-production-candidate
           path: ${{ runner.temp }}/candidate-download
       - name: Check that selected PR has not changed since compilation
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ needs.release_checks.outputs.pr_number }}
           SOURCE_SHA: ${{ needs.release_checks.outputs.source_sha }}
