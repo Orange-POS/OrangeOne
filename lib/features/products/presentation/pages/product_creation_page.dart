@@ -10,6 +10,7 @@ import 'package:orange_one/features/products/presentation/widgets/product_action
 import 'package:orange_one/features/products/presentation/widgets/product_creation_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_tax_sheet.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
@@ -98,8 +99,7 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
     });
     return PopScope(
       canPop: !busy,
-      child: Scaffold(
-        backgroundColor: Colors.white,
+      child: ProductScaffold(
         appBar: ProductNavbar(
           title: 'Create New Product',
           onBack: busy ? null : _back,
@@ -170,13 +170,14 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
             ],
           ),
         ),
-        body: ListView(
-          padding: EdgeInsets.zero,
+        body: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          children: [
-            ProductNameCard(product: value?.created ?? existing),
-            Container(
-              decoration: const BoxDecoration(gradient: OrangeTheme.gradient),
+          slivers: [
+            SliverToBoxAdapter(
+              child: ProductNameCard(product: value?.created ?? existing),
+            ),
+            SliverFillRemaining(
+              hasScrollBody: false,
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 decoration: const BoxDecoration(

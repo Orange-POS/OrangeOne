@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 abstract final class OrangeTheme {
+  /// Top inset baseline; larger hardware cutouts remain protected.
+  static const topSafeArea = 34.0;
+
   static const brand = Color(0xFFFF8A33);
   static const dark = Color(0xFFBE4602);
   static const camera = Color(0xFF1B120B);

@@ -5,8 +5,9 @@ import 'package:orange_one/core/storage/read_cache_providers.dart';
 
 /// The status describes server verification, not merely Wi-Fi availability.
 class ProductSyncIndicator extends ConsumerWidget {
-  const new({required this.barcode, super.key});
+  const new({required this.barcode, this.onlineIcon, super.key});
   final String? barcode;
+  final Widget? onlineIcon;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,12 +38,17 @@ class ProductSyncIndicator extends ConsumerWidget {
       message: message,
       child: Semantics(
         label: message,
-        child: Icon(
-          icon,
-          key: const Key('product-sync-status'),
-          color: Colors.white,
-          size: 24,
-        ),
+        child: phase == ReadSyncPhase.online && onlineIcon != null
+            ? KeyedSubtree(
+                key: const Key('product-sync-status'),
+                child: onlineIcon!,
+              )
+            : Icon(
+                icon,
+                key: const Key('product-sync-status'),
+                color: Colors.white,
+                size: 24,
+              ),
       ),
     );
   }

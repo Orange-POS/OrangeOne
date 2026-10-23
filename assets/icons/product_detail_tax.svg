@@ -1,0 +1,12 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="barcode" clip-path="url(#clip0_0_125)">
+<g id="lucide/percent">
+<path id="Vector" d="M17 3L3 17M7 4.5C7 5.88071 5.88071 7 4.5 7C3.11929 7 2 5.88071 2 4.5C2 3.11929 3.11929 2 4.5 2C5.88071 2 7 3.11929 7 4.5ZM18 15.5C18 16.8807 16.8807 18 15.5 18C14.1193 18 13 16.8807 13 15.5C13 14.1193 14.1193 13 15.5 13C16.8807 13 18 14.1193 18 15.5Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#F56600"/>
+</g>
+</g>
+<defs>
+<clipPath id="clip0_0_125">
+<rect width="20" height="20" fill="white"/>
+</clipPath>
+</defs>
+</svg>

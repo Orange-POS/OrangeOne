@@ -9,6 +9,7 @@ import 'package:orange_one/features/products/presentation/widgets/product_action
 import 'package:orange_one/features/products/presentation/widgets/product_edit_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_tax_sheet.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
@@ -95,8 +96,7 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
     });
     return PopScope(
       canPop: !busy,
-      child: Scaffold(
-        backgroundColor: Colors.white,
+      child: ProductScaffold(
         appBar: ProductNavbar(
           title: 'Edit Name & Tax',
           onBack: busy ? null : () => _leave(saved),
@@ -169,16 +169,14 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
         ),
         body: RefreshIndicator(
           onRefresh: _refresh,
-          child: ListView(
-            padding: EdgeInsets.zero,
+          child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            children: [
-              if (product != null) ProductNameCard(product: product),
-              DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: OrangeTheme.homeGradient,
-                ),
+            slivers: [
+              if (product != null)
+                SliverToBoxAdapter(child: ProductNameCard(product: product)),
+              SliverFillRemaining(
+                hasScrollBody: false,
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   decoration: const BoxDecoration(

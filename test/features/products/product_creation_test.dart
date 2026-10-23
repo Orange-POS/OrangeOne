@@ -215,7 +215,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Create Product'));
     await tester.pumpAndSettle();
     expect(find.text('New Product Created'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, 800));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 800));
     await tester.pumpAndSettle();
     expect(find.text('Out of stock · 0 Units'), findsOneWidget);
     expect(repository.creates, 1);

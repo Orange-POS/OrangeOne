@@ -55,7 +55,8 @@ void main() {
             queryParameters: {'barcode': '0010101010'},
           );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Update Price'));
+      await tester.ensureVisible(find.byTooltip('Update price'));
+      await tester.tap(find.byTooltip('Update price'));
       await tester.pumpAndSettle();
       expect(find.byType(ProductPriceUpdatePage), findsOneWidget);
       await tester.enterText(

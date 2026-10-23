@@ -172,7 +172,7 @@ void main() {
       await mount(tester, FakeDetailsRepository(), scale: 1.6);
       final header = tester.getTopLeft(find.text('Edit Name & Tax'));
       final footer = tester.getTopLeft(action());
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.text('Edit Name & Tax')), header);
       expect(tester.getTopLeft(action()), footer);

@@ -125,7 +125,7 @@ void main() {
     expect(find.text('Check connection.'), findsOneWidget);
   });
 
-  testWidgets('details, mock discount and permissions render responsively', (
+  testWidgets('details hides discount and preserves disabled permissions', (
     tester,
   ) async {
     final repo = FakeDetailsRepository()..access = const ProductAccess();
@@ -133,16 +133,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(detailsFixture.name), findsOneWidget);
     expect(find.textContaining('In stock · 48'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Update Price'), 250);
+    for (final tooltip in [
+      'Update price',
+      'Edit product name',
+      'Add stock (coming soon)',
+    ]) {
+      final action = find.byWidgetPredicate(
+        (widget) => widget is IconButton && widget.tooltip == tooltip,
+      );
+      expect(tester.widget<IconButton>(action).onPressed, isNull);
+    }
+    expect(find.text('Discount · Mock data'), findsNothing);
     expect(
-      tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Update Price'),
-          )
-          .onPressed,
-      isNull,
+      find.text('Discount · Mock data', skipOffstage: false),
+      findsOneWidget,
     );
-    expect(find.text('Discount · Mock data'), findsOneWidget);
+    expect(repo.writes, 0);
     expect(tester.takeException(), isNull);
   });
 }

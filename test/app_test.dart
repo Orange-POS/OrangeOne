@@ -12,6 +12,35 @@ import 'package:orange_one/features/authentication/presentation/widgets/qr_camer
 import 'support/auth_fakes.dart';
 
 void main() {
+  for (final top in [0.0, 24.0, 59.0]) {
+    testWidgets('top safe area baseline preserves hardware inset $top', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = FakeViewPadding(top: top, bottom: 24);
+      tester.view.viewPadding = FakeViewPadding(top: top, bottom: 24);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(
+              FakeAuthRepository()..restored = testSession,
+            ),
+            utcNowProvider.overrideWithValue(() => testNow),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final media = MediaQuery.of(
+        tester.element(find.byKey(const Key('logout-button'))),
+      );
+      expect(media.padding.top, top > 34 ? top : 34);
+      expect(media.viewPadding.top, top > 34 ? top : 34);
+      expect(media.padding.bottom, 24);
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('resume keeps the session without another server validation', (
     tester,
   ) async {

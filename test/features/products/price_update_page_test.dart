@@ -163,7 +163,7 @@ void main() {
       await mount(tester, FakeDetailsRepository(), scale: 1.6);
       final top = tester.getTopLeft(find.byTooltip('Back'));
       final bottom = tester.getTopLeft(getAction());
-      await tester.drag(find.byType(ListView), const Offset(0, -250));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.byTooltip('Back')), top);
       expect(tester.getTopLeft(getAction()), bottom);
