@@ -3,6 +3,11 @@
 <plist version="1.0">
 <dict>
     <!-- POS origins vary at runtime, including HTTP servers on local networks. -->
+    <!-- Owner-approved export compliance: HTTPS plus standard AES-256-GCM for the local
+         product cache only, exempt from Apple documentation while the App Store excludes
+         France. See docs/deployment.md before changing; a wrong value is a legal declaration. -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>
