@@ -45,6 +45,7 @@ class ProductCreationContext {
   final List<ProductTax> taxes;
   final bool supportsCreateOnly;
   bool get permitted =>
+      details.access.createProduct &&
       details.access.editName &&
       details.access.updatePrice &&
       details.access.readReferences;

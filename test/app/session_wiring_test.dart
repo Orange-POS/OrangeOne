@@ -157,11 +157,8 @@ void main() {
             handler.resolve(
               Response(
                 requestOptions: options,
-                data: {
-                  'jsonrpc': '2.0',
-                  'id': (options.data as Map)['id'],
-                  'result': {'ok': true, 'product': null},
-                },
+                statusCode: 404,
+                data: errorEnvelope('PRODUCT_NOT_FOUND'),
               ),
             );
           },

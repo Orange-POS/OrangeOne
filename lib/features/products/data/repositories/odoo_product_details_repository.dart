@@ -1,18 +1,43 @@
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/mobile_api_client.dart';
+import 'package:orange_one/core/network/product_payload.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
+import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
+import 'package:orange_one/features/products/data/models/product_access_model.dart';
 import 'package:orange_one/features/products/data/models/product_details_model.dart';
+import 'package:orange_one/features/products/data/models/product_summary_model.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
 
+/// A server-verified product read, kept in memory for conditional refresh.
+typedef _ProductRead = ({
+  int id,
+  String? etag,
+  Map<String, dynamic> record,
+  ProductAccess access,
+});
+
+/// Reads use Mobile API v2 ([catalog]); writes still use [source] (v1).
 class OdooProductDetailsRepository implements ProductDetailsRepository {
-  new(this.source, {required this.onSessionRejected, this.cache});
+  new(
+    this.source, {
+    required this.catalog,
+    required this.onSessionRejected,
+    this.cache,
+  });
   final EncryptedReadCache? cache;
   final ProductDetailsRemoteDataSource source;
+  final ProductCatalogRemoteDataSource catalog;
   final Future<void> Function() onSessionRejected;
   final _loads = <String, Future<ProductDetailsState>>{};
+
+  /// Latest verified read per barcode. Permissions and versions stay in
+  /// memory only; the offline cache never stores them.
+  final _reads = <String, _ProductRead>{};
+  static const _maxReads = 50;
 
   @override
   Future<ProductCreationContext> prepareCreation(
@@ -25,7 +50,8 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
 
   Future<ProductCreationContext> _prepareCreation(String barcode) async {
     final details = await _load(barcode);
-    if (!details.access.editName ||
+    if (!details.access.createProduct ||
+        !details.access.editName ||
         !details.access.updatePrice ||
         !details.access.readReferences ||
         details.product != null) {
@@ -145,28 +171,13 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
   Future<ProductDetailsState> _load(String barcode) async {
     var access = const ProductAccess();
     Future<Map<String, dynamic>?> fetch() async {
-      final permission = await source.call('/mupi/mobile/auth/token/check');
-      final rawScopes = permission['scopes'];
-      if (rawScopes != null && rawScopes != false && rawScopes is! String) {
-        throw invalidResponse;
+      final read = await _read(barcode);
+      if (read == null) {
+        access = ProductAccessModel.parse(await catalog.sessionPermissions());
+        return null;
       }
-      final scopes = rawScopes is String
-          ? rawScopes.split(RegExp(r'\s+'))
-          : <String>[];
-      access = ProductAccess(
-        editName: scopes.contains('product:name_update'),
-        updatePrice: scopes.contains('product:price_update'),
-        readReferences: scopes.contains('reference:read'),
-      );
-      final result = await source.call('/mupi/mobile/api/products/find', {
-        'barcode': barcode,
-      });
-      if (!result.containsKey('product')) throw invalidResponse;
-      final product = result['product'];
-      if (product == null) return null;
-      if (product is! Map<String, dynamic>) throw invalidResponse;
-      ProductDetailsModel.parse(product, barcode);
-      return product;
+      access = read.access;
+      return read.record;
     }
 
     final result = cache == null
@@ -178,6 +189,66 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
       result.serverVerified ? access : const ProductAccess(),
     );
   }
+
+  /// Refreshes a known product by id with `If-None-Match` (304 keeps the
+  /// previous read); otherwise, or when the product no longer carries this
+  /// barcode, looks it up by barcode. Null means `PRODUCT_NOT_FOUND`.
+  Future<_ProductRead?> _read(String barcode) async {
+    final previous = _reads.remove(barcode);
+    if (previous != null) {
+      try {
+        final response = await catalog.byId(previous.id, etag: previous.etag);
+        if (response.notModified) {
+          if (previous.etag == null) throw invalidResponse;
+          return _remember(barcode, previous);
+        }
+        final read = _parse(response);
+        if (read.record['barcode'] == barcode) return _remember(barcode, read);
+      } on AppFailure catch (failure) {
+        if (failure.kind != FailureKind.notFound) rethrow;
+      }
+    }
+    try {
+      final read = _parse(await catalog.byBarcode(barcode));
+      if (read.record['barcode'] != barcode) throw invalidResponse;
+      return _remember(barcode, read);
+    } on AppFailure catch (failure) {
+      if (failure.code == 'PRODUCT_NOT_FOUND') return null;
+      rethrow;
+    }
+  }
+
+  _ProductRead _remember(String barcode, _ProductRead read) {
+    _reads[barcode] = read;
+    if (_reads.length > _maxReads) _reads.remove(_reads.keys.first);
+    return read;
+  }
+
+  static _ProductRead _parse(MobileApiResponse response) {
+    final record = ProductPayload.productRecord(response.data);
+    return (
+      id: record['id'] as int,
+      etag: response.etag,
+      record: record,
+      access: ProductAccessModel.parse(record['permissions']),
+    );
+  }
+
+  @override
+  Future<ProductPage> searchProducts({
+    String? query,
+    int? categoryId,
+    String? cursor,
+    int limit = 25,
+  }) => _authenticated(() async {
+    final response = await catalog.search(
+      query: query,
+      categoryId: categoryId,
+      cursor: cursor,
+      limit: limit,
+    );
+    return ProductSummaryModel.page(response.data, response.meta);
+  });
 
   Future<T> _write<T>(Future<T> Function() operation) => _authenticated(
     () => cache == null ? operation() : cache!.write(operation),

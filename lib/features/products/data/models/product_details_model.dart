@@ -14,8 +14,7 @@ abstract final class ProductDetailsModel {
         json['barcode'] != barcode ||
         price is! num ||
         !price.isFinite ||
-        stock is! num ||
-        !stock.isFinite) {
+        (stock != null && (stock is! num || !stock.isFinite))) {
       throw invalidResponse;
     }
     final taxes = <String>[];
@@ -51,13 +50,38 @@ abstract final class ProductDetailsModel {
       name: name,
       barcode: barcode,
       price: price.toDouble(),
-      stock: stock.toDouble(),
+      stock: (stock as num?)?.toDouble(),
       unit: _text(json['uom']),
       reference: _text(json['default_code']),
       taxes: List.unmodifiable(taxes),
       taxIds: rawTaxes is List && completeIds
           ? List.unmodifiable(taxIds)
           : null,
+      currency: _optionalText(json['currency']),
+      category: _category(json['category']),
+      description: _optionalText(json['description']),
+      version: _optionalText(json['version']),
+      stockAdjustable: json['stock_adjustable'] == true,
+    );
+  }
+
+  /// Mobile API v2 fields of a product read record (absent offline).
+  static String? _optionalText(Object? value) {
+    if (value == null) return null;
+    if (value is! String) throw invalidResponse;
+    return value;
+  }
+
+  static ProductCategory? _category(Object? value) {
+    if (value == null) return null;
+    if (value is! Map<String, dynamic> ||
+        value['id'] is! int ||
+        value['name'] is! String) {
+      throw invalidResponse;
+    }
+    return ProductCategory(
+      id: value['id'] as int,
+      name: value['name'] as String,
     );
   }
 

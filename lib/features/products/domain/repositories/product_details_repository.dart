@@ -10,6 +10,14 @@ abstract interface class ProductDetailsRepository {
   });
   Future<ProductDetails> createProduct(NewProduct product);
   Future<ProductDetailsState> load(String barcode);
+
+  /// One page of POS products matching [query] and/or [categoryId].
+  Future<ProductPage> searchProducts({
+    String? query,
+    int? categoryId,
+    String? cursor,
+    int limit = 25,
+  });
   Future<void> updateName(int id, String name);
   Future<ProductDetails> updatePrice(int id, double price);
   Future<List<ProductTax>> loadTaxes();

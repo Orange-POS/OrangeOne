@@ -17,6 +17,7 @@ import 'package:orange_one/features/authentication/presentation/providers/auth_p
 import 'package:orange_one/features/home/data/data_sources/product_remote_data_source.dart';
 import 'package:orange_one/features/home/data/repositories/odoo_product_repository.dart';
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
+import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
@@ -84,6 +85,10 @@ final Override productDetailsRepositoryOverride =
           token: ref.read(sessionControllerProvider.notifier).accessToken,
           cancelToken: cancel,
         ),
+        catalog: ProductCatalogRemoteDataSource(
+          ref.watch(authenticatedMobileApiProvider),
+          cancelToken: cancel,
+        ),
         cache: ref.watch(readCacheProvider),
         onSessionRejected: () async {
           if (ref.mounted &&
@@ -103,9 +108,7 @@ final Override productRepositoryOverride = productRepositoryProvider
       ref.onDispose(cancel.cancel);
       return OdooProductRepository(
         ProductRemoteDataSource(
-          ref.watch(jsonRpcClientProvider),
-          origin: session.backendOrigin,
-          accessToken: ref.read(sessionControllerProvider.notifier).accessToken,
+          ref.watch(authenticatedMobileApiProvider),
           cancelToken: cancel,
         ),
         cache: ref.watch(readCacheProvider),

@@ -6,10 +6,13 @@ import 'package:dio/dio.dart';
 
 /// A scripted Mobile API reply.
 class FakeReply {
-  const new(this.status, [this.body]);
+  const new(this.status, [this.body, this.headers = const {}]);
 
   final int status;
   final Object? body;
+
+  /// Extra response headers such as `etag`.
+  final Map<String, String> headers;
 
   /// A reply that never arrives unless the request is cancelled.
   static const FakeReply hang = FakeReply(-1);
@@ -65,6 +68,8 @@ class FakeMobileApiServer implements HttpClientAdapter {
       reply.status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
+        for (final MapEntry(:key, :value) in reply.headers.entries)
+          key: [value],
       },
     );
   }

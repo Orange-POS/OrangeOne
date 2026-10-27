@@ -7,9 +7,13 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/json_rpc_client.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
+import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 
+import '../../support/auth_fakes.dart';
+import '../../support/mobile_api_fakes.dart';
+import '../../support/product_api_fakes.dart';
 import '../../support/product_fakes.dart';
 
 void main() {
@@ -18,7 +22,7 @@ void main() {
   late Dio dio;
   late OdooProductDetailsRepository repository;
   late bool available;
-  late String scopes;
+  late Map<String, bool> permissions;
   late List<String> requests;
   Map<String, dynamic>? found;
   const code = '0010101010';
@@ -28,41 +32,41 @@ void main() {
     cache = EncryptedReadCache(database, sessionSecret: 'synthetic-session');
     dio = Dio();
     available = true;
-    found = productJson();
-    scopes = 'product:name_update product:price_update reference:read';
+    found = v2Product();
+    permissions = productPermissions();
     requests = [];
+    // Writes use the v1 client; none may reach the transport in this test.
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (request, handler) {
           requests.add(request.uri.path);
-          if (!available) {
-            handler.reject(
-              DioException(
-                requestOptions: request,
-                type: DioExceptionType.connectionError,
-              ),
-            );
-            return;
-          }
-          if (!request.uri.path.endsWith('/token/check') &&
-              !request.uri.path.endsWith('/products/find')) {
-            fail('A mutation must not reach the transport in this test.');
-          }
-          handler.resolve(
-            Response(
-              requestOptions: request,
-              data: {
-                'jsonrpc': '2.0',
-                'id': (request.data as Map)['id'],
-                'result': request.uri.path.endsWith('/token/check')
-                    ? {'ok': true, 'scopes': scopes}
-                    : {'ok': true, 'product': found},
-              },
-            ),
-          );
+          fail('A mutation must not reach the transport in this test.');
         },
       ),
     );
+    FakeReply read(RequestOptions request) {
+      requests.add(request.uri.path);
+      if (!available) {
+        throw DioException(
+          requestOptions: request,
+          type: DioExceptionType.connectionError,
+        );
+      }
+      if (request.uri.path.endsWith('/auth/session')) {
+        return FakeReply(200, successEnvelope(sessionData(permissions)));
+      }
+      return found == null
+          ? FakeReply(404, errorEnvelope('PRODUCT_NOT_FOUND'))
+          : FakeReply(
+              200,
+              successEnvelope({...found!, 'permissions': permissions}),
+            );
+    }
+
+    final server = FakeMobileApiServer()
+      ..on('GET /products/by-barcode/$code', read)
+      ..on('GET /products/10', read)
+      ..on('GET /auth/session', read);
     repository = OdooProductDetailsRepository(
       ProductDetailsRemoteDataSource(
         JsonRpcClient(
@@ -74,6 +78,10 @@ void main() {
         ),
         origin: Uri.parse('https://pos.test'),
         token: () async => 'synthetic-session',
+        cancelToken: CancelToken(),
+      ),
+      catalog: ProductCatalogRemoteDataSource(
+        fakeProductApi(server),
         cancelToken: CancelToken(),
       ),
       cache: cache,
@@ -108,7 +116,7 @@ void main() {
           cache.retryRead();
         }
         await failSql('INSERT');
-        found = productJson()..['name'] = 'Fresh result';
+        found = v2Product(name: 'Fresh result');
         final fresh = await repository.load(code);
         expect(fresh.product?.name, 'Fresh result');
         expect(fresh.access.updatePrice, isTrue);
@@ -159,7 +167,7 @@ void main() {
       await repository.load(code);
       await failSql('INSERT');
       await failSql('DELETE');
-      found = productJson()..['name'] = 'Fresh but not cached';
+      found = v2Product(name: 'Fresh but not cached');
       final fresh = await repository.load(code);
       expect(fresh.product?.name, 'Fresh but not cached');
       expect(fresh.access.updatePrice, isTrue);
@@ -219,14 +227,16 @@ void main() {
   );
 
   test(
-    'fresh connectivity does not grant permissions absent from scopes',
+    'fresh connectivity does not grant permissions the server withholds',
     () async {
       await repository.load(code);
       cache
         ..connectionChanged(connected: false)
         ..retryRead();
       await failSql('INSERT');
-      scopes = 'product:read';
+      permissions = productPermissions({
+        for (final key in productPermissions().keys) key: key == 'product_read',
+      });
       final fresh = await repository.load(code);
       expect(cache.offline, isFalse);
       expect(fresh.access.updatePrice, isFalse);

@@ -16,13 +16,8 @@ class OdooProductRepository implements ProductRepository {
     try {
       if (refresh) cache?.retryRead();
       Future<Map<String, dynamic>?> fetch() async {
-        final result = await _remote.find(barcode);
-        ProductRemoteDataSource.checkResult(result);
-        if (!result.containsKey('product')) throw invalidResponse;
-        final product = result['product'];
-        if (product == null) return null;
-        if (product is! Map<String, dynamic>) throw invalidResponse;
-        ProductModel.fromJson(product, barcode);
+        final product = await _remote.findByBarcode(barcode);
+        if (product != null) ProductModel.fromJson(product, barcode);
         return product;
       }
 

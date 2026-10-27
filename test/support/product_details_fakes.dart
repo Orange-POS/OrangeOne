@@ -64,6 +64,7 @@ class FakeDetailsRepository implements ProductDetailsRepository {
 
   ProductDetails? product = detailsFixture;
   ProductAccess access = const ProductAccess(
+    createProduct: true,
     editName: true,
     updatePrice: true,
     readReferences: true,
@@ -122,6 +123,20 @@ class FakeDetailsRepository implements ProductDetailsRepository {
     if (error != null) Error.throwWithStackTrace(error!, StackTrace.current);
     if (pending != null) return await pending!.future;
     return ProductDetailsState(product, access);
+  }
+
+  ProductPage page = const ProductPage([], null);
+  final searches = <({String? query, int? categoryId, String? cursor})>[];
+  @override
+  Future<ProductPage> searchProducts({
+    String? query,
+    int? categoryId,
+    String? cursor,
+    int limit = 25,
+  }) async {
+    searches.add((query: query, categoryId: categoryId, cursor: cursor));
+    if (error != null) Error.throwWithStackTrace(error!, StackTrace.current);
+    return page;
   }
 
   @override

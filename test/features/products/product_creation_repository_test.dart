@@ -7,18 +7,23 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/json_rpc_client.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
+import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 
+import '../../support/auth_fakes.dart';
+import '../../support/mobile_api_fakes.dart';
+import '../../support/product_api_fakes.dart';
 import '../../support/product_fakes.dart';
 
 void main() {
   late Dio dio;
   late OdooProductDetailsRepository repository;
   late List<RequestOptions> requests;
-  late String scopes;
+  late FakeMobileApiServer server;
+  late Map<String, bool> permissions;
   late bool supported;
   Map<String, dynamic>? found;
   Map<String, dynamic>? saveResult;
@@ -26,9 +31,20 @@ void main() {
   setUp(() {
     dio = Dio();
     requests = [];
-    scopes = 'product:name_update product:price_update reference:read';
+    permissions = productPermissions();
     supported = true;
     found = null;
+    server = FakeMobileApiServer()
+      ..on(
+        'GET /products/by-barcode/0010101010',
+        (_) => found == null
+            ? FakeReply(404, errorEnvelope('PRODUCT_NOT_FOUND'))
+            : FakeReply(200, successEnvelope(found)),
+      )
+      ..on(
+        'GET /auth/session',
+        (_) => FakeReply(200, successEnvelope(sessionData(permissions))),
+      );
     saveResult = null;
     updateResult = null;
     repository = OdooProductDetailsRepository(
@@ -44,6 +60,10 @@ void main() {
         token: () async => 'fixture',
         cancelToken: CancelToken(),
       ),
+      catalog: ProductCatalogRemoteDataSource(
+        fakeProductApi(server),
+        cancelToken: CancelToken(),
+      ),
       onSessionRejected: () async {},
     );
     dio.interceptors.add(
@@ -51,11 +71,7 @@ void main() {
         onRequest: (request, handler) {
           requests.add(request);
           final path = request.uri.path;
-          final result = path.endsWith('/token/check')
-              ? {'ok': true, 'scopes': scopes}
-              : path.endsWith('/products/find')
-              ? {'ok': true, 'product': found}
-              : path.endsWith('/references')
+          final result = path.endsWith('/references')
               ? {
                   'ok': true,
                   if (supported) 'create_only_supported': true,
@@ -105,6 +121,7 @@ void main() {
       });
       final cachedRepository = OdooProductDetailsRepository(
         repository.source,
+        catalog: repository.catalog,
         cache: cache,
         onSessionRejected: () async {},
       );
@@ -114,10 +131,8 @@ void main() {
         requests.where((request) => request.path.endsWith('/save')),
         hasLength(1),
       );
-      expect(
-        requests.any((request) => request.path.endsWith('/token/check')),
-        isTrue,
-      );
+      expect(server.called('GET /products/by-barcode/0010101010'), isNotEmpty);
+      expect(server.called('GET /auth/session'), isNotEmpty);
     },
   );
 
@@ -143,6 +158,7 @@ void main() {
       });
       final cachedRepository = OdooProductDetailsRepository(
         repository.source,
+        catalog: repository.catalog,
         cache: cache,
         onSessionRejected: () async {},
       );
@@ -159,9 +175,11 @@ void main() {
   test('rechecks permission and sends create-only with No Tax', () async {
     final result = await repository.createProduct(draft());
     expect(result.id, 10);
+    expect(server.requests.map((request) => request.uri.path), [
+      '/api/orangeone/mobile/v1/products/by-barcode/0010101010',
+      '/api/orangeone/mobile/v1/auth/session',
+    ]);
     expect(requests.map((request) => request.uri.path), [
-      '/mupi/mobile/auth/token/check',
-      '/mupi/mobile/api/products/find',
       '/mupi/mobile/api/products/references',
       '/mupi/mobile/api/products/save',
     ]);
@@ -180,13 +198,14 @@ void main() {
     );
   });
 
-  for (final missingScope in [
-    'product:name_update',
-    'product:price_update',
-    'reference:read',
+  for (final missing in [
+    'product_create',
+    'product_update_name',
+    'product_update_price',
+    'product_update_taxes',
   ]) {
-    test('missing $missingScope never sends a save', () async {
-      scopes = scopes.replaceAll(missingScope, '');
+    test('missing $missing never sends a save', () async {
+      permissions[missing] = false;
       await expectLater(
         repository.createProduct(draft()),
         throwsA(isA<AppFailure>()),
@@ -285,7 +304,7 @@ void main() {
     );
   });
   test('existing product is a conflict without any write', () async {
-    found = productJson();
+    found = v2Product();
     await expectLater(
       repository.createProduct(draft()),
       throwsA(

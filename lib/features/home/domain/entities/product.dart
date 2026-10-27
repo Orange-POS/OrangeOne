@@ -1,4 +1,4 @@
-/// Read-only product information; the API does not supply a currency code.
+/// Read-only product information from a barcode scan.
 class Product {
   const new({
     required this.id,
@@ -14,7 +14,9 @@ class Product {
   final String name;
   final String barcode;
   final double price;
-  final double stockQuantity;
+
+  /// Null when the backend does not track stock (shown as unavailable).
+  final double? stockQuantity;
   final String unit;
   final String reference;
 }

@@ -34,6 +34,7 @@ void main() {
       final container = ProviderContainer.test(
         overrides: [
           productRepositoryOverride,
+          authenticatedMobileApiOverride,
           environmentProvider.overrideWithValue(AppEnvironment.production),
           authRepositoryProvider.overrideWithValue(auth),
           utcNowProvider.overrideWithValue(() => testNow),
@@ -65,11 +66,8 @@ void main() {
             handler.resolve(
               Response(
                 requestOptions: options,
-                data: {
-                  'jsonrpc': '2.0',
-                  'id': (options.data as Map)['id'],
-                  'result': {'ok': false, 'error': 'Token is not active.'},
-                },
+                statusCode: 401,
+                data: errorEnvelope('TOKEN_REVOKED'),
               ),
             );
           },
@@ -78,6 +76,7 @@ void main() {
       final container = ProviderContainer.test(
         overrides: [
           productRepositoryOverride,
+          authenticatedMobileApiOverride,
           environmentProvider.overrideWithValue(AppEnvironment.production),
           authRepositoryProvider.overrideWithValue(auth),
           utcNowProvider.overrideWithValue(() => testNow),
@@ -116,6 +115,7 @@ void main() {
       final container = ProviderContainer.test(
         overrides: [
           productRepositoryOverride,
+          authenticatedMobileApiOverride,
           environmentProvider.overrideWithValue(AppEnvironment.production),
           authRepositoryProvider.overrideWithValue(
             FakeAuthRepository()..restored = testSession,
