@@ -1,18 +1,19 @@
+/// A validated POS login QR (payload version 2).
 class LoginChallenge {
   const new({
-    required this.challenge,
+    required this.challengeId,
     required this.nonce,
-    required this.posSessionId,
     required this.posConfigId,
-    required this.backendOrigin,
+    required this.apiBase,
     required this.expiresAt,
   });
 
-  final String challenge;
+  final String challengeId;
   final String nonce;
-  final int posSessionId;
   final int posConfigId;
-  final Uri backendOrigin;
+
+  /// Mobile API base of the POS server that issued the QR.
+  final Uri apiBase;
   final DateTime expiresAt;
 
   @override

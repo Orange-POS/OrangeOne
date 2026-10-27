@@ -17,9 +17,9 @@ void main() {
     final repository = FakeAuthRepository()
       ..restored = AuthSession(
         accessToken: testSession.accessToken,
-        backendOrigin: testSession.backendOrigin,
+        apiBase: testSession.apiBase,
         expiresAt: testNow.add(const Duration(seconds: 1)),
-        tokenId: 7,
+        sessionId: testSession.sessionId,
         userId: 2,
         posSessionId: 106,
         posConfigId: 1,
@@ -107,6 +107,74 @@ void main() {
     await container.pump();
     expect(repository.restores, 1);
     expect(container.read(sessionControllerProvider).hasError, isTrue);
+  });
+
+  group('access tokens', () {
+    test('refresh keeps the same session state', () async {
+      repository.restored = testSession;
+      await container.read(sessionControllerProvider.future);
+      final states = <AsyncValue<AuthSession?>>[];
+      container.listen(
+        sessionControllerProvider,
+        (previous, next) => states.add(next),
+      );
+      repository.currentToken = 'oa_access_2';
+      final controller = container.read(sessionControllerProvider.notifier);
+
+      expect(await controller.accessToken(), 'oa_access_2');
+      expect(
+        await controller.refreshAccessToken(testSession.accessToken),
+        'oa_access_2',
+      );
+      expect(repository.rejectedTokens, [testSession.accessToken]);
+      expect(states, isEmpty);
+      expect(
+        container.read(sessionControllerProvider).value,
+        same(testSession),
+      );
+    });
+
+    test('a rejected refresh signs out', () async {
+      repository.restored = testSession;
+      await container.read(sessionControllerProvider.future);
+      repository.tokenFailure = invalidSession;
+
+      await expectLater(
+        container.read(sessionControllerProvider.notifier).accessToken(),
+        throwsA(same(invalidSession)),
+      );
+      expect(container.read(sessionControllerProvider).value, isNull);
+      expect(repository.signOuts, 1);
+    });
+
+    test('a network failure keeps the session', () async {
+      repository.restored = testSession;
+      await container.read(sessionControllerProvider.future);
+      repository.tokenFailure = const AppFailure(
+        FailureKind.network,
+        'offline',
+      );
+
+      await expectLater(
+        container.read(sessionControllerProvider.notifier).accessToken(),
+        throwsA(isA<AppFailure>()),
+      );
+      expect(
+        container.read(sessionControllerProvider).value,
+        same(testSession),
+      );
+      expect(repository.signOuts, 0);
+    });
+
+    test('signed out means no token and no repository call', () async {
+      await container.read(sessionControllerProvider.future);
+
+      await expectLater(
+        container.read(sessionControllerProvider.notifier).accessToken(),
+        throwsA(same(invalidSession)),
+      );
+      expect(repository.tokenRequests, 0);
+    });
   });
 
   test(

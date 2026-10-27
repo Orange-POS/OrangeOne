@@ -8,38 +8,83 @@ import 'package:orange_one/features/authentication/domain/repositories/auth_repo
 
 final testNow = DateTime.utc(2030, 1, 1, 12);
 final Uri testOrigin = Uri.parse('https://pos.example');
+final Uri testApiBase = Uri.parse(
+  'https://pos.example/api/orangeone/mobile/v1',
+);
 final testSession = AuthSession(
-  accessToken: 'fixture.token.signature',
-  backendOrigin: testOrigin,
-  expiresAt: testNow.add(const Duration(hours: 8)),
-  tokenId: 7,
+  accessToken: 'oa_fixture_access',
+  apiBase: testApiBase,
+  expiresAt: testNow.add(const Duration(days: 7)),
+  sessionId: 'family-1',
   userId: 2,
-  posSessionId: 106,
   posConfigId: 1,
   companyId: 1,
+  posSessionId: 106,
 );
 
+/// POS login QR payload v2.
 Map<String, dynamic> qrFields() => {
-  'challenge': List.filled(43, 'a').join(),
+  'v': 2,
+  'type': 'orangeone.pos-login',
+  'api_base': testApiBase.toString(),
+  'challenge_id': 'chl_${List.filled(32, 'a').join()}',
   'nonce': List.filled(43, 'b').join(),
-  'pos_session_id': 106,
   'pos_config_id': 1,
-  'backend_url': testOrigin.toString(),
-  'rest_endpoint_url': '$testOrigin/mupi/mobile/auth/challenge/validate',
-  'expires_at': testNow.add(const Duration(minutes: 5)).toIso8601String(),
+  'expires_at': testNow.add(const Duration(minutes: 2)).toIso8601String(),
 };
 String validQr() => jsonEncode(qrFields());
-Map<String, dynamic> tokenResult() => {
-  'ok': true,
-  'access_token': testSession.accessToken,
+
+/// `Session` payload of the Mobile API.
+Map<String, dynamic> sessionPayload({
+  String sessionId = 'family-1',
+  int companyId = 1,
+  int posConfigId = 1,
+}) => {
+  'session_id': sessionId,
+  'user': {'id': 2, 'name': 'Mobile Manager'},
+  'employee': null,
+  'company': {'id': companyId, 'name': 'OrangeONE'},
+  'pos_config': {'id': posConfigId, 'name': 'Shop', 'pos_session_id': 106},
+  'currency': {
+    'code': 'CHF',
+    'symbol': 'CHF',
+    'decimal_places': 2,
+    'position': 'before',
+  },
+  'permissions': {'product_read': true},
+  'policy': 'independent',
+  'expires_at': testNow.add(const Duration(days: 7)).toIso8601String(),
+};
+
+/// `TokenGrant` payload of the Mobile API.
+Map<String, dynamic> tokenGrant({
+  String access = 'oa_access_1',
+  String refresh = 'or_refresh_1',
+  Duration accessLifetime = const Duration(minutes: 15),
+  Map<String, dynamic>? session,
+}) => {
   'token_type': 'Bearer',
-  'expires_at': '2030-01-01 20:00:00',
-  'token_id': 7,
-  'user_id': 2,
-  'pos_session_id': 106,
-  'pos_config_id': 1,
-  'company_id': 1,
-  'employee_id': false,
+  'access_token': access,
+  'access_expires_at': testNow.add(accessLifetime).toIso8601String(),
+  'refresh_token': refresh,
+  'refresh_expires_at': testNow
+      .add(const Duration(hours: 12))
+      .toIso8601String(),
+  'session': session ?? sessionPayload(),
+};
+
+Map<String, dynamic> successEnvelope(Object? data) => {
+  'data': data,
+  'meta': {'request_id': 'request-1', 'api_version': '1.0.0'},
+};
+
+Map<String, dynamic> errorEnvelope(String code, {String? message}) => {
+  'error': {
+    'code': code,
+    'message': message ?? 'Server message for $code.',
+    'retryable': false,
+  },
+  'meta': {'request_id': 'request-1', 'api_version': '1.0.0'},
 };
 
 class MemorySecretStore implements SecretStore {
@@ -77,9 +122,13 @@ class FakeAuthRepository implements AuthRepository {
   AuthSession? restored;
   Completer<AuthSession>? pendingLogin;
   AppFailure? failure;
+  AppFailure? tokenFailure;
+  String currentToken = testSession.accessToken;
   int signIns = 0;
   int signOuts = 0;
   int restores = 0;
+  int tokenRequests = 0;
+  final rejectedTokens = <String>[];
 
   @override
   Future<AuthSession?> restore() async {
@@ -100,5 +149,19 @@ class FakeAuthRepository implements AuthRepository {
     signOuts++;
     if (failure != null) throw failure!;
     restored = null;
+  }
+
+  @override
+  Future<String> accessToken() async {
+    tokenRequests++;
+    if (tokenFailure != null) throw tokenFailure!;
+    return currentToken;
+  }
+
+  @override
+  Future<String> refreshAccessToken(String rejectedToken) async {
+    rejectedTokens.add(rejectedToken);
+    if (tokenFailure != null) throw tokenFailure!;
+    return currentToken;
   }
 }
