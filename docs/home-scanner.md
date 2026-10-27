@@ -21,34 +21,26 @@ As explicitly requested, **Add product is a draft only**: the scanned barcode is
 read-only; name, price and optional reference can be entered. Drafts are held in
 the current page's form fields and discarded on leaving it. There is no save API,
 offline write queue, product update, stock adjustment or price mutation in this
-task. The supplied `products/save` route is an upsert and requires a separate
-creation task with duplicate/race rules, permissions and explicit confirmation.
+task. Product creation was added later in the Products feature
+(`POST /products`, see [product creation](product-creation.md)).
 
-## Confirmed API contract
+## API contract (Mobile API v2)
 
-Source: `mupi_mobile_pos_api/controllers/mobile_pos_api.py`, `find_product` and
-`_format_product`; token failures follow the supplied mobile authentication model.
+See [Mobile API v2 integration](mobile-api-v2.md).
 
-- POST `/mupi/mobile/api/products/find`, JSON-RPC 2.0, named params
-  `{"barcode":"<scanned string>"}`, matching request/response IDs.
-- Use the current secure session's origin and a per-request bearer token. Never
-  use the optional build-time fallback server for authenticated product requests.
-- Required scope: `product:read`.
-- Success: `{"ok":true,"product":{...}}`; no match:
-  `{"ok":true,"product":null}`. Missing `product` is a protocol error.
-- The server searches exact barcode, `available_in_pos=true`, and company shared
-  or matching the token's company, **with `limit=1`**. The app displays the record
-  selected by that backend rule. It cannot detect duplicates hidden by the server
-  and does not invent an ambiguity-selection API. Arrays/multiple-result response
-  shapes are rejected as protocol failures instead of selecting one locally.
-- Map positive integer ID, nonblank name, exact barcode and finite numeric price
-  and `stock_quantity`. Negative stock is valid. Optional UOM/reference safely
-  default to empty strings. Stock reflects the backend's `qty_available`, without
-  claiming a warehouse-specific or offline quantity.
-- Known token-invalid/expired/POS-closed results and HTTP/JSON-RPC authentication
-  failures clear the current session. Missing product permission is a distinct
-  forbidden failure and does not automatically log the user out. Unexpected
-  server errors use safe static messages; backend traces are never displayed.
+- `GET {api_base}/products/by-barcode/{barcode}` with the session's bearer token
+  (refreshed on `TOKEN_EXPIRED`). The barcode must be 1–64 printable ASCII
+  characters and is path-encoded; invalid barcodes fail before any request.
+- `200` returns one `Product`; `404 PRODUCT_NOT_FOUND` means no POS product has
+  this barcode (the scanner offers creation). Other envelopes are protocol errors.
+- The server searches the session company's POS products; the app shows the
+  record it returns and does not select among duplicates locally.
+- Mapped fields: positive ID, nonblank name, exact barcode, decimal-string price
+  and currency, stock quantity of the POS location (null when untracked, shown
+  as unavailable; negative stock is valid), unit and reference.
+- `AUTH_REQUIRED`/`TOKEN_*` end the session. `PERMISSION_DENIED` or
+  `COMPANY_MISMATCH` are forbidden failures that keep the session. Server
+  messages are shown only when short; traces are never displayed.
 
 ## Architecture, state and cancellation
 
@@ -58,7 +50,7 @@ scanner, result panel, draft page and manual Riverpod providers. Home landing ca
 
 `app/providers/product_dependencies.dart` binds `productRepositoryProvider` at
 the existing root ProviderScope. It watches the current authenticated session,
-injects the shared JSON-RPC client, and cancels its Dio request when disposed.
+injects the authenticated Mobile API client, and cancels its Dio request when disposed.
 It only logs out the same session that made a rejected request. Home widgets import another feature's presentation or data implementation.
 
 `productLookupControllerProvider` / ProductLookupController is auto-disposed.

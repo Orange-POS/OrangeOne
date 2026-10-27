@@ -288,41 +288,39 @@ void main() {
     });
   }
 
-  testWidgets(
-    'original backend permits entry but missing permissions block it',
-    (tester) async {
-      repository.supportsCreateOnly = false;
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            theme: OrangeTheme.light,
-            home: const ProductCreationPage(barcode: '000123'),
-          ),
+  testWidgets('permitted entry saves; missing permissions block it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: OrangeTheme.light,
+          home: const ProductCreationPage(barcode: '000123'),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('create-product-name')), findsOneWidget);
-      final controller = container.read(provider.notifier)
-        ..edit(name: 'New', price: '2.00', taxIds: []);
-      expect(container.read(provider).value!.canSubmit, isTrue);
-      await controller.save();
-      expect(repository.creates, 1);
-      repository
-        ..product = null
-        ..access = const ProductAccess();
-      container.invalidate(provider);
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Create Product'),
-            )
-            .onPressed,
-        isNull,
-      );
-      expect(find.textContaining('do not have permission'), findsOneWidget);
-      expect(repository.creates, 1);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('create-product-name')), findsOneWidget);
+    final controller = container.read(provider.notifier)
+      ..edit(name: 'New', price: '2.00', taxIds: []);
+    expect(container.read(provider).value!.canSubmit, isTrue);
+    await controller.save();
+    expect(repository.creates, 1);
+    repository
+      ..product = null
+      ..access = const ProductAccess();
+    container.invalidate(provider);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Create Product'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.textContaining('do not have permission'), findsOneWidget);
+    expect(repository.creates, 1);
+  });
 }

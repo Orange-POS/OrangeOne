@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/logging/app_logger.dart';
-import 'package:orange_one/core/network/json_rpc_client.dart';
+import 'package:orange_one/core/network/mobile_api_client.dart';
 
 void main() {
   test(
@@ -38,7 +38,7 @@ void main() {
       expect(records, isEmpty);
     },
   );
-  test('RPC logs approved metadata without raw data', () async {
+  test('API requests log approved metadata without raw data', () async {
     final records = <String>[];
     final dio = Dio();
     addTearDown(() => dio.close(force: true));
@@ -48,7 +48,7 @@ void main() {
       debugBuild: true,
       sink: records.add,
     );
-    final client = JsonRpcClient(
+    final client = MobileApiClient(
       dio,
       const ApiConfiguration(
         baseUrl: 'https://private-host.example',
@@ -72,10 +72,10 @@ void main() {
             handler.resolve(
               Response(
                 requestOptions: options,
+                statusCode: 200,
                 data: {
-                  'jsonrpc': '2.0',
-                  'id': (options.data as Map)['id'],
-                  'result': {'ok': true, 'token': 'private-response'},
+                  'data': {'access_token': 'private-response'},
+                  'meta': {'request_id': 'private-request'},
                 },
               ),
             );
@@ -83,14 +83,19 @@ void main() {
         },
       ),
     );
-    await client.call(
-      '/mupi/mobile/auth/token/check',
+    final apiBase = Uri.parse(
+      'https://private-host.example/api/orangeone/mobile/v1',
+    );
+    await client.send(
+      MobileApiMethod.post,
+      '/auth/qr/exchange',
+      apiBase: apiBase,
       accessToken: 'private-token',
-      params: {'password': 'private-password', 'qr': 'private-qr'},
+      body: {'password': 'private-password', 'qr': 'private-qr'},
     );
     fail = true;
     await expectLater(
-      client.call('/mupi/mobile/auth/token/check'),
+      client.send(MobileApiMethod.get, '/auth/session', apiBase: apiBase),
       throwsException,
     );
     expect(records.join(), isNot(contains('private')));

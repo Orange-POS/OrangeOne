@@ -9,7 +9,7 @@ import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/authenticated_mobile_api.dart';
-import 'package:orange_one/core/network/json_rpc_client.dart';
+import 'package:orange_one/core/network/dio_provider.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';

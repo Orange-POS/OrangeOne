@@ -50,30 +50,16 @@ Do not guess Figma properties or backend behavior when their source is unavailab
 - Features must not import another feature's data or presentation internals. App owns routing and cross-feature composition.
 - Empty structure directories may use `.gitkeep`; do not invent business features or placeholder classes. See `docs/architecture.md` for ownership and test conventions.
 
-## Odoo integration: verify contract before implementation
-Use Dio centrally via a Riverpod-provided API client. Backend routes in the supplied `mupi_mobile_pos_api.zip` archive were observed in:
-- `mupi_mobile_pos_api/controllers/mobile_pos_api.py`
-- `mupi_mobile_auth/controllers/mobile_auth.py`
-
-Observed routes (all HTTP POST with Odoo `type="json"`; inspect source/tests for exact payload, authentication, and response contracts):
-- `/mupi/mobile/api/ping`
-- `/mupi/mobile/api/products/find`
-- `/mupi/mobile/api/products/save`
-- `/mupi/mobile/api/products/price/update`
-- `/mupi/mobile/api/products/update`
-- `/mupi/mobile/api/products/references`
-- `/mupi/mobile/api/products/name/update`
-- `/mupi/mobile/auth/challenge/create`
-- `/mupi/mobile/auth/challenge/validate`
-- `/mupi/mobile/auth/token/check`
-
-The archive is a **reference attachment, not necessarily part of the Flutter repository**. Locate the backend source or contract documentation supplied in the current workspace; if absent, request/identify the missing contract rather than inventing JSON fields.
-- Keep Odoo-specific models and JSON-RPC envelope handling in the data/network layers.
-- Distinguish HTTP/transport failures, JSON-RPC protocol errors, and application-level result failures. Verify the server's actual envelope before parsing.
-- Make base URL, timeouts, and nonsecret configuration flavor-aware. Use appropriate request IDs if required by the confirmed protocol.
-- Map API models to domain entities, handling optional/missing values safely.
-- Sanitize all request/response logging; never log bearer tokens, session identifiers, secrets, or raw authorization headers.
-- Do not substitute generic Odoo endpoints or invent stock-write semantics without backend confirmation.
+## Odoo integration: Mobile API v2 contract
+The app uses only the OrangeONE Mobile API v2 (`/api/orangeone/mobile/v1`) of the Odoo addons `mupi_mobile_auth` and `mupi_mobile_pos_api` (Orange-POS/odoo_addons PR #192). The source of truth is `custom_addons/mupi_mobile_auth/doc/openapi.yaml` in that repository plus the addon controllers and tests. Read `docs/mobile-api-v2.md` for endpoints, headers and error mapping. The legacy JSON-RPC routes (`/mupi/mobile/...`) were removed; do not reintroduce them.
+- Use `MobileApiClient` through `authenticatedMobileApiProvider` (shared `dioProvider`); keep envelopes, payload validation and Odoo-specific models in the data/network layers.
+- Branch on `error.code`, never on server message text. Distinguish transport failures, unexpected envelopes (protocol) and API error codes.
+- Updates send `If-Match` with the JSON product `version` of a freshly verified read, never the ETag; the ETag is only for `If-None-Match`. Never retry or overwrite after `VERSION_CONFLICT` (412).
+- Every write sends an `Idempotency-Key` (`IdempotencyKeys`): new per intent, reused only for the identical request after an uncertain outcome.
+- Base URL comes from the QR `api_base`, checked against the flavor's trusted origin; keep timeouts and nonsecret configuration flavor-aware.
+- Map API models to domain entities, handling optional/missing values safely. Decimal amounts are strings in the contract.
+- Sanitize all request/response logging; never log bearer tokens, session identifiers, secrets, QR payloads or raw authorization headers.
+- Do not substitute generic Odoo endpoints or invent fields or stock semantics that the contract does not define.
 
 ## Authentication and navigation
 - Restore a saved session once on a full restart, with a 15-second validation deadline and cancellation, plus at most 2 seconds for secure-storage cleanup. Stalled cleanup must show a safe storage error and block new login until deletion finishes; never claim storage was cleared before success. Failed/offline validation clears secure storage for fresh QR login; do not poll or revalidate on ordinary resume. Task 13 supersedes runtime outage sign-out for product operations: an already verified session may use encrypted, stale read-only cache until expiry; cache misses remain errors and all offline writes stay disabled. Startup remains strict. Backend auth rejection/expiry/logout still resets session-dependent state. Keep Logout visible on Home. Preserve backend expiry and permission checks.
@@ -85,7 +71,8 @@ The archive is a **reference attachment, not necessarily part of the Flutter rep
 - Implement guards only in tasks where session management and the guard behavior are in scope.
 
 ## Inventory workflows
-- Unknown-barcode creation belongs to Products. Support the original confirmed `/products/save` contract without requiring new capability fields. When `create_only_supported` is advertised, send `create_only: true`; otherwise send only original parameters and require its exact created acknowledgment. Original upsert races cannot be prevented by client lookup alone. Recheck permissions, barcode and tax options, require explicit tax selection (including No Tax), and block repeat writes after uncertain outcomes until an explicit barcode check.
+- Unknown-barcode creation belongs to Products and uses `POST /products` (never upserts). Recheck permissions (`product_create`, `product_update_price`), barcode and tax options before writing, require explicit tax selection (`tax_ids: []` is No Tax), and block repeat writes after uncertain outcomes until an explicit barcode check.
+- Stock adjustment sets an absolute counted quantity at the POS stock location only (`POST /products/{id}/stock-adjustments`), requires `stock_adjust` and `stock.adjustable`, and never handles lots, packages or owner-specific stock.
 - Supported flows: home, barcode scan, product lookup, product details, add/edit product, stock adjustment, and price update.
 - Treat successful scanner reads as input, not authorization to mutate inventory. Handle permission denial, cancellation, repeated reads, and invalid formats.
 - Validate forms and quantities/prices; use correct currency precision and confirmed Odoo pricing/stock rules.
@@ -150,7 +137,7 @@ Use repository-specific flavor/build commands rather than assuming entry-point n
 - Be accurate: do not claim iOS builds, physical-device camera flows, backend calls, or Figma matching were tested unless actually verified.
 
 ## Offline product reads (Task 13)
-- Read `docs/offline-data.md`. Use Drift for encrypted, approved read snapshots only, scoped to backend/company/user/token, with 24-hour retention and bounded storage. Never cache permissions, authentication payloads or offline writes.
+- Read `docs/offline-data.md`. Use Drift for encrypted, approved read snapshots only (schema 2), scoped to environment/backend/company/user/session family, never tokens, with 24-hour retention and bounded storage. Never cache permissions, versions, authentication payloads or offline writes. Refresh cached products from `GET /products/changes` on cache open and recovery.
 - Keep startup validation strict. Preserve read-only access only during an already verified open session; purge session cache on logout/disposal and never fall back on auth/permission rejection.
 - Every product screen shows the shared accessible sync indicator: Product Details places it in the fixed navigation header; other product screens keep it opposite the logo in `ProductNameCard`. Connectivity is a hint; only authoritative reads restore online status. Preserve drafts during recovery and never replay writes.
 

@@ -36,16 +36,9 @@ class NewProduct {
 }
 
 class ProductCreationContext {
-  const new({
-    required this.details,
-    required this.taxes,
-    required this.supportsCreateOnly,
-  });
+  const new({required this.details, required this.taxes});
   final ProductDetailsState details;
   final List<ProductTax> taxes;
-
-  /// Creation never upserts (`POST /products`); kept for existing callers.
-  final bool supportsCreateOnly;
 
   /// `POST /products` requires product creation and price permissions; tax
   /// options must be readable for the explicit tax choice.

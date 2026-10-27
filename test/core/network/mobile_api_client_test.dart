@@ -8,7 +8,7 @@ import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/logging/app_logger.dart';
-import 'package:orange_one/core/network/json_rpc_client.dart';
+import 'package:orange_one/core/network/dio_provider.dart';
 import 'package:orange_one/core/network/mobile_api_client.dart';
 
 /// Answers every request with a scripted HTTP response, through Dio's real

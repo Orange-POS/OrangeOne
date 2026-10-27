@@ -3,7 +3,7 @@
 Application-wide, non-UI infrastructure belongs here. The existing `config/`
 directory supplies environment configuration and its Riverpod provider.
 
-Task 04 adds `network/` (Dio/JSON-RPC), `storage/` (SecretStore and secure platform
+Task 04 adds `network/` (Dio and the Mobile API v2 REST client), `storage/` (SecretStore and secure platform
 adapter), `errors/` (safe typed failures) and `formatting/` (strict UTC timestamps).
 Providers own shared dependency lifetimes; credentials never enter a request logger.
 

@@ -20,7 +20,7 @@ shared environmentLoaderProvider callback dependency. Root scope remains in
 bootstrap. Follow docs/state-management.md for provider conventions and tests;
 configuration loading is local only, with explicit retry and safe error UI.
 
-Task 04 adds the authentication feature, shared core Dio/JSON-RPC/SecretStore,
+Task 04 adds the authentication feature, shared core Dio/SecretStore (now the Mobile API v2 client),
 session-aware navigation and QR camera UI. Read docs/authentication.md before
 changing auth: QR origins are validated dynamically (including ports), sessions retain their own origin, HTTP/HTTPS are supported in all flavors per user requirement,
 and consumed challenges must never be replayed automatically. SessionController

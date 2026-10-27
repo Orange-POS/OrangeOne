@@ -1,6 +1,6 @@
 # OrangeONE
 
-**OrangeONE** is a Flutter mobile inventory application for Android and iOS that integrates with **Odoo through JSON-RPC**. It is organized with feature-first Clean Architecture and uses Riverpod for state management.
+**OrangeONE** is a Flutter mobile inventory application for Android and iOS that integrates with **Odoo through the OrangeONE Mobile API v2** (REST, addons `mupi_mobile_auth` and `mupi_mobile_pos_api`). It is organized with feature-first Clean Architecture and uses Riverpod for state management.
 
 > **Project status:** Under active development. This README describes the documented implementation and planned work; it does not certify that a live Odoo connection, CI run, or release build has been verified.
 
@@ -27,15 +27,17 @@ The project documentation describes these milestones:
 | 01 | Foundation | Very Good CLI setup, native flavors, quality checks and CI |
 | 02 | Architecture | Feature-first presentation, domain and data layer organization |
 | 03 | Initialization | Riverpod async initialization and injected local configuration |
-| 04 | Authentication | QR login, Dio/JSON-RPC transport, secure sessions and protected navigation |
+| 04 | Authentication | QR login, Mobile API v2 transport, secure sessions and protected navigation |
 | 05 | Barcode lookup | Home scanner, Odoo product lookup and navigation to details or a prefilled draft |
 | 07 | Price update | CHF price input, validation, confirmation and server-side checks |
-| 08 | Product editing | [Product name and tax workflow](docs/product-edit.md) |
+| 08 | Product editing | [Product name, tax and category workflow](docs/product-edit.md) |
+| 13 | Offline reads | [Encrypted read cache and change-feed sync](docs/offline-data.md) |
+| API v2 | Backend migration | [Mobile API v2 integration](docs/mobile-api-v2.md), [stock counting](docs/product-stock-update.md) |
 | 09 | Branding | [Startup splash and shared branding](docs/splash-branding.md) |
 | 11 | Environments and logging | [Validated settings and safe structured logs](docs/environments-and-logging.md) |
 | Testing / Deployment | Reliability and delivery | [Testing strategy](docs/testing.md) |
 
-Product lookup opens details for a matching barcode and the Create New Product form for an unknown barcode. Creation supports the original Odoo save endpoint; the create-only controller enhancement is optional. See [product creation](docs/product-creation.md) for compatibility and permission details. Stock adjustment, offline synchronization, Firebase integrations, the complete inventory dashboard, and signed store distribution remain future work.
+Product lookup opens details for a matching barcode and the Create New Product form for an unknown barcode. Details support name/tax/category editing, price updates and absolute stock counts at the POS location; writes use `If-Match` versions and idempotency keys. Previously read products stay readable offline (read-only) and are refreshed from the change feed. Firebase integrations, the complete inventory dashboard, and signed store distribution remain future work.
 
 ## Technology stack
 
@@ -47,7 +49,7 @@ Product lookup opens details for a matching barcode and the Create New Product f
 | State and dependency injection | Riverpod |
 | Navigation | GoRouter |
 | HTTP transport | Dio |
-| Backend | Odoo JSON-RPC |
+| Backend | Odoo OrangeONE Mobile API v2 (REST, [contract notes](docs/mobile-api-v2.md)) |
 | Session storage | Platform secure storage |
 | Automation | GitHub Actions |
 | Design reference | [OrangeONE Mobile Design System](https://www.figma.com/design/r6TjxFouED6tJ9fX6evjhz/OrangeONE---Mobile-Design-System?node-id=0-1) |
@@ -220,14 +222,16 @@ for inputs, environments and release checks.
 - [Testing strategy and conventions](docs/testing.md)
 - [Environments and logging](docs/environments-and-logging.md)
 - [Offline product reads and recovery](docs/offline-data.md)
+- [Mobile API v2 integration](docs/mobile-api-v2.md)
 - [Authentication setup and contract](docs/authentication.md)
 - [Architecture](docs/architecture.md)
 - [Riverpod state management](docs/state-management.md)
 - [Home scanner and barcode lookup](docs/home-scanner.md)
 - [Product details](docs/product-details.md)
 - [Product price update](docs/product-price-update.md)
-- [Product name and tax editing](docs/product-edit.md)
-- [Product creation and backend compatibility](docs/product-creation.md)
+- [Product name, tax and category editing](docs/product-edit.md)
+- [Product creation](docs/product-creation.md)
+- [Update Stock](docs/product-stock-update.md)
 - [Splash and branding](docs/splash-branding.md)
 - [Shared orange gradient and native regeneration](docs/brand-gradient.md)
 - [Task 01 validation](docs/validation.md)

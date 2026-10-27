@@ -23,7 +23,6 @@ const detailsFixture = ProductDetails(
 );
 
 class FakeDetailsRepository implements ProductDetailsRepository {
-  bool supportsCreateOnly = true;
   NewProduct? submittedProduct;
   int creates = 0;
   Completer<ProductCreationContext>? pendingCreation;
@@ -43,7 +42,6 @@ class FakeDetailsRepository implements ProductDetailsRepository {
         access,
       ),
       taxes: taxes,
-      supportsCreateOnly: supportsCreateOnly,
     );
   }
 

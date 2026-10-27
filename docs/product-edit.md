@@ -11,19 +11,22 @@ badge. Save Changes is disabled until a valid change exists, displays Updating
 during submission, and becomes Done only after a valid backend acknowledgement.
 The tax selection sheet uses company sale taxes and offers explicit No Tax.
 
-## Confirmed contract
+## Contract (Mobile API v2)
 
-- `products/find` supplies the current name and tax labels/identities.
-- `auth/token/check` provides `product:name_update` for both editable fields.
-- `products/references` requires `reference:read`, returning active sale taxes
-  for the POS company. Default tax IDs apply to creation, not an existing edit.
-- `products/update` accepts `product_id`, trimmed `name`, and optional `tax_ids`.
-  Omitting tax_ids preserves existing taxes; an empty array explicitly clears
-  them. The response must contain a valid matching product before showing success.
+- Details come from the product read (`GET /products/by-barcode/{barcode}` or
+  `GET /products/{id}`), including `version`, taxes, category and permissions.
+- `product_update_name` enables the name, `product_update_taxes` the tax picker
+  and `product_update_category` the category picker.
+- `GET /taxes` lists the session company's sale taxes; `GET /categories` lists
+  categories (first page of 100).
+- `PATCH /products/{id}` sends only changed fields (`name`, `tax_ids`,
+  `category_id`) with `If-Match` and an `Idempotency-Key`. `tax_ids: []`
+  removes all taxes; `category_id: null` removes the category. The response must
+  return the matching product before success is shown.
 
-Tax IDs and backend payloads stay in the domain/data boundary. Widgets use the
-controller and never call the API. No name/price/stock fields beyond name and tax
-are submitted. Names must contain 1–200 characters and no control characters.
+Tax and category IDs stay in the domain/data boundary. Widgets use the
+controller and never call the API. Names must contain 1–128 characters and no
+control characters.
 
 ## Safety and edge cases
 
@@ -35,9 +38,9 @@ workflow specifies. Dismissing the sheet leaves the draft unchanged.
 
 Before saving, the controller rechecks product identity, permission and current
 name/tax information, and revalidates selected IDs against fresh company tax
-references. A changed server snapshot requires review. This is not an atomic
-version check: the supplied endpoint has no expected-version contract, so a
-concurrent write between preflight and save remains a backend limitation.
+references. A changed server snapshot requires review. The write carries the
+freshly read `version`; a concurrent change after the preflight returns `412`,
+which reloads current data and keeps the draft.
 
 Concurrent saves and edits while saving are blocked. Recoverable failures keep
 the draft. An unconfirmed write locks further writes until a safe read checks the

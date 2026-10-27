@@ -58,17 +58,9 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
 
   Future<ProductCreationContext> _prepareCreation(String barcode) async {
     final details = await _load(barcode);
-    final context = ProductCreationContext(
-      details: details,
-      taxes: const [],
-      supportsCreateOnly: true,
-    );
+    final context = ProductCreationContext(details: details, taxes: const []);
     if (!context.canCreate) return context;
-    return ProductCreationContext(
-      details: details,
-      taxes: await _loadTaxes(),
-      supportsCreateOnly: true,
-    );
+    return ProductCreationContext(details: details, taxes: await _loadTaxes());
   }
 
   @override

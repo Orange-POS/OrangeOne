@@ -42,30 +42,27 @@ as requested. `ChfPrice` parses integer hundredths before transport conversion:
   technical precision guard, not an invented business maximum.
 - CHF accounting precision is 0.01; cash-only 0.05 rounding is not introduced.
 
-Confirmed source: `mupi_mobile_pos_api/controllers/mobile_pos_api.py`,
-`update_product_price` and `_format_product`:
+Contract (Mobile API v2, [integration](mobile-api-v2.md)):
 
-1. Read `/mupi/mobile/auth/token/check` and exact barcode
-   `/mupi/mobile/api/products/find` using the current session origin/token.
-2. Require `product:price_update`. After confirmation, re-read permissions,
-   product identity and price. A changed price requires a new review/confirmation;
-   a missing product or revoked permission prevents the write.
-3. POST JSON-RPC `/mupi/mobile/api/products/price/update` with named parameters
-   `{product_id, price}`. Odoo verifies the token/company, rejects negative prices,
-   writes the product's `lst_price` and returns the formatted product.
-4. Require an acknowledged product with the requested id and valid mapped fields.
-   The workflow also verifies the barcode. Protocol failures cannot report success.
+1. Read the product by barcode (or conditionally by id) on the session
+   `api_base`; `product_update_price` in `Product.permissions` enables editing.
+2. After confirmation, re-read permissions, product identity and price. A
+   changed price requires a new review/confirmation; a missing product or
+   revoked permission prevents the write.
+3. `PUT /products/{id}/price` with `{"list_price": "<decimal string>"}`,
+   `If-Match: "<version>"` from that fresh read and an `Idempotency-Key`.
+4. Require an acknowledged product with the requested id, barcode and price.
+   Protocol failures cannot report success.
 
-This endpoint updates the product's sales price; it does **not** evaluate/write a
-pricelist rule, accept a pricelist id, or supply currency/pricelist precision or
-a business upper limit. Those rules are not fabricated by the client. The backend
-has no atomic version/expected-price argument: the preflight catches observed
-changes, but a concurrent change between that check and the write still requires
-backend versioning to eliminate completely. No backend files were changed.
+The endpoint updates the product's sales price; it does not evaluate pricelist
+rules or a business upper limit, and the client does not fabricate them.
+A concurrent change between the preflight and the write is rejected with
+`412 VERSION_CONFLICT`: the screen reloads the current price, keeps the draft and
+never retries automatically.
 
 ## Failure and lifecycle behavior
 
-Shared Dio/JSON-RPC handles HTTP/transport versus protocol errors. Existing typed
+The Mobile API client separates transport, protocol and API error codes. Existing typed
 application failures sanitize messages and distinguish authorization from invalid
 sessions. Invalid sessions clear only the matching secure session. No new storage,
 preferences, global authorization headers, secrets or network logging is added.

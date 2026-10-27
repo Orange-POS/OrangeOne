@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/logging/app_logger.dart';
-import 'package:orange_one/core/network/json_rpc_client.dart';
+import 'package:orange_one/core/network/dio_provider.dart';
 
 final mobileApiClientProvider = Provider<MobileApiClient>(
   (ref) => MobileApiClient(
@@ -53,7 +53,7 @@ class MobileApiResponse {
 /// REST client for the OrangeONE Mobile API v2 (`openapi.yaml`).
 ///
 /// It shares the configured [Dio] (timeouts, no redirects, no body logging)
-/// with the legacy JSON-RPC client. Callers pass the per-session API base and
+/// with every API call. Callers pass the per-session API base and
 /// bearer token on each request, so token refresh can be added around this
 /// client without rebuilding it.
 class MobileApiClient {

@@ -1,5 +1,9 @@
 # Task 04 verification — 2026-10-16
 
+> Historical record. The JSON-RPC routes it describes were replaced by the
+> Mobile API v2; see [Mobile API v2 integration](mobile-api-v2.md).
+
+
 ## Implemented
 
 - Feature-first authentication domain contracts/entities/use case, data sources,

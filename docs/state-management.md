@@ -150,7 +150,7 @@ All tests use local dependencies, without a camera, backend or Firebase.
 
 Task 04 extends these conventions with container-lived `sessionControllerProvider`
 so authentication survives route changes. `authRepositoryProvider` injects the
-shared JSON-RPC client, secure store, API configuration and clock. Session expiry
+shared Mobile API client, secure store, API configuration and clock. Session expiry
 timers are disposed, login is single-flight, and logout invalidates pending results.
 Network/token-check failures remain explicit; challenge validation is never retried
 automatically. See [authentication](authentication.md) for the concrete contract,

@@ -16,27 +16,27 @@ loads authoritative data itself, supports direct navigation, refresh and safe
 loading/empty/failure states. All routes remain protected by session restoration
 and logout checks. Add product remains a prefilled draft without saving.
 
-## Confirmed server operations
+## Server operations (Mobile API v2)
 
-The existing central Dio/JSON-RPC client, timeouts and secure session are reused.
-The app binds the details repository to the current session origin, bearer token
-and a disposal cancellation token. HTTP and HTTPS dynamic POS origins remain
-supported in all flavors. No authentication data is logged.
+The authenticated Mobile API v2 client, timeouts and secure session are reused
+([integration](mobile-api-v2.md)). The details repository is bound to the
+session `api_base`, a per-request access token and a disposal cancellation token.
+No authentication data is logged.
 
-- `auth/token/check`: map the server's whitespace-separated `scopes` string.
-  Missing scopes deny management actions by default.
-- `api/products/find`: exact barcode; map id/name/barcode/price/stock quantity,
-  optional reference/unit and taxes. Percent taxes display their percent; fixed,
-  grouped and division taxes retain their server names instead of inventing a
-  combined effective percentage.
-- `api/products/name/update`: `{product_id, name}`, requires
-  `product:name_update`.
-- `api/products/price/update`: `{product_id, price}`, requires
-  `product:price_update`.
+- `GET /products/by-barcode/{barcode}` on first load, then
+  `GET /products/{id}` with `If-None-Match`: `304` keeps the previous details
+  and permissions; a removed or re-barcoded product falls back to the barcode
+  lookup. The JSON `version` and the ETag are kept separately.
+- Mapped data: name, description, barcode, reference, decimal price and
+  currency, taxes (percent taxes show their percent; other types keep their
+  names), category, POS-location stock and unit, and `Product.permissions`.
+- Name/tax/category edits use `PATCH /products/{id}`, price `PUT
+  /products/{id}/price` and stock counts `POST /products/{id}/stock-adjustments`,
+  each with `If-Match` (JSON version) and an `Idempotency-Key`.
 
-Paths above are prefixed `/mupi/mobile/`. Backend controller/model source is the
-contract authority. The server enforces permissions again on every write.
-The form validates trimmed names (1–200 characters) and finite nonnegative prices.
+The server enforces permissions again on every write and rejects stale versions
+with `412 VERSION_CONFLICT`, which reloads the details without retrying.
+The form validates trimmed names (1–128 characters) and finite nonnegative prices.
 The explicit Confirm update action performs one write, prevents duplicate
 submission, then re-reads details and permissions. Writes are never automatically
 retried. After an uncertain network outcome, refresh before submitting again.
@@ -65,7 +65,7 @@ for discount persistence, actual scheduling and stock adjustments.
 
 ## Verification
 
-Focused tests cover mapping and malformed responses, missing products, scopes,
+Focused tests cover mapping and malformed responses, missing products, permissions,
 origin and write payloads, session rejection versus authorization failure,
 input validation, controller refresh, loading/empty/error widgets, confirmation,
 automatic scanner navigation and returning to scan. Camera/network dependencies
