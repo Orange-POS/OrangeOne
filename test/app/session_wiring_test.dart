@@ -143,6 +143,8 @@ void main() {
     late ReadCacheDatabase database;
     late FakeAuthRepository auth;
     late List<String?> authorizations;
+    late List<String> paths;
+    late StreamController<bool> connectivity;
     late ProviderContainer container;
 
     setUp(() {
@@ -150,10 +152,13 @@ void main() {
       database = ReadCacheDatabase(NativeDatabase.memory());
       auth = FakeAuthRepository()..restored = testSession;
       authorizations = [];
+      paths = [];
+      connectivity = StreamController<bool>.broadcast();
       dio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) {
             authorizations.add(options.headers['Authorization'] as String?);
+            paths.add(options.uri.path);
             handler.resolve(
               Response(
                 requestOptions: options,
@@ -171,7 +176,7 @@ void main() {
           productRepositoryOverride,
           productDetailsRepositoryOverride,
           readCacheDatabaseProvider.overrideWithValue(database),
-          connectivityProvider.overrideWithValue(const Stream.empty()),
+          connectivityProvider.overrideWithValue(connectivity.stream),
           environmentProvider.overrideWithValue(AppEnvironment.production),
           authRepositoryProvider.overrideWithValue(auth),
           utcNowProvider.overrideWithValue(() => testNow),
@@ -181,6 +186,7 @@ void main() {
     });
     tearDown(() async {
       container.dispose();
+      await connectivity.close();
       dio.close(force: true);
       await database.close();
     });
@@ -236,6 +242,29 @@ void main() {
       expect(await _rows(database), 1);
       expect((await cache.read('4006381333931'))?['name'], 'Cached product');
     });
+
+    test(
+      'recovery syncs cached products with the current token, keeping data',
+      () async {
+        await container.read(sessionControllerProvider.future);
+        final cache = container.read(readCacheProvider)!;
+        await cache.load(
+          '4006381333931',
+          () async => _product('4006381333931'),
+        );
+        auth.currentToken = 'oa_refreshed';
+        connectivity.add(false);
+        await container.pump();
+        connectivity.add(true);
+        for (var i = 0; i < 50 && paths.isEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        expect(paths.single, endsWith('/products/changes'));
+        expect(authorizations.single, 'Bearer oa_refreshed');
+        expect(container.read(readCacheProvider), same(cache));
+        expect((await cache.read('4006381333931'))?['name'], 'Cached product');
+      },
+    );
 
     test('logout purges the session cache and closes the wiring', () async {
       await container.read(sessionControllerProvider.future);

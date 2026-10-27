@@ -18,6 +18,7 @@ import 'package:orange_one/features/home/data/repositories/odoo_product_reposito
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
 import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
+import 'package:orange_one/features/products/data/repositories/product_cache_synchronizer.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 
 /// The signed-in session for data wiring, or null while signed out, loading
@@ -124,6 +125,8 @@ final connectivityProvider = Provider<Stream<bool>>(
 
 /// One encrypted cache per authenticated session identity. Logout, expiry or
 /// a different session dispose it, which purges that session's records.
+/// Token refresh keeps it. Its snapshots are refreshed from the change feed
+/// when it opens and when connectivity returns.
 final Override readCacheOverride = readCacheProvider.overrideWith((ref) {
   final identity = ref.watch(readCacheIdentityProvider);
   if (identity == null) return null;
@@ -131,11 +134,24 @@ final Override readCacheOverride = readCacheProvider.overrideWith((ref) {
     ref.watch(readCacheDatabaseProvider),
     sessionSecret: identity,
   );
+  final cancel = CancelToken();
+  final sync = ProductCacheSynchronizer(
+    ProductCatalogRemoteDataSource(
+      ref.watch(authenticatedMobileApiProvider),
+      cancelToken: cancel,
+    ),
+    cache,
+  );
   final subscription = ref
       .watch(connectivityProvider)
       .listen((connected) => cache.connectionChanged(connected: connected));
+  // Refresh snapshots kept from a previous run, and again on recovery.
+  final recovery = cache.recovery.listen((_) => unawaited(sync.sync()));
+  unawaited(sync.sync());
   ref.onDispose(() {
+    cancel.cancel();
     unawaited(subscription.cancel());
+    unawaited(recovery.cancel());
     unawaited(cache.close());
   });
   return cache;

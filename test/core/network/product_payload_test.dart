@@ -52,6 +52,7 @@ void main() {
         'category': {'id': 4, 'name': 'Spices'},
         'description': 'The Key to Crispy, Flavorful Fish',
         'version': '3',
+        'updated_at': '2026-10-27T08:00:00Z',
         'stock_tracked': true,
         'stock_adjustable': true,
         'stock_location_id': 8,

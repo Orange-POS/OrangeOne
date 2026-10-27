@@ -2,14 +2,12 @@ import 'package:orange_one/core/errors/app_failure.dart';
 
 /// Mobile API v2 `Product` payloads, shared by the product features.
 ///
-/// [productRecord] validates a payload and returns a *product read record*:
-/// the field names the encrypted offline cache already stores (`price`,
-/// `stock_quantity`, `uom`, `default_code`, `taxes`) plus v2-only fields the
-/// cache does not persist (`currency`, `category`, `description`, `version`,
-/// `permissions`, `stock_tracked`, `stock_adjustable`, `stock_location_id`,
-/// `uom_rounding`). Offline reads
-/// therefore keep working until the cache schema itself moves to v2, and
-/// permissions and versions are never cached.
+/// [productRecord] validates a payload and returns a flat *product read
+/// record* (`price`, `currency`, `stock_quantity`, `uom`, `default_code`,
+/// `taxes`, `category`, `description`, `updated_at`, ...). The encrypted
+/// offline cache keeps only its approved display fields; write-only data
+/// (`version`, `permissions`, `stock_adjustable`, `stock_location_id`,
+/// `uom_rounding`) is never cached.
 abstract final class ProductPayload {
   static final _barcode = RegExp(r'^[\x21-\x7E]{1,64}$');
 
@@ -40,6 +38,7 @@ abstract final class ProductPayload {
     final stock = data['stock'];
     final taxes = data['taxes'];
     final permissions = data['permissions'];
+    final updatedAt = data['updated_at'];
     if (id is! int ||
         id <= 0 ||
         name is! String ||
@@ -49,6 +48,8 @@ abstract final class ProductPayload {
         (description != null && description is! String) ||
         version is! String ||
         version.isEmpty ||
+        (updatedAt != null &&
+            (updatedAt is! String || DateTime.tryParse(updatedAt) == null)) ||
         price is! Map<String, dynamic> ||
         stock is! Map<String, dynamic> ||
         taxes is! List ||
@@ -83,6 +84,7 @@ abstract final class ProductPayload {
       'category': _category(data['category']),
       'description': description,
       'version': version,
+      'updated_at': updatedAt,
       'stock_tracked': stock['tracked'],
       'stock_adjustable': stock['adjustable'] == true,
       'stock_location_id': locationId,

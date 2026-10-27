@@ -12,8 +12,9 @@ rejection end access. This deliberately follows the user's clarified policy.
 Home lookup and Products repositories share a session-scoped cache. Only confirmed
 product responses are stored. Cached details carry no edit/reference permissions.
 Online permission checks are required again on recovery. No offline mutation,
-outbox, background write or automatic write retry is implemented: the backend has
-no agreed conflict/version/idempotency contract for these operations.
+outbox, background write or automatic write retry is implemented. Writes need
+a verified connection and use the Mobile API v2 `If-Match` version and
+`Idempotency-Key` contract online only.
 
 ## Architecture and security
 
@@ -21,17 +22,24 @@ no agreed conflict/version/idempotency contract for these operations.
   database isolate. A versioned single-table schema uses parameterized custom SQL;
   no generated schema/build-runner dependency is necessary for this bounded cache.
 - AES-256-GCM encrypts the approved product payload and local verification time.
-  Each encryption uses a new random nonce and authenticates the barcode as AAD.
-  The key is domain-separated SHA-256 of the session identity including the high
-  entropy access token already held in platform secure storage. It is never
-  written to SQLite. Tokens, scopes, credentials and pending writes are not cached.
-- SQL identifiers contain opaque hashes for owner and barcode. The session scope
-  includes backend, company, user and token. Another login cannot read an earlier
-  login's records. A token change makes previous payloads cryptographically
-  inaccessible. Logout/session disposal deletes that owner's rows.
-- Approved fields are ID, barcode, name, price, quantity, unit, product reference
-  and tax display fields only. Arbitrary backend fields are excluded, including
-  fields nested in tax records. Cached permissions are never trusted.
+  Each encryption uses a new random nonce and authenticates the schema and the
+  row's opaque barcode code as AAD (`v2|code`), so payloads cannot be moved
+  between rows. The key is domain-separated SHA-256 (`product-cache.v2`) of the
+  session identity: environment, API base, company, user and session family
+  (Stage 3). It contains no token, so access-token refresh keeps the cache. It
+  is never written to SQLite. Tokens, scopes, credentials and pending writes
+  are not cached.
+- SQL identifiers contain opaque hashes for owner and barcode. Another login,
+  user, company, server or flavor cannot read an earlier session's records.
+  Logout, expiry and session disposal delete that owner's rows.
+- Schema 2 (Mobile API v2): approved fields are ID, barcode, name, price,
+  currency, quantity, tracked flag, unit, product reference, description,
+  category ID/name, `updated_at` and tax display fields. Write-only data
+  (`version`, permissions, adjustability, stock location, unit rounding) is
+  never cached, so offline details have no edit permissions and cannot be
+  written. Upgrading from schema 1 deletes all v1 snapshots; an envelope of
+  another schema is a cache miss, and malformed or tampered rows are storage
+  failures on read and are dropped during sync.
 - Cached records older than 24 hours are not served. Storage is capped at 500
   entries across owners. The SQLite file itself is not SQLCipher-encrypted:
   product payloads and timestamps are encrypted, while counts and opaque indexes
@@ -57,6 +65,19 @@ Figma MCP was rate-limited; placement follows the attached marked card and exist
 components, not a newly verified Figma extraction.
 
 Connectivity Plus provides interface-change hints, not proof of backend health.
+Cached snapshots are refreshed from `GET /products/changes` when the session
+cache opens and on each recovery event. The first position is five minutes
+before the oldest snapshot; afterwards the saved `next_since` (encrypted) is
+used. Only already cached products are updated: changed products replace
+their snapshot unless it has a newer `updated_at`, a new barcode drops the old
+entry, and `removed_ids` are deleted. Pages are bounded per run and the position
+is saved after each applied page, so interrupted syncs resume. Mutations or
+logout during a page cancel it. `SYNC_TOKEN_EXPIRED` (410) or lost read access
+(403) delete the session's snapshots; other failures, a disabled feed or
+malformed pages keep valid data untouched. Products the user can no longer
+read are omitted by the feed and removed when an online read is rejected.
+Confirmed write responses replace the snapshot purged before the write.
+
 When connectivity returns, active details/edit/price/create controllers re-read
 appropriate product data, preserving drafts. Only a successful server request
 restores online status. Pull-to-refresh provides an explicit probe when the POS
@@ -74,6 +95,8 @@ conflicts are avoided by prohibiting offline writes, not by inventing merge rule
 
 ```sh
 flutter test test/core/storage/encrypted_read_cache_test.dart
+flutter test test/core/storage/read_cache_schema_test.dart
+flutter test test/features/products/product_cache_sync_test.dart
 flutter test test/features/products/offline_product_repository_test.dart
 flutter test test/shared/product_sync_indicator_test.dart
 flutter test --coverage

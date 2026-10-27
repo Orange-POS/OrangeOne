@@ -128,4 +128,14 @@ class ProductCatalogRemoteDataSource {
     idempotencyKey: idempotencyKey,
     cancelToken: cancelToken,
   );
+
+  /// `GET /products/changes`: changed and removed readable products since
+  /// a position (`next_since` or an RFC 3339 time).
+  Future<MobileApiResponse> changes(String since, {int limit = 100}) =>
+      _api.send(
+        MobileApiMethod.get,
+        '/products/changes',
+        query: {'since': since, 'limit': '$limit'},
+        cancelToken: cancelToken,
+      );
 }

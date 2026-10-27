@@ -228,6 +228,7 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
     required T Function(ProductDetails product, Object? data) result,
     Object? Function(Object? data)? productOf,
   }) {
+    Map<String, dynamic>? confirmed;
     Future<T> run() => _keys.run('$operation ${jsonEncode(body)}', (key) async {
       final response = await send(key);
       final read = _parse(
@@ -240,9 +241,16 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
         response.data,
       );
       _remember(barcode, read);
+      confirmed = read.record;
       return value;
     });
-    return cache == null ? run() : cache!.write(run);
+    final cache = this.cache;
+    if (cache == null) return run();
+    return cache.write(run).then((value) async {
+      // The acknowledged product replaces the snapshot purged before writing.
+      await cache.put(barcode, confirmed!);
+      return value;
+    });
   }
 
   static ProductDetails _product(ProductDetails product, Object? _) => product;
