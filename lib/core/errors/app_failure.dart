@@ -13,14 +13,44 @@ enum FailureKind {
   forbidden,
   storage,
   cancelled,
+  notFound,
+  rateLimited,
+  upgradeRequired,
+}
+
+/// Field-level validation reported by the Mobile API (`error.details`).
+class AppFieldError {
+  const new(this.field, this.code);
+
+  final String field;
+
+  /// Machine code such as `REQUIRED` or `INVALID_DECIMAL`.
+  final String code;
 }
 
 /// Safe application failure. Never retains a response, token or QR payload.
 class AppFailure implements Exception {
-  const new(this.kind, this.message);
+  const new(
+    this.kind,
+    this.message, {
+    this.code,
+    this.fieldErrors = const [],
+    this.retryable = false,
+    this.retryAfter,
+    this.requestId,
+  });
 
   final FailureKind kind;
   final String message;
+
+  /// Mobile API error code (for example `VERSION_CONFLICT`), when known.
+  final String? code;
+  final List<AppFieldError> fieldErrors;
+  final bool retryable;
+  final Duration? retryAfter;
+
+  /// Server request id for support correlation; not a secret.
+  final String? requestId;
 
   @override
   String toString() => 'AppFailure(${kind.name})';
