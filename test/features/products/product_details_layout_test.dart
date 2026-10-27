@@ -98,10 +98,10 @@ void main() {
       expect(find.text('Update Price'), findsNothing);
       expect(find.text('Update Stock'), findsNothing);
       final stock = find.byWidgetPredicate(
-        (widget) =>
-            widget is IconButton && widget.tooltip == 'Add stock (coming soon)',
+        (widget) => widget is IconButton && widget.tooltip == 'Update stock',
       );
-      expect(tester.widget<IconButton>(stock).onPressed, isNull);
+      // Permitted and adjustable by default in the fake repository.
+      expect(tester.widget<IconButton>(stock).onPressed, isNotNull);
       expect(find.byKey(const Key('product-hero-barcode')), findsOneWidget);
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
       await tester.pumpAndSettle();

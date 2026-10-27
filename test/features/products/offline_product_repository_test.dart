@@ -9,6 +9,7 @@ import 'package:orange_one/features/home/data/repositories/odoo_product_reposito
 import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/mobile_api_fakes.dart';
@@ -96,6 +97,10 @@ void main() {
       );
       await expectLater(
         repository.updatePrice(fresh.product!, ChfPrice.parse('99')),
+        throwsA(isA<AppFailure>()),
+      );
+      await expectLater(
+        repository.adjustStock(fresh.product!, StockCount.parse('5')),
         throwsA(isA<AppFailure>()),
       );
       await repository.load(fixtureProduct.barcode);

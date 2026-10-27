@@ -139,7 +139,7 @@ void main() {
     for (final tooltip in [
       'Update price',
       'Edit product name',
-      'Add stock (coming soon)',
+      'Update stock',
     ]) {
       final action = find.byWidgetPredicate(
         (widget) => widget is IconButton && widget.tooltip == tooltip,

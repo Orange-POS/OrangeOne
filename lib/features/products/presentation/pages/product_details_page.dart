@@ -89,6 +89,17 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                           queryParameters: {'barcode': widget.barcode},
                         )
                       : null,
+                  // Only permitted, backend-adjustable stock can be counted.
+                  onAdjustStock:
+                      !offline &&
+                          state.value!.access.adjustStock &&
+                          product.stockAdjustable &&
+                          product.stock != null
+                      ? () => context.pushNamed<bool>(
+                          'productStock',
+                          queryParameters: {'barcode': widget.barcode},
+                        )
+                      : null,
                 ),
               ),
             SliverFillRemaining(

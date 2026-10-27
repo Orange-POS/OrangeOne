@@ -5,6 +5,7 @@ import 'package:orange_one/features/products/data/data_sources/product_catalog_r
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/mobile_api_fakes.dart';
@@ -541,6 +542,167 @@ void main() {
       ),
     );
     await expectLater(repo.loadTaxes(), _kind(FailureKind.protocol));
+  });
+
+  group('stock adjustment', () {
+    const adjust = 'POST /products/10/stock-adjustments';
+    Map<String, dynamic> acknowledged(String quantity, {int location = 8}) => {
+      'product': v2Product(quantity: quantity, version: '4'),
+      'adjustment': {
+        'id': 31,
+        'previous_quantity': '48',
+        'new_quantity': quantity,
+        'difference': '2',
+        'location_id': location,
+        'move_id': 77,
+        'applied_at': '2026-10-27T08:00:00Z',
+      },
+    };
+    setUp(() {
+      server.on(
+        adjust,
+        (r) => FakeReply(
+          201,
+          successEnvelope(
+            acknowledged(requestBody(r)['new_quantity'] as String),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'sets the absolute count at the POS location with a version',
+      () async {
+        final product = await loaded();
+        expect(product.stockLocationId, 8);
+        expect(product.quantityDecimals, 2);
+        final result = await repo.adjustStock(
+          product,
+          StockCount.parse('50,5', maxDecimals: product.quantityDecimals),
+        );
+        expect(result.product.stock, 50.5);
+        expect(result.product.version, '4');
+        expect(result.previousQuantity, 48);
+        expect(result.newQuantity, 50.5);
+        final request = server.called(adjust).single;
+        expect(requestBody(request), {
+          'new_quantity': '50.5',
+          'location_id': 8,
+          'reason': 'count',
+        });
+        expect(request.headers['If-Match'], '"3"');
+        expect(request.headers['Idempotency-Key'], matches(_uuid));
+      },
+    );
+
+    test('non-adjustable stock is never sent', () async {
+      server.on(
+        scan,
+        (_) => FakeReply(
+          200,
+          successEnvelope({
+            ...v2Product(),
+            'stock': {
+              'tracked': true,
+              'quantity': '48',
+              'uom': {'id': 1, 'name': 'Units', 'rounding': '1'},
+              'location_id': 8,
+              // Packaged or owner-specific stock at the location.
+              'adjustable': false,
+            },
+          }),
+        ),
+      );
+      final product = await loaded();
+      expect(product.stockAdjustable, isFalse);
+      expect(product.quantityDecimals, 0);
+      await expectLater(
+        repo.adjustStock(product, StockCount.parse('5')),
+        _kind(FailureKind.validation),
+      );
+      expect(server.called(adjust), isEmpty);
+    });
+
+    test('backend business rules and validation stay typed', () async {
+      final product = await loaded();
+      server.on(
+        adjust,
+        (_) => FakeReply(422, errorEnvelope('BUSINESS_RULE_VIOLATION')),
+      );
+      await expectLater(
+        repo.adjustStock(product, StockCount.parse('5')),
+        _kind(FailureKind.validation),
+      );
+      server.on(
+        adjust,
+        (_) => FakeReply(403, errorEnvelope('PERMISSION_DENIED')),
+      );
+      await expectLater(
+        repo.adjustStock(product, StockCount.parse('5')),
+        _kind(FailureKind.forbidden),
+      );
+      expect(signOuts, 0);
+    });
+
+    test('a stale version is a conflict and is never retried', () async {
+      final product = await loaded();
+      server.on(
+        adjust,
+        (_) => FakeReply(412, errorEnvelope('VERSION_CONFLICT')),
+      );
+      await expectLater(
+        repo.adjustStock(product, StockCount.parse('5')),
+        _kind(FailureKind.conflict),
+      );
+      expect(server.called(adjust), hasLength(1));
+    });
+
+    test('an uncertain count reuses its key; a new count does not', () async {
+      final product = await loaded();
+      server.on(
+        adjust,
+        (r) => throw DioException(
+          requestOptions: r,
+          type: DioExceptionType.connectionError,
+        ),
+      );
+      await expectLater(
+        repo.adjustStock(product, StockCount.parse('5')),
+        _kind(FailureKind.network),
+      );
+      server.on(
+        adjust,
+        (r) => FakeReply(
+          201,
+          successEnvelope(
+            acknowledged(requestBody(r)['new_quantity'] as String),
+          ),
+        ),
+      );
+      await repo.adjustStock(product, StockCount.parse('5'));
+      await repo.adjustStock(product, StockCount.parse('6'));
+      final keys = [
+        for (final r in server.called(adjust)) r.headers['Idempotency-Key'],
+      ];
+      expect(keys[1], keys[0]);
+      expect(keys[2], isNot(keys[0]));
+    });
+
+    for (final (label, data) in [
+      ('different count', acknowledged('5')),
+      ('different location', acknowledged('6', location: 9)),
+      ('missing adjustment', {'product': v2Product(quantity: '6')}),
+      ('product only', v2Product(quantity: '6')),
+    ]) {
+      test('a mismatched acknowledgement is never success ($label)', () async {
+        final product = await loaded();
+        server.on(adjust, (_) => FakeReply(201, successEnvelope(data)));
+        await expectLater(
+          repo.adjustStock(product, StockCount.parse('6')),
+          _kind(FailureKind.protocol),
+        );
+      });
+    }
   });
 }
 

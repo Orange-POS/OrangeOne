@@ -26,6 +26,8 @@ class ProductDetails {
     this.description,
     this.version,
     this.stockAdjustable = false,
+    this.stockLocationId,
+    this.quantityDecimals,
   });
   final int id;
   final String name;
@@ -52,8 +54,15 @@ class ProductDetails {
   /// Write-concurrency token (`If-Match`); null for offline cached reads.
   final String? version;
 
-  /// Whether the backend accepts an absolute stock count for this product.
+  /// Whether the backend accepts an absolute stock count for this product
+  /// (false for untracked, lot/serial, packaged or owner-specific stock).
   final bool stockAdjustable;
+
+  /// The POS stock location that [stock] and stock counts refer to.
+  final int? stockLocationId;
+
+  /// Decimal places the unit of measure allows for counted quantities.
+  final int? quantityDecimals;
 }
 
 /// Effective permissions from the backend (never cached).

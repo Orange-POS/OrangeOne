@@ -112,4 +112,20 @@ class ProductCatalogRemoteDataSource {
     idempotencyKey: idempotencyKey,
     cancelToken: cancelToken,
   );
+
+  /// `POST /products/{id}/stock-adjustments` guarded by the product JSON
+  /// [version]: sets the counted quantity at the POS stock location.
+  Future<MobileApiResponse> adjustStock(
+    int id,
+    Map<String, dynamic> body, {
+    required String version,
+    required String idempotencyKey,
+  }) => _api.send(
+    MobileApiMethod.post,
+    '/products/$id/stock-adjustments',
+    body: body,
+    ifMatchVersion: version,
+    idempotencyKey: idempotencyKey,
+    cancelToken: cancelToken,
+  );
 }

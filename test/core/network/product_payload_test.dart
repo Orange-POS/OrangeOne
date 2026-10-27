@@ -54,6 +54,8 @@ void main() {
         'version': '3',
         'stock_tracked': true,
         'stock_adjustable': true,
+        'stock_location_id': 8,
+        'uom_rounding': '0.01',
         'permissions': productPermissions(),
       });
     });
@@ -97,6 +99,11 @@ void main() {
           ),
           ('numeric quantity', (p) => (p['stock'] as Map)['quantity'] = 4),
           ('missing uom', (p) => (p['stock'] as Map).remove('uom')),
+          ('bad location', (p) => (p['stock'] as Map)['location_id'] = 0),
+          (
+            'numeric rounding',
+            (p) => ((p['stock'] as Map)['uom'] as Map)['rounding'] = 1,
+          ),
           ('missing version', (p) => p.remove('version')),
           ('empty version', (p) => p['version'] = ''),
           (

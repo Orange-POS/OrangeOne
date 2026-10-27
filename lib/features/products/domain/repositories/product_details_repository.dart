@@ -2,6 +2,7 @@ import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 
 abstract interface class ProductDetailsRepository {
   /// Explicit checks request an authoritative read without performing writes.
@@ -26,6 +27,10 @@ abstract interface class ProductDetailsRepository {
   Future<ProductDetails> updateName(ProductDetails product, String name);
   Future<ProductDetails> updatePrice(ProductDetails product, ChfPrice price);
   Future<List<ProductTax>> loadTaxes();
+
+  /// Sets the absolute counted quantity at the POS stock location, guarded
+  /// by the verified product version like other updates.
+  Future<StockAdjustment> adjustStock(ProductDetails product, StockCount count);
   Future<List<ProductCategory>> loadCategories();
 
   /// Sends only the given fields: [taxIds] `[]` removes all taxes, and a

@@ -6,7 +6,8 @@ import 'package:orange_one/core/errors/app_failure.dart';
 /// the field names the encrypted offline cache already stores (`price`,
 /// `stock_quantity`, `uom`, `default_code`, `taxes`) plus v2-only fields the
 /// cache does not persist (`currency`, `category`, `description`, `version`,
-/// `permissions`, `stock_tracked`, `stock_adjustable`). Offline reads
+/// `permissions`, `stock_tracked`, `stock_adjustable`, `stock_location_id`,
+/// `uom_rounding`). Offline reads
 /// therefore keep working until the cache schema itself moves to v2, and
 /// permissions and versions are never cached.
 abstract final class ProductPayload {
@@ -60,7 +61,13 @@ abstract final class ProductPayload {
       throw invalidResponse;
     }
     final uomName = uom['name'];
-    if (uomName is! String) throw invalidResponse;
+    final rounding = uom['rounding'];
+    final locationId = stock['location_id'];
+    if (uomName is! String ||
+        (rounding != null && rounding is! String) ||
+        (locationId != null && (locationId is! int || locationId <= 0))) {
+      throw invalidResponse;
+    }
     return {
       'id': id,
       'name': name,
@@ -78,6 +85,8 @@ abstract final class ProductPayload {
       'version': version,
       'stock_tracked': stock['tracked'],
       'stock_adjustable': stock['adjustable'] == true,
+      'stock_location_id': locationId,
+      'uom_rounding': rounding,
       'permissions': Map<String, bool>.from(permissions),
     };
   }

@@ -11,12 +11,16 @@ class ProductNameCard extends StatelessWidget {
     this.emptyTitle = 'Product Not Found',
     this.detailsLayout = false,
     this.onEdit,
+    this.onAdjustStock,
     super.key,
   });
   final ProductDetails? product;
   final String emptyTitle;
   final bool detailsLayout;
   final VoidCallback? onEdit;
+
+  /// Opens Update Stock; null keeps the stock action disabled.
+  final VoidCallback? onAdjustStock;
   @override
   Widget build(BuildContext context) => Container(
     padding: EdgeInsets.fromLTRB(16, 0, 16, detailsLayout ? 16 : 24),
@@ -110,9 +114,9 @@ class ProductNameCard extends StatelessWidget {
             ),
           ),
           _pencil(
-            'Add stock (coming soon)',
+            'Update stock',
             'assets/icons/product_detail_stock_edit.svg',
-            null,
+            onAdjustStock,
           ),
         ],
       ),

@@ -62,7 +62,26 @@ abstract final class ProductDetailsModel {
       description: _optionalText(json['description']),
       version: _optionalText(json['version']),
       stockAdjustable: json['stock_adjustable'] == true,
+      stockLocationId: _optionalId(json['stock_location_id']),
+      quantityDecimals: _decimals(json['uom_rounding']),
     );
+  }
+
+  static int? _optionalId(Object? value) {
+    if (value == null) return null;
+    if (value is! int || value <= 0) throw invalidResponse;
+    return value;
+  }
+
+  /// Decimal places allowed by the unit rounding (`"0.01"` → 2, `"1"` → 0).
+  static int? _decimals(Object? rounding) {
+    if (rounding == null) return null;
+    if (rounding is! String ||
+        !RegExp(r'^\d{1,12}(\.\d{1,6})?$').hasMatch(rounding)) {
+      throw invalidResponse;
+    }
+    final fraction = rounding.split('.').elementAtOrNull(1) ?? '';
+    return fraction.replaceFirst(RegExp(r'0+$'), '').length;
   }
 
   /// Mobile API v2 fields of a product read record (absent offline).

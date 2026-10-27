@@ -10,10 +10,12 @@ import 'package:orange_one/features/products/data/models/product_access_model.da
 import 'package:orange_one/features/products/data/models/product_details_model.dart';
 import 'package:orange_one/features/products/data/models/product_reference_model.dart';
 import 'package:orange_one/features/products/data/models/product_summary_model.dart';
+import 'package:orange_one/features/products/data/models/stock_adjustment_model.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
 
 /// A server-verified product read, kept in memory for conditional refresh.
@@ -106,6 +108,7 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
           body,
           (key) => catalog.create(body, idempotencyKey: key),
           barcode: product.barcode,
+          result: _product,
         );
       });
 
@@ -185,8 +188,8 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
     return read;
   }
 
-  static _ProductRead _parse(MobileApiResponse response) {
-    final record = ProductPayload.productRecord(response.data);
+  static _ProductRead _parse(MobileApiResponse response, {Object? data}) {
+    final record = ProductPayload.productRecord(data ?? response.data);
     return (
       id: record['id'] as int,
       etag: response.etag,
@@ -214,31 +217,45 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
   /// Sends one write with an idempotency key for this exact [operation] and
   /// [body]. Writes need a server-verified connection: the cache rejects
   /// them while offline and invalidates snapshots before sending.
-  Future<ProductDetails> _write(
+  ///
+  /// The response carries the refreshed `Product` as `data`, or inside it
+  /// when [productOf] extracts it; [result] maps both to the return value.
+  Future<T> _write<T>(
     String operation,
     Map<String, dynamic> body,
     Future<MobileApiResponse> Function(String key) send, {
     required String barcode,
+    required T Function(ProductDetails product, Object? data) result,
+    Object? Function(Object? data)? productOf,
   }) {
-    Future<ProductDetails> run() =>
-        _keys.run('$operation ${jsonEncode(body)}', (key) async {
-          final response = await send(key);
-          final read = _parse(response);
-          if (read.record['barcode'] != barcode) throw invalidResponse;
-          final product = ProductDetailsModel.parse(read.record, barcode);
-          _remember(barcode, read);
-          return product;
-        });
+    Future<T> run() => _keys.run('$operation ${jsonEncode(body)}', (key) async {
+      final response = await send(key);
+      final read = _parse(
+        response,
+        data: productOf == null ? response.data : productOf(response.data),
+      );
+      if (read.record['barcode'] != barcode) throw invalidResponse;
+      final value = result(
+        ProductDetailsModel.parse(read.record, barcode),
+        response.data,
+      );
+      _remember(barcode, read);
+      return value;
+    });
     return cache == null ? run() : cache!.write(run);
   }
 
+  static ProductDetails _product(ProductDetails product, Object? _) => product;
+
   /// Updates an existing product guarded by its verified [product] version.
-  Future<ProductDetails> _update(
+  Future<T> _update<T>(
     ProductDetails product,
     String operation,
     Map<String, dynamic> body,
-    Future<MobileApiResponse> Function(String version, String key) send,
-  ) => _authenticated(() async {
+    Future<MobileApiResponse> Function(String version, String key) send, {
+    required T Function(ProductDetails product, Object? data) result,
+    Object? Function(Object? data)? productOf,
+  }) => _authenticated(() async {
     final version = product.version;
     if (version == null) {
       throw const AppFailure(
@@ -252,6 +269,8 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
         body,
         (key) => send(version, key),
         barcode: product.barcode,
+        result: result,
+        productOf: productOf,
       );
     } on AppFailure catch (failure) {
       if (failure.code != 'VERSION_CONFLICT') rethrow;
@@ -296,6 +315,7 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
         version: version,
         idempotencyKey: key,
       ),
+      result: _product,
     );
   }
 
@@ -311,7 +331,49 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
           version: version,
           idempotencyKey: key,
         ),
+        result: _product,
       );
+
+  @override
+  Future<StockAdjustment> adjustStock(
+    ProductDetails product,
+    StockCount count,
+  ) async {
+    final location = product.stockLocationId;
+    if (!product.stockAdjustable || location == null) {
+      // Untracked, lot/serial, packaged or owner-specific stock: one
+      // absolute count cannot be applied, so nothing is sent.
+      throw const AppFailure(
+        FailureKind.validation,
+        'Stock for this product cannot be counted here.',
+      );
+    }
+    final body = {
+      'new_quantity': count.text,
+      // Counts apply only at the POS stock location the product reports.
+      'location_id': location,
+      'reason': 'count',
+    };
+    return await _update(
+      product,
+      'POST /products/${product.id}/stock-adjustments',
+      body,
+      (version, key) => catalog.adjustStock(
+        product.id,
+        body,
+        version: version,
+        idempotencyKey: key,
+      ),
+      productOf: (data) =>
+          data is Map<String, dynamic> ? data['product'] : null,
+      result: (updated, data) => StockAdjustmentModel.parse(
+        data,
+        updated,
+        locationId: location,
+        counted: count.quantity,
+      ),
+    );
+  }
 
   @override
   Future<List<ProductTax>> loadTaxes() => _authenticated(_loadTaxes);

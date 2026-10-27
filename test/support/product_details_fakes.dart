@@ -4,6 +4,7 @@ import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
 
 const detailsFixture = ProductDetails(
@@ -16,6 +17,9 @@ const detailsFixture = ProductDetails(
   currency: 'CHF',
   category: ProductCategory(id: 4, name: 'Spices'),
   version: '3',
+  stockAdjustable: true,
+  stockLocationId: 8,
+  quantityDecimals: 2,
 );
 
 class FakeDetailsRepository implements ProductDetailsRepository {
@@ -75,6 +79,7 @@ class FakeDetailsRepository implements ProductDetailsRepository {
     readReferences: true,
     updateTaxes: true,
     updateCategory: true,
+    adjustStock: true,
   );
   List<ProductTax> taxes = const [ProductTax(id: 1, label: 'VAT (15%)')];
   List<ProductCategory> categories = const [
@@ -173,6 +178,51 @@ class FakeDetailsRepository implements ProductDetailsRepository {
     searches.add((query: query, categoryId: categoryId, cursor: cursor));
     if (error != null) Error.throwWithStackTrace(error!, StackTrace.current);
     return page;
+  }
+
+  StockCount? writtenCount;
+  @override
+  Future<StockAdjustment> adjustStock(
+    ProductDetails current,
+    StockCount count,
+  ) async {
+    writes++;
+    writtenCount = count;
+    writtenVersions.add(current.version);
+    if (writeError != null) {
+      Error.throwWithStackTrace(writeError!, StackTrace.current);
+    }
+    if (pendingWrite != null) {
+      final written = await pendingWrite!.future;
+      return StockAdjustment(
+        product: written,
+        previousQuantity: current.stock ?? 0,
+        newQuantity: count.quantity,
+      );
+    }
+    final previous = product!;
+    product = ProductDetails(
+      id: previous.id,
+      name: previous.name,
+      barcode: previous.barcode,
+      price: previous.price,
+      stock: count.quantity,
+      unit: previous.unit,
+      reference: previous.reference,
+      taxes: previous.taxes,
+      taxIds: previous.taxIds,
+      currency: previous.currency,
+      category: previous.category,
+      version: _next(previous.version),
+      stockAdjustable: previous.stockAdjustable,
+      stockLocationId: previous.stockLocationId,
+      quantityDecimals: previous.quantityDecimals,
+    );
+    return StockAdjustment(
+      product: product!,
+      previousQuantity: previous.stock ?? 0,
+      newQuantity: count.quantity,
+    );
   }
 
   @override
