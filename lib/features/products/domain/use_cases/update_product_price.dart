@@ -21,8 +21,5 @@ class UpdateProductPrice {
   }
 
   Future<ProductDetails> call(PriceChangeConfirmation confirmation) =>
-      repository.updatePrice(
-        confirmation.product.id,
-        confirmation.price.asDouble,
-      );
+      repository.updatePrice(confirmation.product, confirmation.price);
 }

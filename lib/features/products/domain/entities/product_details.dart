@@ -4,6 +4,12 @@ class ProductCategory {
   final String name;
 }
 
+/// A requested category assignment; a null [id] removes the category.
+class CategoryChange {
+  const new(this.id);
+  final int? id;
+}
+
 class ProductDetails {
   const new({
     required this.id,
@@ -65,7 +71,7 @@ class ProductAccess {
   final bool editName;
   final bool updatePrice;
 
-  /// Tax and category references may be selected (tax editing).
+  /// Tax and category options may be listed.
   final bool readReferences;
   final bool updateTaxes;
   final bool updateCategory;

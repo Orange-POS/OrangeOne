@@ -16,19 +16,19 @@ class ManageProductDetails {
     return repository.load(barcode);
   }
 
-  Future<void> rename(int id, String value) {
+  Future<ProductDetails> rename(ProductDetails product, String value) {
     final name = value.trim();
-    if (id <= 0 || name.isEmpty || name.length > 200) {
-      throw const FormatException('Enter a product name of 1–200 characters.');
+    if (product.id <= 0 || name.isEmpty || name.length > 128) {
+      throw const FormatException('Enter a product name of 1–128 characters.');
     }
-    return repository.updateName(id, name);
+    return repository.updateName(product, name);
   }
 
-  Future<void> reprice(int id, String value) {
+  Future<ProductDetails> reprice(ProductDetails product, String value) {
     final price = ChfPrice.parse(value);
-    if (id <= 0) {
+    if (product.id <= 0) {
       throw const FormatException('Enter a valid non-negative price.');
     }
-    return repository.updatePrice(id, price.asDouble);
+    return repository.updatePrice(product, price);
   }
 }

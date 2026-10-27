@@ -1,12 +1,16 @@
+import 'dart:convert';
+
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/idempotency_keys.dart';
 import 'package:orange_one/core/network/mobile_api_client.dart';
 import 'package:orange_one/core/network/product_payload.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
-import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
 import 'package:orange_one/features/products/data/models/product_access_model.dart';
 import 'package:orange_one/features/products/data/models/product_details_model.dart';
+import 'package:orange_one/features/products/data/models/product_reference_model.dart';
 import 'package:orange_one/features/products/data/models/product_summary_model.dart';
+import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
@@ -20,18 +24,20 @@ typedef _ProductRead = ({
   ProductAccess access,
 });
 
-/// Reads use Mobile API v2 ([catalog]); writes still use [source] (v1).
+/// Products through Mobile API v2. Writes carry an `Idempotency-Key`, and
+/// updates of existing products an `If-Match` with the product JSON
+/// `version` the caller last verified (never the ETag).
 class OdooProductDetailsRepository implements ProductDetailsRepository {
   new(
-    this.source, {
-    required this.catalog,
+    this.catalog, {
     required this.onSessionRejected,
     this.cache,
-  });
+    IdempotencyKeys? idempotencyKeys,
+  }) : _keys = idempotencyKeys ?? IdempotencyKeys();
   final EncryptedReadCache? cache;
-  final ProductDetailsRemoteDataSource source;
   final ProductCatalogRemoteDataSource catalog;
   final Future<void> Function() onSessionRejected;
+  final IdempotencyKeys _keys;
   final _loads = <String, Future<ProductDetailsState>>{};
 
   /// Latest verified read per barcode. Permissions and versions stay in
@@ -50,103 +56,58 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
 
   Future<ProductCreationContext> _prepareCreation(String barcode) async {
     final details = await _load(barcode);
-    if (!details.access.createProduct ||
-        !details.access.editName ||
-        !details.access.updatePrice ||
-        !details.access.readReferences ||
-        details.product != null) {
-      return ProductCreationContext(
-        details: details,
-        taxes: const [],
-        supportsCreateOnly: false,
-      );
-    }
-    final references = await source.call(
-      '/mupi/mobile/api/products/references',
+    final context = ProductCreationContext(
+      details: details,
+      taxes: const [],
+      supportsCreateOnly: true,
     );
+    if (!context.canCreate) return context;
     return ProductCreationContext(
       details: details,
-      taxes: _parseTaxes(references),
-      supportsCreateOnly: references['create_only_supported'] == true,
+      taxes: await _loadTaxes(),
+      supportsCreateOnly: true,
     );
   }
 
   @override
-  Future<ProductDetails> createProduct(
-    NewProduct product,
-  ) => _authenticated(() async {
-    // Both versions use the supplied save route. Prefer its stronger guard when
-    // advertised; the original addon accepts only the original parameters.
-    final context = await _prepareCreation(product.barcode);
-    if (context.details.product != null) {
-      throw const AppFailure(
-        FailureKind.conflict,
-        'This barcode already exists. Open its product details.',
-      );
-    }
-    if (!context.canCreate) {
-      throw const AppFailure(
-        FailureKind.forbidden,
-        'Product creation is not available for this session or server.',
-      );
-    }
-    if (product.taxIds.any((id) => !context.taxes.any((tax) => tax.id == id))) {
-      throw const AppFailure(
-        FailureKind.validation,
-        'Tax options changed. Reload the form.',
-      );
-    }
-    Future<ProductDetails> save() async {
-      final result = await source.call('/mupi/mobile/api/products/save', {
-        'barcode': product.barcode,
-        'name': product.name,
-        'price': product.price.asDouble,
-        'tax_ids': product.taxIds,
-        if (context.supportsCreateOnly) 'create_only': true,
-      });
-      final created = context.supportsCreateOnly
-          ? result['action'] == 'created'
-          : result['action'] == 'created' ||
-                (!result.containsKey('action') &&
-                    result['message'] == 'Product created successfully.');
-      if (!created || result['product'] is! Map<String, dynamic>) {
-        throw invalidResponse;
-      }
-      final saved = ProductDetailsModel.parse(
-        result['product'] as Map<String, dynamic>,
-        product.barcode,
-      );
-      // Original save uses `if tax_ids`; [] otherwise inherits defaults.
-      // Its existing update route supports an explicit empty tax assignment.
-      if (!context.supportsCreateOnly &&
-          product.taxIds.isEmpty &&
-          (saved.taxIds == null || saved.taxIds!.isNotEmpty)) {
-        try {
-          final corrected = await _updateInformation(
-            saved.id,
-            saved.name,
-            taxIds: const [],
-          );
-          if (corrected.barcode != product.barcode ||
-              corrected.taxIds == null ||
-              corrected.taxIds!.isNotEmpty) {
-            throw invalidResponse;
-          }
-          return corrected;
-        } on Exception {
+  Future<ProductDetails> createProduct(NewProduct product) =>
+      _authenticated(() async {
+        // Recheck permissions, the barcode and the tax options before writing.
+        final context = await _prepareCreation(product.barcode);
+        if (context.details.product != null) {
           throw const AppFailure(
-            FailureKind.protocol,
-            'The product was saved, but its tax selection '
-            'could not be confirmed. '
-            'Check product details before trying again.',
+            FailureKind.conflict,
+            'This barcode already exists. Open its product details.',
           );
         }
-      }
-      return saved;
-    }
-
-    return await (cache == null ? save() : cache!.write(save));
-  });
+        if (!context.canCreate) {
+          throw const AppFailure(
+            FailureKind.forbidden,
+            'Product creation is not available for this session.',
+          );
+        }
+        if (product.taxIds.any(
+          (id) => !context.taxes.any((tax) => tax.id == id),
+        )) {
+          throw const AppFailure(
+            FailureKind.validation,
+            'Tax options changed. Reload the form.',
+          );
+        }
+        final body = {
+          'barcode': product.barcode,
+          'name': product.name,
+          'list_price': product.price.formatted,
+          // An empty list is the explicit "No Tax" choice.
+          'tax_ids': product.taxIds,
+        };
+        return await _write(
+          'POST /products',
+          body,
+          (key) => catalog.create(body, idempotencyKey: key),
+          barcode: product.barcode,
+        );
+      });
 
   Future<T> _authenticated<T>(Future<T> Function() operation) async {
     try {
@@ -250,93 +211,117 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
     return ProductSummaryModel.page(response.data, response.meta);
   });
 
-  Future<T> _write<T>(Future<T> Function() operation) => _authenticated(
-    () => cache == null ? operation() : cache!.write(operation),
-  );
+  /// Sends one write with an idempotency key for this exact [operation] and
+  /// [body]. Writes need a server-verified connection: the cache rejects
+  /// them while offline and invalidates snapshots before sending.
+  Future<ProductDetails> _write(
+    String operation,
+    Map<String, dynamic> body,
+    Future<MobileApiResponse> Function(String key) send, {
+    required String barcode,
+  }) {
+    Future<ProductDetails> run() =>
+        _keys.run('$operation ${jsonEncode(body)}', (key) async {
+          final response = await send(key);
+          final read = _parse(response);
+          if (read.record['barcode'] != barcode) throw invalidResponse;
+          final product = ProductDetailsModel.parse(read.record, barcode);
+          _remember(barcode, read);
+          return product;
+        });
+    return cache == null ? run() : cache!.write(run);
+  }
 
-  @override
-  Future<void> updateName(int id, String name) => _write(() async {
-    await source.call('/mupi/mobile/api/products/name/update', {
-      'product_id': id,
-      'name': name,
-    });
-  });
-
-  @override
-  Future<List<ProductTax>> loadTaxes() => _authenticated(() async {
-    final result = await source.call('/mupi/mobile/api/products/references');
-    return _parseTaxes(result);
-  });
-
-  List<ProductTax> _parseTaxes(Map<String, dynamic> result) {
-    final raw = result['taxes'];
-    if (raw is! List) throw invalidResponse;
-    final taxes = <ProductTax>[];
-    final ids = <int>{};
-    for (final item in raw) {
-      if (item is! Map<String, dynamic> ||
-          item['id'] is! int ||
-          (item['id'] as int) <= 0 ||
-          item['name'] is! String ||
-          (item['name'] as String).trim().isEmpty ||
-          item['amount'] is! num ||
-          !(item['amount'] as num).isFinite ||
-          item['amount_type'] is! String ||
-          !ids.add(item['id'] as int)) {
-        throw invalidResponse;
-      }
-      taxes.add(
-        ProductTax(
-          id: item['id'] as int,
-          label: item['amount_type'] == 'percent'
-              ? '${item['name']} (${item['amount']}%)'
-              : item['name'] as String,
-        ),
+  /// Updates an existing product guarded by its verified [product] version.
+  Future<ProductDetails> _update(
+    ProductDetails product,
+    String operation,
+    Map<String, dynamic> body,
+    Future<MobileApiResponse> Function(String version, String key) send,
+  ) => _authenticated(() async {
+    final version = product.version;
+    if (version == null) {
+      throw const AppFailure(
+        FailureKind.network,
+        'Reconnect and refresh this product before changing it.',
       );
     }
-    return List.unmodifiable(taxes);
-  }
+    try {
+      return await _write(
+        '$operation "$version"',
+        body,
+        (key) => send(version, key),
+        barcode: product.barcode,
+      );
+    } on AppFailure catch (failure) {
+      if (failure.code != 'VERSION_CONFLICT') rethrow;
+      // Never overwrite: the caller reloads and the user decides again.
+      _reads.remove(product.barcode);
+      throw AppFailure(
+        FailureKind.conflict,
+        'This product was changed on another device. '
+        'Review the current information and try again.',
+        code: failure.code,
+        requestId: failure.requestId,
+      );
+    }
+  });
+
+  @override
+  Future<ProductDetails> updateName(ProductDetails product, String name) =>
+      updateInformation(product, name: name);
 
   @override
   Future<ProductDetails> updateInformation(
-    int id,
-    String name, {
+    ProductDetails product, {
+    String? name,
     List<int>? taxIds,
-  }) => _write(() => _updateInformation(id, name, taxIds: taxIds));
-
-  Future<ProductDetails> _updateInformation(
-    int id,
-    String name, {
-    List<int>? taxIds,
-  }) async {
-    final result = await source.call('/mupi/mobile/api/products/update', {
-      'product_id': id,
-      'name': name,
+    CategoryChange? category,
+  }) {
+    final body = {
+      'name': ?name,
       'tax_ids': ?taxIds,
-    });
-    final product = result['product'];
-    if (product is! Map<String, dynamic> ||
-        product['id'] != id ||
-        product['barcode'] is! String ||
-        (product['barcode'] as String).isEmpty) {
-      throw invalidResponse;
+      if (category != null) 'category_id': category.id,
+    };
+    if (body.isEmpty) {
+      throw const FormatException('Change at least one product field.');
     }
-    return ProductDetailsModel.parse(product, product['barcode'] as String);
+    return _update(
+      product,
+      'PATCH /products/${product.id}',
+      body,
+      (version, key) => catalog.update(
+        product.id,
+        body,
+        version: version,
+        idempotencyKey: key,
+      ),
+    );
   }
 
   @override
-  Future<ProductDetails> updatePrice(int id, double price) => _write(() async {
-    final result = await source.call('/mupi/mobile/api/products/price/update', {
-      'product_id': id,
-      'price': price,
-    });
-    final product = result['product'];
-    if (product is! Map<String, dynamic> ||
-        product['id'] != id ||
-        product['barcode'] is! String ||
-        (product['barcode'] as String).isEmpty) {
-      throw invalidResponse;
-    }
-    return ProductDetailsModel.parse(product, product['barcode'] as String);
+  Future<ProductDetails> updatePrice(ProductDetails product, ChfPrice price) =>
+      _update(
+        product,
+        'PUT /products/${product.id}/price',
+        {'list_price': price.formatted},
+        (version, key) => catalog.updatePrice(
+          product.id,
+          price.formatted,
+          version: version,
+          idempotencyKey: key,
+        ),
+      );
+
+  @override
+  Future<List<ProductTax>> loadTaxes() => _authenticated(_loadTaxes);
+
+  Future<List<ProductTax>> _loadTaxes() async =>
+      ProductReferenceModel.taxes(await catalog.taxes());
+
+  @override
+  Future<List<ProductCategory>> loadCategories() => _authenticated(() async {
+    final response = await catalog.categories();
+    return ProductReferenceModel.categories(response.data);
   });
 }

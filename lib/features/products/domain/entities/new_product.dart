@@ -27,9 +27,9 @@ class NewProduct {
   static String validateName(String raw) {
     final value = raw.trim();
     if (value.isEmpty ||
-        value.length > 200 ||
+        value.length > 128 ||
         RegExp(r'[\x00-\x1F\x7F]').hasMatch(value)) {
-      throw const FormatException('Enter a product name of 1–200 characters.');
+      throw const FormatException('Enter a product name of 1–128 characters.');
     }
     return value;
   }
@@ -43,10 +43,14 @@ class ProductCreationContext {
   });
   final ProductDetailsState details;
   final List<ProductTax> taxes;
+
+  /// Creation never upserts (`POST /products`); kept for existing callers.
   final bool supportsCreateOnly;
+
+  /// `POST /products` requires product creation and price permissions; tax
+  /// options must be readable for the explicit tax choice.
   bool get permitted =>
       details.access.createProduct &&
-      details.access.editName &&
       details.access.updatePrice &&
       details.access.readReferences;
   bool get canCreate => permitted && details.product == null;

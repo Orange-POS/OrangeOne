@@ -4,7 +4,8 @@ import 'package:orange_one/core/network/authenticated_mobile_api.dart';
 import 'package:orange_one/core/network/mobile_api_client.dart';
 import 'package:orange_one/core/network/product_payload.dart';
 
-/// Mobile API v2 product reads (`/products…`) and session permissions.
+/// Mobile API v2 product reads, writes and references, plus session
+/// permissions.
 class ProductCatalogRemoteDataSource {
   const new(this._api, {required this.cancelToken});
   final AuthenticatedMobileApi _api;
@@ -53,4 +54,62 @@ class ProductCatalogRemoteDataSource {
     if (data is! Map<String, dynamic>) throw invalidResponse;
     return data['permissions'];
   }
+
+  /// `GET /taxes`: active sale taxes of the session company.
+  Future<Object?> taxes() async => (await _api.send(
+    MobileApiMethod.get,
+    '/taxes',
+    cancelToken: cancelToken,
+  )).data;
+
+  /// `GET /categories` (one page of up to [limit] categories).
+  Future<MobileApiResponse> categories({String? cursor, int limit = 100}) =>
+      _api.send(
+        MobileApiMethod.get,
+        '/categories',
+        query: {'cursor': ?cursor, 'limit': '$limit'},
+        cancelToken: cancelToken,
+      );
+
+  /// `POST /products`: creates a product, never upserts.
+  Future<MobileApiResponse> create(
+    Map<String, dynamic> body, {
+    required String idempotencyKey,
+  }) => _api.send(
+    MobileApiMethod.post,
+    '/products',
+    body: body,
+    idempotencyKey: idempotencyKey,
+    cancelToken: cancelToken,
+  );
+
+  /// `PATCH /products/{id}` guarded by the product JSON [version].
+  Future<MobileApiResponse> update(
+    int id,
+    Map<String, dynamic> body, {
+    required String version,
+    required String idempotencyKey,
+  }) => _api.send(
+    MobileApiMethod.patch,
+    '/products/$id',
+    body: body,
+    ifMatchVersion: version,
+    idempotencyKey: idempotencyKey,
+    cancelToken: cancelToken,
+  );
+
+  /// `PUT /products/{id}/price` guarded by the product JSON [version].
+  Future<MobileApiResponse> updatePrice(
+    int id,
+    String listPrice, {
+    required String version,
+    required String idempotencyKey,
+  }) => _api.send(
+    MobileApiMethod.put,
+    '/products/$id/price',
+    body: {'list_price': listPrice},
+    ifMatchVersion: version,
+    idempotencyKey: idempotencyKey,
+    cancelToken: cancelToken,
+  );
 }

@@ -1,47 +1,54 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:orange_one/core/config/api_configuration.dart';
-import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/core/network/json_rpc_client.dart';
 import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
-import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
+import 'package:orange_one/features/products/domain/entities/chf_price.dart';
+import 'package:orange_one/features/products/domain/entities/product_details.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/mobile_api_fakes.dart';
 import '../../support/product_api_fakes.dart';
 import '../../support/product_fakes.dart';
 
+Matcher _kind(FailureKind kind) =>
+    throwsA(isA<AppFailure>().having((e) => e.kind, 'kind', kind));
+
 void main() {
-  late Dio dio;
   late OdooProductDetailsRepository repo;
-  late List<RequestOptions> requests;
-  late Map<String, dynamic> result;
   late FakeMobileApiServer server;
   late int signOuts;
   const scan = 'GET /products/by-barcode/0010101010';
+  const patch = 'PATCH /products/10';
+  const price = 'PUT /products/10/price';
   setUp(() {
-    dio = Dio();
-    requests = [];
     signOuts = 0;
-    result = {'ok': true, 'product': productJson()};
     server = FakeMobileApiServer()
-      ..on(scan, (_) => FakeReply(200, successEnvelope(v2Product())));
-    repo = OdooProductDetailsRepository(
-      ProductDetailsRemoteDataSource(
-        JsonRpcClient(
-          dio,
-          const ApiConfiguration(
-            baseUrl: 'https://unused.test',
-            environment: AppEnvironment.production,
+      ..on(scan, (_) => FakeReply(200, successEnvelope(v2Product())))
+      ..on(
+        patch,
+        (r) => FakeReply(
+          200,
+          successEnvelope({
+            ...v2Product(version: '4'),
+            if (requestBody(r)['name'] case final String name) 'name': name,
+          }),
+        ),
+      )
+      ..on(
+        price,
+        (r) => FakeReply(
+          200,
+          successEnvelope(
+            v2Product(
+              price: requestBody(r)['list_price'] as String,
+              version: '4',
+            ),
           ),
         ),
-        origin: Uri.parse('http://192.168.1.3:8080'),
-        token: () async => 'fixture',
-        cancelToken: CancelToken(),
-      ),
-      catalog: ProductCatalogRemoteDataSource(
+      );
+    repo = OdooProductDetailsRepository(
+      ProductCatalogRemoteDataSource(
         fakeProductApi(server),
         cancelToken: CancelToken(),
       ),
@@ -49,25 +56,10 @@ void main() {
         signOuts++;
       },
     );
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (request, handler) {
-          requests.add(request);
-          handler.resolve(
-            Response(
-              requestOptions: request,
-              data: {
-                'jsonrpc': '2.0',
-                'id': (request.data as Map)['id'],
-                'result': result,
-              },
-            ),
-          );
-        },
-      ),
-    );
   });
-  tearDown(() => dio.close(force: true));
+
+  Future<ProductDetails> loaded() async =>
+      (await repo.load('0010101010')).product!;
   for (final type in [
     DioExceptionType.connectionError,
     DioExceptionType.receiveTimeout,
@@ -79,75 +71,6 @@ void main() {
       expect(server.requests, hasLength(1));
     });
   }
-  test(
-    'combined edit uses confirmed fields and maps acknowledgement',
-    () async {
-      result = {
-        'ok': true,
-        'product': productJson()
-          ..['name'] = 'Updated'
-          ..['taxes'] = [
-            {'id': 7, 'name': 'VAT', 'amount': 15, 'amount_type': 'percent'},
-          ],
-      };
-      final updated = await repo.updateInformation(10, 'Updated', taxIds: [7]);
-      expect(updated.name, 'Updated');
-      expect(updated.taxIds, [7]);
-      expect(updated.taxes, ['VAT (15%)']);
-      expect(requests.single.path, endsWith('/products/update'));
-      expect((requests.single.data as Map)['params'], {
-        'product_id': 10,
-        'name': 'Updated',
-        'tax_ids': [7],
-      });
-    },
-  );
-  test(
-    'omits taxes for name-only edit and sends [] for explicit no-tax',
-    () async {
-      await repo.updateInformation(10, 'Name');
-      expect((requests.last.data as Map)['params'], {
-        'product_id': 10,
-        'name': 'Name',
-      });
-      await repo.updateInformation(10, 'Name', taxIds: []);
-      expect(
-        ((requests.last.data as Map)['params'] as Map)['tax_ids'],
-        isEmpty,
-      );
-    },
-  );
-  test('maps company tax catalogue and rejects malformed identities', () async {
-    result = {
-      'ok': true,
-      'default_tax_ids': [7],
-      'taxes': [
-        {'id': 7, 'name': 'VAT', 'amount': 15, 'amount_type': 'percent'},
-        {'id': 8, 'name': 'Fixed levy', 'amount': 2, 'amount_type': 'fixed'},
-      ],
-    };
-    final taxes = await repo.loadTaxes();
-    expect(taxes.map((tax) => tax.label), ['VAT (15%)', 'Fixed levy']);
-    expect(requests.single.path, endsWith('/products/references'));
-    result = {
-      'ok': true,
-      'taxes': [
-        {'id': -1},
-      ],
-    };
-    await expectLater(repo.loadTaxes(), throwsA(isA<AppFailure>()));
-  });
-  test(
-    'malformed combined-save acknowledgement never reports success',
-    () async {
-      result = {'ok': true};
-      await expectLater(
-        repo.updateInformation(10, 'Name'),
-        throwsA(isA<AppFailure>()),
-      );
-      expect(requests.length, 1);
-    },
-  );
   test('reads v2 details and permissions from the session API base', () async {
     server.on(
       scan,
@@ -188,7 +111,6 @@ void main() {
       '$testApiBase/products/by-barcode/0010101010',
     );
     expect(request.headers['Authorization'], 'Bearer oa_fixture');
-    expect(requests, isEmpty);
   });
   test('untracked stock is unavailable, never zero', () async {
     server.on(
@@ -341,19 +263,6 @@ void main() {
     });
   });
   test(
-    'writes use designated name and price endpoints without retries',
-    () async {
-      await repo.updateName(10, 'New');
-      await repo.updatePrice(10, 12.50);
-      expect(requests.length, 2);
-      expect(requests.first.path, endsWith('/products/name/update'));
-      expect((requests.last.data as Map)['params'], {
-        'product_id': 10,
-        'price': 12.50,
-      });
-    },
-  );
-  test(
     'missing products are empty; malformed matches are protocol errors',
     () async {
       server
@@ -396,55 +305,245 @@ void main() {
       }
     },
   );
-  test('permission denial keeps session; expired token clears it', () async {
-    result = {'ok': false, 'error': 'Token does not have required permission.'};
-    await expectLater(
-      repo.updatePrice(10, 2),
-      throwsA(
-        isA<AppFailure>().having((e) => e.kind, 'kind', FailureKind.forbidden),
+
+  test('price update sends the decimal string, version and a key', () async {
+    final product = await loaded();
+    final updated = await repo.updatePrice(product, ChfPrice.parse('125,5'));
+
+    expect(updated.price, 125.5);
+    expect(updated.version, '4');
+    final request = server.called(price).single;
+    expect(requestBody(request), {'list_price': '125.50'});
+    expect(request.headers['If-Match'], '"3"');
+    expect(request.headers['Idempotency-Key'], matches(_uuid));
+    expect(request.headers['Authorization'], 'Bearer oa_fixture');
+  });
+
+  test('If-Match uses the JSON version, never the ETag', () async {
+    server.on(
+      scan,
+      (_) => FakeReply(200, successEnvelope(v2Product()), {'etag': '"e1"'}),
+    );
+    await repo.updatePrice(await loaded(), ChfPrice.parse('1'));
+    expect(server.called(price).single.headers['If-Match'], '"3"');
+  });
+
+  test('PATCH sends only the given fields', () async {
+    final product = await loaded();
+    final updated = await repo.updateInformation(
+      product,
+      name: 'Updated',
+      taxIds: [7],
+      category: const CategoryChange(null),
+    );
+    expect(updated.name, 'Updated');
+    expect(requestBody(server.called(patch).single), {
+      'name': 'Updated',
+      'tax_ids': [7],
+      'category_id': null,
+    });
+
+    await repo.updateInformation(product, taxIds: const []);
+    expect(requestBody(server.called(patch).last), {'tax_ids': <int>[]});
+    await repo.updateInformation(product, category: const CategoryChange(4));
+    expect(requestBody(server.called(patch).last), {'category_id': 4});
+    expect(() => repo.updateInformation(product), throwsFormatException);
+  });
+
+  test('a new write gets a new key; an uncertain one reuses it', () async {
+    final product = await loaded();
+    await repo.updatePrice(product, ChfPrice.parse('12'));
+    await repo.updatePrice(product, ChfPrice.parse('12'));
+    final keys = [
+      for (final request in server.called(price))
+        request.headers['Idempotency-Key'],
+    ];
+    expect(keys.toSet(), hasLength(2));
+
+    server.on(
+      price,
+      (r) => throw DioException(
+        requestOptions: r,
+        type: DioExceptionType.connectionError,
       ),
     );
+    await expectLater(
+      repo.updatePrice(product, ChfPrice.parse('13')),
+      _kind(FailureKind.network),
+    );
+    server.on(
+      price,
+      (_) => FakeReply(200, successEnvelope(v2Product(price: '13.00'))),
+    );
+    await repo.updatePrice(product, ChfPrice.parse('13'));
+    final retried = server.called(price).skip(2).toList();
+    expect(
+      retried.last.headers['Idempotency-Key'],
+      retried.first.headers['Idempotency-Key'],
+    );
+
+    // A different operation after the uncertain one never reuses its key.
+    await repo.updatePrice(product, ChfPrice.parse('14'));
+    expect(
+      server.called(price).last.headers['Idempotency-Key'],
+      isNot(retried.first.headers['Idempotency-Key']),
+    );
+  });
+
+  test('a stale version is a conflict and nothing is retried', () async {
+    final product = await loaded();
+    server.on(price, (_) => FakeReply(412, errorEnvelope('VERSION_CONFLICT')));
+    await expectLater(
+      repo.updatePrice(product, ChfPrice.parse('2')),
+      throwsA(
+        isA<AppFailure>()
+            .having((e) => e.kind, 'kind', FailureKind.conflict)
+            .having((e) => e.message, 'message', contains('another device')),
+      ),
+    );
+    expect(server.called(price), hasLength(1));
     expect(signOuts, 0);
-    server.on(scan, (_) => FakeReply(401, errorEnvelope('TOKEN_REVOKED')));
-    await expectLater(repo.load('0010101010'), throwsA(isA<AppFailure>()));
+    // The next read is unconditional, so it sees the server's latest data.
+    await repo.load('0010101010');
+    expect(server.called(scan), hasLength(2));
+  });
+
+  test('offline cached details cannot be written', () async {
+    const offline = ProductDetails(
+      id: 10,
+      name: 'Cached',
+      barcode: '0010101010',
+      price: 1,
+      stock: null,
+    );
+    await expectLater(
+      repo.updatePrice(offline, ChfPrice.parse('2')),
+      _kind(FailureKind.network),
+    );
+    expect(server.called(price), isEmpty);
+  });
+
+  test('permission denial keeps the session; rejection clears it', () async {
+    final product = await loaded();
+    server.on(price, (_) => FakeReply(403, errorEnvelope('PERMISSION_DENIED')));
+    await expectLater(
+      repo.updatePrice(product, ChfPrice.parse('2')),
+      _kind(FailureKind.forbidden),
+    );
+    expect(signOuts, 0);
+    server.on(patch, (_) => FakeReply(401, errorEnvelope('TOKEN_REVOKED')));
+    await expectLater(
+      repo.updateInformation(product, name: 'X'),
+      _kind(FailureKind.unauthenticated),
+    );
     expect(signOuts, 1);
   });
 
-  test('price update maps the acknowledged server product', () async {
-    result = {
-      'ok': true,
-      'product': {...productJson(), 'price': 125.25},
-    };
-    final updated = await repo.updatePrice(10, 125.25);
-    expect(updated.price, 125.25);
-    expect(updated.barcode, fixtureProduct.barcode);
-    expect(requests.single.headers['Authorization'], 'Bearer fixture');
+  test('validation errors keep their field details', () async {
+    final product = await loaded();
+    server.on(
+      patch,
+      (_) => const FakeReply(400, {
+        'error': {
+          'code': 'VALIDATION_FAILED',
+          'message': 'Check the product name.',
+          'details': [
+            {'field': 'name', 'code': 'too_long'},
+          ],
+        },
+        'meta': {'request_id': 'request-1'},
+      }),
+    );
+    await expectLater(
+      repo.updateInformation(product, name: 'X'),
+      throwsA(
+        isA<AppFailure>()
+            .having((e) => e.kind, 'kind', FailureKind.validation)
+            .having((e) => e.fieldErrors.single.field, 'field', 'name'),
+      ),
+    );
   });
 
-  for (final product in [
+  for (final payload in [
     null,
     <Object>[],
-    {'id': 10},
-    {...productJson(), 'id': 11},
-    {...productJson(), 'barcode': ''},
-    {...productJson(), 'price': double.nan},
+    v2Product(id: 11, barcode: 'other'),
+    {...v2Product(), 'version': null},
   ]) {
     test(
-      'malformed price acknowledgment cannot report success ($product)',
+      'malformed write acknowledgement is never success ($payload)',
       () async {
-        result = {'ok': true, 'product': product};
+        final product = await loaded();
+        server.on(price, (_) => FakeReply(200, successEnvelope(payload)));
         await expectLater(
-          repo.updatePrice(10, 125),
-          throwsA(
-            isA<AppFailure>().having(
-              (error) => error.kind,
-              'kind',
-              FailureKind.protocol,
-            ),
-          ),
+          repo.updatePrice(product, ChfPrice.parse('2')),
+          _kind(FailureKind.protocol),
         );
-        expect(requests.length, 1);
+        expect(server.called(price), hasLength(1));
       },
     );
   }
+
+  test('tax and category references map the v2 lists', () async {
+    server
+      ..on(
+        'GET /taxes',
+        (_) => FakeReply(
+          200,
+          successEnvelope({
+            'taxes': [
+              {
+                'id': 7,
+                'name': 'VAT',
+                'amount': '8.1',
+                'amount_type': 'percent',
+                'price_include': false,
+              },
+              {
+                'id': 8,
+                'name': 'Levy',
+                'amount': '2',
+                'amount_type': 'fixed',
+                'price_include': false,
+              },
+            ],
+            'default_tax_ids': [7],
+          }),
+        ),
+      )
+      ..on(
+        'GET /categories',
+        (_) => const FakeReply(200, {
+          'data': [
+            {'id': 4, 'name': 'Spices', 'parent_id': null},
+          ],
+          'meta': {'request_id': 'request-1', 'next_cursor': null},
+        }),
+      );
+    expect((await repo.loadTaxes()).map((tax) => tax.label), [
+      'VAT (8.1%)',
+      'Levy',
+    ]);
+    expect((await repo.loadCategories()).single.name, 'Spices');
+    expect(
+      server.called('GET /categories').single.uri.queryParameters['limit'],
+      '100',
+    );
+    server.on(
+      'GET /taxes',
+      (_) => FakeReply(
+        200,
+        successEnvelope({
+          'taxes': [
+            {'id': 0},
+          ],
+        }),
+      ),
+    );
+    await expectLater(repo.loadTaxes(), _kind(FailureKind.protocol));
+  });
 }
+
+final _uuid = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+);

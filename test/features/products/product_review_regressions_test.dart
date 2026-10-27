@@ -124,7 +124,11 @@ void main() {
       expect(container.read(edit).requireValue.selectedTaxIds, isEmpty);
       expect(container.read(edit).requireValue.canSubmit, isFalse);
       expect(repo.writes, 0);
-      repo.access = const ProductAccess(editName: true, readReferences: true);
+      repo.access = const ProductAccess(
+        editName: true,
+        readReferences: true,
+        updateTaxes: true,
+      );
       await controller.refresh();
       await controller.save();
       expect(repo.writtenTaxIds, isEmpty);

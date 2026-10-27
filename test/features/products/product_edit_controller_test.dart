@@ -155,4 +155,68 @@ void main() {
     await operation;
     expect(repo.writes, 0);
   });
+
+  test('a category change sends only the category with the version', () async {
+    await container.read(provider.future);
+    expect(value().categoryLabel, 'Spices');
+    expect(value().canSelectCategory, isTrue);
+    controller().selectCategory(4);
+    expect(value().canSubmit, isFalse, reason: 'unchanged category');
+    controller().selectCategory(5);
+    expect(value().categoryLabel, 'Drinks');
+    await controller().save();
+    expect(value().phase, ProductEditPhase.saved);
+    expect(repo.writtenCategory?.id, 5);
+    expect(repo.writtenName, isNull);
+    expect(repo.writtenTaxIds, isNull);
+    expect(repo.writtenVersions, ['3']);
+    expect(value().details.product?.category?.name, 'Drinks');
+  });
+
+  test('No category removes it; unknown categories are ignored', () async {
+    await container.read(provider.future);
+    controller().selectCategory(99);
+    expect(value().selectedCategory, isNull);
+    controller().selectCategory(null);
+    expect(value().categoryLabel, 'No category');
+    await controller().save();
+    expect(repo.writtenCategory, isNotNull);
+    expect(repo.writtenCategory!.id, isNull);
+  });
+
+  test('category editing follows its own permission', () async {
+    repo.access = const ProductAccess(
+      editName: true,
+      readReferences: true,
+      updateTaxes: true,
+    );
+    container.invalidate(provider);
+    await container.read(provider.future);
+    expect(value().canSelectCategory, isFalse);
+    controller().selectCategory(5);
+    expect(value().selectedCategory, isNull);
+    expect(value().canSelectTax, isTrue);
+  });
+
+  test('a stale version reloads details and keeps the draft', () async {
+    await container.read(provider.future);
+    controller().changeName('My draft');
+    repo.writeError = const AppFailure(
+      FailureKind.conflict,
+      'This product was changed on another device.',
+      code: 'VERSION_CONFLICT',
+    );
+    final loads = repo.loads;
+    await controller().save();
+    expect(repo.writes, 1);
+    expect(repo.loads, greaterThan(loads + 1));
+    expect(value().phase, ProductEditPhase.editing);
+    expect(value().name, 'My draft');
+    expect(value().message, contains('another device'));
+    // Nothing is retried automatically; the user saves again explicitly.
+    repo.writeError = null;
+    await controller().save();
+    expect(repo.writes, 2);
+    expect(value().phase, ProductEditPhase.saved);
+  });
 }

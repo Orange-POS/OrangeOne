@@ -9,6 +9,8 @@ class ProductEditForm extends StatelessWidget {
     required this.enabled,
     required this.taxLabel,
     required this.onSelectTax,
+    this.categoryLabel,
+    this.onSelectCategory,
     this.error,
     super.key,
   });
@@ -18,6 +20,10 @@ class ProductEditForm extends StatelessWidget {
   final bool enabled;
   final String taxLabel;
   final VoidCallback? onSelectTax;
+
+  /// The category field is shown only when a label is supplied.
+  final String? categoryLabel;
+  final VoidCallback? onSelectCategory;
   final String? error;
 
   InputDecoration _decoration() => InputDecoration(
@@ -74,6 +80,27 @@ class ProductEditForm extends StatelessWidget {
           ),
         ),
       ),
+      if (categoryLabel case final category?) ...[
+        const SizedBox(height: 16),
+        const Text('CATEGORY'),
+        const SizedBox(height: 8),
+        Semantics(
+          button: true,
+          label: 'Select product category',
+          child: InkWell(
+            key: const Key('product-category-input'),
+            onTap: onSelectCategory,
+            borderRadius: BorderRadius.circular(12),
+            child: InputDecorator(
+              decoration: _decoration().copyWith(
+                enabled: onSelectCategory != null,
+                suffixIcon: const Icon(Icons.expand_more),
+              ),
+              child: Text(category),
+            ),
+          ),
+        ),
+      ],
     ],
   );
 }

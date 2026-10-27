@@ -87,12 +87,15 @@ void main() {
   test('validates writes before repository invocation', () async {
     final repo = FakeDetailsRepository();
     final useCase = ManageProductDetails(repo);
-    expect(() => useCase.rename(10, ' '), throwsFormatException);
+    expect(() => useCase.rename(detailsFixture, ' '), throwsFormatException);
     for (final value in ['NaN', 'Infinity', '-1', 'abc']) {
-      expect(() => useCase.reprice(10, value), throwsFormatException);
+      expect(
+        () => useCase.reprice(detailsFixture, value),
+        throwsFormatException,
+      );
     }
     expect(repo.writes, 0);
-    await useCase.reprice(10, '12.50');
+    await useCase.reprice(detailsFixture, '12.50');
     expect(repo.writes, 1);
   });
 

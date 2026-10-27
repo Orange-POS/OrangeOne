@@ -114,7 +114,7 @@ void main() {
     () async {
       final controller = container.read(provider.notifier)..changePrice('125');
       final confirmed = controller.confirmation()!;
-      await repo.updatePrice(10, 105);
+      await repo.updatePrice(repo.product!, ChfPrice.parse('105'));
       repo.writes = 0;
       await controller.save(confirmed);
       final state = container.read(provider).requireValue;
@@ -190,5 +190,30 @@ void main() {
     repo.pendingWrite!.complete(detailsFixture);
     await saving;
     expect(repo.writes, 1);
+  });
+
+  test('the write uses the freshly verified version', () async {
+    final controller = container.read(provider.notifier)..changePrice('125');
+    final confirmed = controller.confirmation()!;
+    await controller.save(confirmed);
+    expect(repo.writtenVersions, ['3']);
+    expect(container.read(provider).requireValue.details.product?.version, '4');
+  });
+
+  test('a stale version reloads the price and keeps the draft', () async {
+    final controller = container.read(provider.notifier)..changePrice('125');
+    final confirmed = controller.confirmation()!;
+    repo.writeError = const AppFailure(
+      FailureKind.conflict,
+      'This product was changed on another device.',
+      code: 'VERSION_CONFLICT',
+    );
+    await controller.save(confirmed);
+    final state = container.read(provider).requireValue;
+    expect(repo.writes, 1);
+    expect(state.phase, PriceUpdatePhase.editing);
+    expect(state.draft, '125');
+    expect(state.message, contains('another device'));
+    expect(state.canSubmit, isTrue);
   });
 }

@@ -184,4 +184,51 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('category picker selects, saves and dismisses safely', (
+    tester,
+  ) async {
+    final repo = FakeDetailsRepository();
+    await mount(tester, repo);
+    final field = find.byKey(const Key('product-category-input'));
+    await tester.ensureVisible(field);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: field, matching: find.text('Spices')),
+      findsOneWidget,
+    );
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close category selection'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(action()).onPressed, isNull);
+
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    expect(find.text('Select Category'), findsOneWidget);
+    await tester.tap(find.text('Drinks'));
+    await tester.pumpAndSettle();
+    await tester.tap(action());
+    await tester.pumpAndSettle();
+    expect(repo.writtenCategory?.id, 5);
+    expect(find.text('Name & Tax Updated Successfully'), findsOneWidget);
+  });
+
+  testWidgets('without category permission the field is read-only', (
+    tester,
+  ) async {
+    final repo = FakeDetailsRepository()
+      ..access = const ProductAccess(
+        editName: true,
+        readReferences: true,
+        updateTaxes: true,
+      );
+    await mount(tester, repo);
+    final field = find.byKey(const Key('product-category-input'));
+    await tester.ensureVisible(field);
+    await tester.pumpAndSettle();
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    expect(find.text('Select Category'), findsNothing);
+  });
 }

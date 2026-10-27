@@ -12,7 +12,7 @@ abstract final class ProductAccessModel {
     return ProductAccess(
       editName: granted('product_update_name'),
       updatePrice: granted('product_update_price'),
-      readReferences: granted('product_update_taxes'),
+      readReferences: granted('product_read'),
       updateTaxes: granted('product_update_taxes'),
       updateCategory: granted('product_update_category'),
       createProduct: granted('product_create'),

@@ -6,6 +6,7 @@ import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_category_sheet.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_edit_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
@@ -65,6 +66,33 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
         ref
             .read(productEditControllerProvider(widget.barcode).notifier)
             .selectTax(choice.id);
+      }
+    } finally {
+      _selecting = false;
+    }
+  }
+
+  Future<void> _categories(ProductEditState value) async {
+    if (_selecting || !value.canSelectCategory) return;
+    _selecting = true;
+    _focus.unfocus();
+    try {
+      final selected = value.selectedCategory;
+      final choice = await showModalBottomSheet<ProductCategoryChoice>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        builder: (context) => ProductCategorySheet(
+          categories: value.categories,
+          selectedId: selected == null
+              ? value.details.product?.category?.id
+              : selected.id,
+        ),
+      );
+      if (mounted && choice != null) {
+        ref
+            .read(productEditControllerProvider(widget.barcode).notifier)
+            .selectCategory(choice.id);
       }
     } finally {
       _selecting = false;
@@ -258,6 +286,10 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                                 onSelectTax: view.canSelectTax
                                     ? () => _taxes(view)
                                     : null,
+                                categoryLabel: view.categoryLabel,
+                                onSelectCategory: view.canSelectCategory
+                                    ? () => _categories(view)
+                                    : null,
                               ),
                               if (!view.details.access.editName)
                                 const PriceUpdateNotice(
@@ -267,6 +299,10 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                                 ),
                               if (view.taxMessage != null && !saved)
                                 PriceUpdateNotice(message: view.taxMessage!),
+                              if (view.categoryMessage != null && !saved)
+                                PriceUpdateNotice(
+                                  message: view.categoryMessage!,
+                                ),
                               if (saved)
                                 PriceUpdateNotice(
                                   success: true,
