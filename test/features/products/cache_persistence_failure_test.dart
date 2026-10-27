@@ -73,7 +73,7 @@ void main() {
           ),
         ),
         origin: Uri.parse('https://pos.test'),
-        token: 'synthetic-session',
+        token: () async => 'synthetic-session',
         cancelToken: CancelToken(),
       ),
       cache: cache,

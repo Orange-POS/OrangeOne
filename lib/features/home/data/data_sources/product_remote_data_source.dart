@@ -11,13 +11,15 @@ class ProductRemoteDataSource {
   });
   final JsonRpcClient _client;
   final Uri origin;
-  final String accessToken;
+
+  /// Current access token of the session, read for every request.
+  final Future<String> Function() accessToken;
   final CancelToken cancelToken;
 
-  Future<Map<String, dynamic>> find(String barcode) => _client.call(
+  Future<Map<String, dynamic>> find(String barcode) async => await _client.call(
     '/mupi/mobile/api/products/find',
     backendOrigin: origin,
-    accessToken: accessToken,
+    accessToken: await accessToken(),
     params: {'barcode': barcode},
     cancelToken: cancelToken,
   );

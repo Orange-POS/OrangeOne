@@ -30,7 +30,7 @@ void main() {
           ),
         ),
         origin: Uri.parse('http://192.168.1.3:8080'),
-        token: 'fixture',
+        token: () async => 'fixture',
         cancelToken: CancelToken(),
       ),
       onSessionRejected: () async {

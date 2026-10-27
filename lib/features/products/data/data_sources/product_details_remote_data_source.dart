@@ -11,7 +11,9 @@ class ProductDetailsRemoteDataSource {
   });
   final JsonRpcClient client;
   final Uri origin;
-  final String token;
+
+  /// Current access token of the session, read for every request.
+  final Future<String> Function() token;
   final CancelToken cancelToken;
 
   Future<Map<String, dynamic>> call(
@@ -21,7 +23,7 @@ class ProductDetailsRemoteDataSource {
     final result = await client.call(
       path,
       backendOrigin: origin,
-      accessToken: token,
+      accessToken: await token(),
       cancelToken: cancelToken,
       params: params,
     );

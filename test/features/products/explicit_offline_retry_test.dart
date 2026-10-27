@@ -110,7 +110,7 @@ void main() {
       ProductRemoteDataSource(
         client,
         origin: Uri.parse('https://pos.test'),
-        accessToken: 'test-session',
+        accessToken: () async => 'test-session',
         cancelToken: CancelToken(),
       ),
       cache: cache,
@@ -120,7 +120,7 @@ void main() {
       ProductDetailsRemoteDataSource(
         client,
         origin: Uri.parse('https://pos.test'),
-        token: 'test-session',
+        token: () async => 'test-session',
         cancelToken: CancelToken(),
       ),
       cache: cache,

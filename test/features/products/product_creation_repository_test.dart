@@ -41,7 +41,7 @@ void main() {
           ),
         ),
         origin: Uri.parse('https://pos.example'),
-        token: 'fixture',
+        token: () async => 'fixture',
         cancelToken: CancelToken(),
       ),
       onSessionRejected: () async {},
