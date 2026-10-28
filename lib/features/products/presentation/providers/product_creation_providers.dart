@@ -7,8 +7,10 @@ import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/domain/use_cases/create_product.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 
 enum ProductCreationPhase { editing, creating, saved, uncertain }
 
@@ -17,18 +19,55 @@ class ProductCreationState {
     required this.context,
     this.name = '',
     this.price = '',
+    this.stock = '',
     this.taxIds,
+    this.categoryId,
     this.phase = ProductCreationPhase.editing,
     this.message,
     this.created,
   });
+
+  /// A fresh form: the backend's default tax (when one is configured) is
+  /// already applied, so the user need not choose a tax.
+  factory initial(ProductCreationContext context) =>
+      ProductCreationState(context: context, taxIds: context.initialTaxIds);
+
   final ProductCreationContext context;
   final String name;
+
+  /// Optional; empty means 0.00.
   final String price;
+
+  /// Optional; empty means *not set* (never zero).
+  final String stock;
   final List<int>? taxIds;
+  final int? categoryId;
   final ProductCreationPhase phase;
   final String? message;
   final ProductDetails? created;
+
+  ProductCreationState copy({
+    ProductCreationContext? context,
+    String? name,
+    String? price,
+    String? stock,
+    List<int>? taxIds,
+    int? categoryId,
+    ProductCreationPhase phase = ProductCreationPhase.editing,
+    String? message,
+    ProductDetails? created,
+  }) => ProductCreationState(
+    context: context ?? this.context,
+    name: name ?? this.name,
+    price: price ?? this.price,
+    stock: stock ?? this.stock,
+    taxIds: taxIds ?? this.taxIds,
+    categoryId: categoryId ?? this.categoryId,
+    phase: phase,
+    message: message,
+    created: created,
+  );
+
   bool get busy => phase == ProductCreationPhase.creating;
   bool get editable =>
       phase == ProductCreationPhase.editing && context.canCreate;
@@ -52,21 +91,46 @@ class ProductCreationState {
     return null;
   }
 
+  String? get stockError {
+    if (stock.trim().isEmpty) return null;
+    try {
+      StockCount.parse(stock);
+    } on FormatException catch (e) {
+      return e.message;
+    }
+    return null;
+  }
+
+  /// Name, tax and category are required; price and stock are optional.
   bool get canSubmit =>
       editable &&
       name.trim().isNotEmpty &&
-      price.isNotEmpty &&
       nameError == null &&
       priceError == null &&
-      taxIds != null;
-  String get taxLabel => taxIds == null
-      ? 'Select Tax'
+      stockError == null &&
+      taxIds != null &&
+      categoryId != null;
+
+  /// The tax names for the confirmation; null while none is chosen.
+  String? taxText(String noTax) => taxIds == null
+      ? null
       : taxIds!.isEmpty
-      ? 'No Tax'
+      ? noTax
       : context.taxes
             .where((t) => taxIds!.contains(t.id))
             .map((t) => t.label)
             .join(', ');
+
+  String? get categoryName {
+    for (final category in context.categories) {
+      if (category.id == categoryId) return category.name;
+    }
+    return null;
+  }
+
+  /// The price that will be sent: 0.00 when none was entered.
+  String get effectivePrice =>
+      ChfPrice.parse(price.trim().isEmpty ? '0.00' : price).formatted;
 }
 
 final AsyncNotifierProviderFamily<
@@ -95,8 +159,8 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
     });
     NewProduct.validateBarcode(barcode);
     final repository = ref.watch(productDetailsRepositoryProvider);
-    return ProductCreationState(
-      context: await repository.prepareCreation(barcode),
+    return ProductCreationState.initial(
+      await repository.prepareCreation(barcode),
     );
   }
 
@@ -110,7 +174,7 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
       final context = await ref
           .read(productDetailsRepositoryProvider)
           .prepareCreation(barcode, refresh: true);
-      return ProductCreationState(context: context);
+      return ProductCreationState.initial(context);
     });
     if (ref.mounted && generation == _generation) state = result;
   }
@@ -133,43 +197,71 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
       final latest = state.value;
       if (latest == null || latest.busy) return;
       state = AsyncData(
-        ProductCreationState(
+        latest.copy(
           context: context,
-          name: latest.name,
-          price: latest.price,
-          taxIds: latest.taxIds,
           message: 'Product availability refreshed. Review before creating.',
         ),
       );
     } on AppFailure catch (error) {
       if (ref.mounted && generation == _generation) {
         final latest = state.value ?? current;
-        state = AsyncData(
-          ProductCreationState(
-            context: latest.context,
-            name: latest.name,
-            price: latest.price,
-            taxIds: latest.taxIds,
-            message: error.message,
-          ),
-        );
+        state = AsyncData(latest.copy(message: error.message));
       }
     } finally {
       _recovering = false;
     }
   }
 
-  void edit({String? name, String? price, List<int>? taxIds}) {
+  void edit({
+    String? name,
+    String? price,
+    String? stock,
+    List<int>? taxIds,
+    int? categoryId,
+  }) {
     final current = state.value;
     if (current == null || !current.editable) return;
     state = AsyncData(
-      ProductCreationState(
-        context: current.context,
-        name: name ?? current.name,
-        price: price ?? current.price,
-        taxIds: taxIds ?? current.taxIds,
+      current.copy(
+        name: name,
+        price: price,
+        stock: stock,
+        taxIds: taxIds,
+        categoryId: categoryId,
       ),
     );
+  }
+
+  /// Creates a category (`POST /categories`) and applies it to this form.
+  /// Failures are rethrown for the picker to show.
+  Future<ProductCategory> createCategory(String name) async {
+    final current = state.value;
+    if (current == null ||
+        !current.editable ||
+        !current.context.details.access.createCategory) {
+      throw const FormatException('Category creation is not available.');
+    }
+    final created = await ref
+        .read(productDetailsRepositoryProvider)
+        .createCategory(name);
+    if (!ref.mounted) return created;
+    final latest = state.value ?? current;
+    final context = latest.context;
+    state = AsyncData(
+      latest.copy(
+        context: ProductCreationContext(
+          details: context.details,
+          taxes: context.taxes,
+          defaultTaxIds: context.defaultTaxIds,
+          categories: List.unmodifiable([
+            ...context.categories.where((c) => c.id != created.id),
+            created,
+          ]),
+        ),
+        categoryId: created.id,
+      ),
+    );
+    return created;
   }
 
   Future<void> save() async {
@@ -183,26 +275,22 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
       name: current.name,
       price: current.price,
       taxIds: current.taxIds,
+      categoryId: current.categoryId,
+      stock: current.stock,
       context: current.context,
     );
-    state = AsyncData(
-      ProductCreationState(
-        context: current.context,
-        name: current.name,
-        price: current.price,
-        taxIds: current.taxIds,
-        phase: ProductCreationPhase.creating,
-      ),
-    );
+    state = AsyncData(current.copy(phase: ProductCreationPhase.creating));
     try {
       final created = await useCase(draft);
       if (!ref.mounted || generation != _generation) return;
+      // No quantity was entered: the stock is not set, which is not zero.
+      if (draft.initialQuantity == null) {
+        ref.read(unsetStockProvider.notifier).mark(barcode);
+      }
       state = AsyncData(
-        ProductCreationState(
-          context: current.context,
+        current.copy(
           name: created.name,
           price: created.price.toStringAsFixed(2),
-          taxIds: current.taxIds,
           phase: ProductCreationPhase.saved,
           created: created,
         ),
@@ -218,11 +306,7 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
             FailureKind.unauthenticated,
           }.contains(error.kind);
       state = AsyncData(
-        ProductCreationState(
-          context: current.context,
-          name: current.name,
-          price: current.price,
-          taxIds: current.taxIds,
+        current.copy(
           phase: rejected
               ? ProductCreationPhase.editing
               : ProductCreationPhase.uncertain,
@@ -242,34 +326,15 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
     if (current == null || current.busy) return;
     final generation = _generation;
     final repository = ref.read(productDetailsRepositoryProvider);
-    state = AsyncData(
-      ProductCreationState(
-        context: current.context,
-        name: current.name,
-        price: current.price,
-        taxIds: current.taxIds,
-        phase: ProductCreationPhase.creating,
-      ),
-    );
+    state = AsyncData(current.copy(phase: ProductCreationPhase.creating));
     try {
       final context = await repository.prepareCreation(barcode, refresh: true);
       if (!ref.mounted || generation != _generation) return;
-      state = AsyncData(
-        ProductCreationState(
-          context: context,
-          name: current.name,
-          price: current.price,
-          taxIds: current.taxIds,
-        ),
-      );
+      state = AsyncData(current.copy(context: context));
     } on Exception {
       if (!ref.mounted || generation != _generation) return;
       state = AsyncData(
-        ProductCreationState(
-          context: current.context,
-          name: current.name,
-          price: current.price,
-          taxIds: current.taxIds,
+        current.copy(
           phase: ProductCreationPhase.uncertain,
           message: 'Unable to check this barcode. Your entries are preserved.',
         ),

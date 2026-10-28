@@ -124,3 +124,11 @@ through `recentScansControllerProvider`; tapping an entry calls the same
 `scan`. The "Powered By" footer is gone from Barcode Home. `App` keeps
 `readCacheProvider` listened to so logout purges the cache immediately. See
 docs/home-scanner.md and docs/offline-data.md.
+
+Editing screens (Edit Name & Tax, Price, Stock, Creation): shared Product Details
+name card with Category/Stock/Tax badges (no Tax badge on Details, no card on
+Creation), cloud in the navigation bar, Save Changes -> confirmation -> toast on
+Product Details (`productSuccessProvider`), category select/create
+(`POST /categories`), default tax from `default_tax_ids`, optional price/stock
+(empty stock = Not Set). No backend product name in UI text; "Powered By" only on
+Login Home. See docs/product-edit.md and docs/product-creation.md.

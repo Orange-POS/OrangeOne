@@ -4,16 +4,22 @@ import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_creation_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_category_sheet.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_confirm_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_creation_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_tax_sheet.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
+/// Creates a product for an unknown barcode. There is no product name card:
+/// the product does not exist yet.
 class ProductCreationPage extends ConsumerStatefulWidget {
   const new({required this.barcode, super.key});
   final String barcode;
@@ -25,16 +31,20 @@ class ProductCreationPage extends ConsumerStatefulWidget {
 class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
   final _name = TextEditingController();
   final _price = TextEditingController();
+  final _stock = TextEditingController();
   final _nameFocus = FocusNode();
   final _priceFocus = FocusNode();
-  final GlobalKey _success = GlobalKey();
+  final _stockFocus = FocusNode();
   bool _selecting = false;
+  bool _confirming = false;
   @override
   void dispose() {
     _name.dispose();
     _price.dispose();
+    _stock.dispose();
     _nameFocus.dispose();
     _priceFocus.dispose();
+    _stockFocus.dispose();
     super.dispose();
   }
 
@@ -69,8 +79,88 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
     }
   }
 
+  Future<void> _category(ProductCreationState value) async {
+    if (_selecting || !value.editable) return;
+    _selecting = true;
+    FocusScope.of(context).unfocus();
+    final controller = ref.read(
+      productCreationControllerProvider(widget.barcode).notifier,
+    );
+    try {
+      final choice = await showModalBottomSheet<ProductCategoryChoice>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        builder: (context) => ProductCategorySheet(
+          categories: value.context.categories,
+          selectedId: value.categoryId,
+          allowNone: false,
+          onCreate: value.context.details.access.createCategory
+              ? controller.createCategory
+              : null,
+        ),
+      );
+      if (mounted && choice?.id != null) {
+        controller.edit(categoryId: choice!.id);
+      }
+    } finally {
+      _selecting = false;
+    }
+  }
+
+  /// Nothing is created before Confirm is selected.
+  Future<void> _confirm(ProductCreationState value) async {
+    if (_confirming) return;
+    _confirming = true;
+    FocusScope.of(context).unfocus();
+    final l10n = context.l10n;
+    try {
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (context) => ProductConfirmDialog(
+          title: l10n.createConfirmTitle,
+          message: l10n.createConfirmMessage(
+            value.name.trim(),
+            widget.barcode,
+            value.categoryName ?? '',
+            value.taxText(l10n.taxNoTax) ?? '',
+            value.effectivePrice,
+            value.stock.trim().isEmpty ? l10n.stockNotSet : value.stock.trim(),
+          ),
+        ),
+      );
+      if (accepted == true && mounted) {
+        await ref
+            .read(productCreationControllerProvider(widget.barcode).notifier)
+            .save();
+      }
+    } finally {
+      _confirming = false;
+    }
+  }
+
+  /// The created product opens in Product Details with the success toast.
+  void _finish(ProductCreationState value) {
+    final l10n = context.l10n;
+    final created = value.created;
+    if (created == null) return;
+    ref
+        .read(productSuccessProvider.notifier)
+        .show(
+          barcode: widget.barcode,
+          title: l10n.createSuccessTitle,
+          message: l10n.createSuccessMessage(
+            created.name,
+            created.price.toStringAsFixed(2),
+            value.taxText(l10n.taxNoTax) ?? '',
+          ),
+        );
+    _details();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     ref.watch(readCacheChangesProvider);
     final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = productCreationControllerProvider(widget.barcode);
@@ -81,101 +171,61 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
     final existing = value?.context.details.product;
     final controller = ref.read(provider.notifier);
     ref.listen(provider, (previous, next) {
-      final created = next.value?.created;
-      if (created != null) {
-        _name.text = created.name;
-        _price.text = created.price.toStringAsFixed(2);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final notice = _success.currentContext;
-          if (mounted && notice != null) {
-            Scrollable.ensureVisible(
-              notice,
-              duration: const Duration(milliseconds: 200),
-              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-            );
-          }
-        });
+      final current = next.value;
+      if (current?.phase == ProductCreationPhase.saved &&
+          previous?.value?.phase != ProductCreationPhase.saved) {
+        _finish(current!);
       }
     });
     return PopScope(
       canPop: !busy,
       child: ProductScaffold(
         appBar: ProductNavbar(
-          title: 'Create New Product',
+          title: l10n.createTitle,
           onBack: busy ? null : _back,
-          onEdit: value?.editable == true ? _nameFocus.requestFocus : null,
-          editTooltip: 'Enter product name',
+          trailing: ProductSyncNavButton(barcode: widget.barcode),
         ),
         bottomNavigationBar: ProductActionSurface(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    disabledBackgroundColor: busy ? OrangeTheme.action : null,
-                    disabledForegroundColor: busy ? Colors.white : null,
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onPressed: busy
-                      ? null
-                      : saved || existing != null
-                      ? _details
-                      : value?.phase == ProductCreationPhase.uncertain
-                      ? controller.check
-                      : value?.canSubmit == true && !offline
-                      ? () async {
-                          FocusScope.of(context).unfocus();
-                          await controller.save();
-                        }
-                      : null,
-                  child: Text(
-                    busy
-                        ? 'Creating…'
-                        : saved
-                        ? 'Done'
-                        : existing != null
-                        ? 'Open Product Details'
-                        : value?.phase == ProductCreationPhase.uncertain
-                        ? 'Check barcode'
-                        : 'Create Product',
-                  ),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                disabledBackgroundColor: busy ? OrangeTheme.action : null,
+                disabledForegroundColor: busy ? Colors.white : null,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 12),
-              const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Powered By ',
-                      style: TextStyle(color: OrangeTheme.secondary),
-                    ),
-                    TextSpan(
-                      text: 'OrangeONE',
-                      style: TextStyle(color: OrangeTheme.dark),
-                    ),
-                  ],
-                ),
-                style: TextStyle(fontSize: 12),
+              onPressed: busy
+                  ? null
+                  : saved || existing != null
+                  ? _details
+                  : value?.phase == ProductCreationPhase.uncertain
+                  ? controller.check
+                  : value?.canSubmit == true && !offline
+                  ? () => _confirm(value!)
+                  : null,
+              child: Text(
+                busy
+                    ? l10n.commonCreating
+                    : saved || existing != null
+                    ? l10n.createOpenDetails
+                    : value?.phase == ProductCreationPhase.uncertain
+                    ? l10n.createCheckBarcode
+                    : l10n.createButton,
               ),
-            ],
+            ),
           ),
         ),
         body: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            SliverToBoxAdapter(
-              child: ProductNameCard(product: value?.created ?? existing),
-            ),
             SliverFillRemaining(
               hasScrollBody: false,
               child: Container(
@@ -187,9 +237,9 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                 child: async.when(
                   skipLoadingOnReload: false,
                   skipLoadingOnRefresh: false,
-                  loading: () => const Center(
+                  loading: () => Center(
                     child: CircularProgressIndicator(
-                      semanticsLabel: 'Loading product creation options',
+                      semanticsLabel: l10n.createLoading,
                     ),
                   ),
                   error: (error, stack) => Column(
@@ -199,13 +249,13 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                             ? error.message
                             : error is FormatException
                             ? error.message
-                            : 'Unable to load product creation options.',
+                            : l10n.createLoadFailed,
                       ),
                       if (error is! FormatException)
                         TextButton(
                           onPressed: () =>
                               ref.read(provider.notifier).retryInitialLoad(),
-                          child: const Text('Try again'),
+                          child: Text(l10n.commonTryAgain),
                         ),
                     ],
                   ),
@@ -213,7 +263,7 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       PriceContextRow(
-                        label: 'Barcode',
+                        label: l10n.detailsBarcode,
                         value: widget.barcode,
                         barcode: true,
                       ),
@@ -223,34 +273,28 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                           padding: const EdgeInsets.only(bottom: 16),
                           child: Text(
                             existing != null
-                                ? 'This barcode already exists. '
-                                      'Open the product instead.'
-                                : 'You do not have permission '
-                                      'to create products.',
+                                ? l10n.createExists
+                                : l10n.createNoPermission,
                           ),
                         ),
                       ProductCreationForm(
                         value: view,
                         name: _name,
                         price: _price,
+                        stock: _stock,
                         nameFocus: _nameFocus,
                         priceFocus: _priceFocus,
+                        stockFocus: _stockFocus,
                         onName: (name) => controller.edit(name: name),
                         onPrice: (price) => controller.edit(price: price),
+                        onStock: (stock) => controller.edit(stock: stock),
                         onTax: view.editable ? () => _tax(view) : null,
+                        onCategory: view.editable
+                            ? () => _category(view)
+                            : null,
                       ),
                       if (view.message != null)
                         PriceUpdateNotice(message: view.message!),
-                      if (saved)
-                        PriceUpdateNotice(
-                          key: _success,
-                          success: true,
-                          title: 'New Product Created',
-                          message:
-                              '${view.created!.name} · '
-                              'CHF ${view.created!.price.toStringAsFixed(2)} · '
-                              '${view.taxLabel}',
-                        ),
                     ],
                   ),
                 ),

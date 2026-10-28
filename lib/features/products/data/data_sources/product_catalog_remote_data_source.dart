@@ -71,6 +71,18 @@ class ProductCatalogRemoteDataSource {
         cancelToken: cancelToken,
       );
 
+  /// `POST /categories`: creates one category.
+  Future<MobileApiResponse> createCategory(
+    Map<String, dynamic> body, {
+    required String idempotencyKey,
+  }) => _api.send(
+    MobileApiMethod.post,
+    '/categories',
+    body: body,
+    idempotencyKey: idempotencyKey,
+    cancelToken: cancelToken,
+  );
+
   /// `POST /products`: creates a product, never upserts.
   Future<MobileApiResponse> create(
     Map<String, dynamic> body, {

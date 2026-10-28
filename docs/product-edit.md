@@ -87,3 +87,34 @@ tax data is unavailable, an explicitly empty list is confirmed unassigned, and
 populated taxes display their names. This display distinction does not invent
 backend assignments or permissions. Regression tests cover all five mapper and
 widget cases and mutation/conflict/permission/reference outcomes.
+
+## Shared editing experience (Edit Name & Tax, Price, Stock, Creation)
+
+All four screens follow one flow and one set of components:
+
+- **Header.** The pencil action in the navigation bar is replaced by the cloud
+  sync icon (`ProductSyncNavButton`, as on Product Details). The cloud is no
+  longer part of the product name card.
+- **Name card.** Edit, Price and Stock reuse the Product Details card
+  (`ProductNameCard(detailsLayout: true, showActions: false, taxText: …)`):
+  name, Category badge, Stock badge, a **Tax badge** and the barcode. The Tax
+  badge appears only on these screens, never on Product Details. The separate
+  Tax card of Edit Name & Tax was removed. Creation has no card (the product
+  does not exist yet). Tax percentages are shown once (`15%`, not `15% (15%)`;
+  `ProductReferenceModel.taxLabel`).
+- **Save flow.** *Save Changes* opens the confirmation popup
+  (`ProductConfirmDialog`, `PriceChangeDialog`, `StockCountDialog` share one
+  design). Nothing is sent before **Confirm**. On success the form returns to
+  Product Details (`pop`, or `pushReplacement` after creation) and the success
+  toast (`ProductSuccessToast`, the existing success notice design, fed by
+  `productSuccessProvider`) appears above the Open Scanner button for a few
+  seconds. On failure the form stays with its entries and shows the error.
+  Duplicate submissions stay blocked and the busy button stays orange.
+- **Categories.** The category picker offers every category and, with the
+  `category_create` permission, an add row (`POST /categories`, idempotent).
+  A created category is added to the list and selected for the current form.
+- **Language.** All texts are localized in the six languages. Server-provided
+  and some controller messages (for example uncertain-outcome hints) stay
+  English. The app never names the backend product in its texts; a test
+  (`test/app/no_vendor_names_test.dart`) guards this and that "Powered By" is
+  shown on the Login Home screen only.

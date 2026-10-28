@@ -40,3 +40,11 @@ product reporting the counted stock. Details and the cached snapshot refresh.
 Tests: `test/features/products/stock_update_controller_test.dart`,
 `test/features/products/stock_update_navigation_test.dart`, the stock group in
 `test/features/products/product_details_repository_test.dart`.
+
+## Confirmation, toast and navigation (latest)
+
+*Save Changes* opens the confirmation popup; Confirm sends the count. Success
+returns to Product Details with the *Stock Updated Successfully* toast and
+clears the *Not Set* marker of a product created without a quantity (a count,
+even zero, is a set stock). The screen uses the shared name card with Category,
+Stock and Tax badges; see [product edit](product-edit.md).

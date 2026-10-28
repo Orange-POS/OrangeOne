@@ -68,9 +68,17 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('No Tax'));
         await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('create-product-category')),
+        );
+        await tester.tap(find.byKey(const Key('create-product-category')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Spices'));
+        await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Create Product'));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        // Confirm creates the product and opens its details.
+        await tester.tap(find.text('Confirm'));
         await tester.pumpAndSettle();
         expect(find.text('Created product'), findsOneWidget);
         expect(

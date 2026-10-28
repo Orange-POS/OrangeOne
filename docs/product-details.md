@@ -101,4 +101,9 @@ place buttons side by side. CHF is displayed as requested; pull-to-refresh repla
 the redundant refresh buttons. Hero and discount card shadows follow the supplied
 SVG. These fixed-header/sticky-action conventions are recorded in AGENTS.md.
 
+## Success toast
 
+After Edit Name & Tax, Price, Stock or Creation succeeds, this screen shows the
+success toast above the Open Scanner button (`ProductSuccessToast`, the shared
+success notice design, about five seconds). The Tax badge of the editing
+screens is not shown here.

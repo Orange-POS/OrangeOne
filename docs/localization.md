@@ -21,9 +21,10 @@ lookup states, the stock badge labels shown there and the camera status and
 permission messages of both scanners (`CodeCameraMessages` built from
 `l10n.cameraMessages`, `lib/l10n/camera_messages.dart`). The Product Details screen is localized completely (title, name card, Category,
 Barcode, Price, TAX, actions, loading and error states, the sync indicator and
-the Open Scanner button). Other screens (price, edit, creation) and Odoo error
-messages (`AppFailure.message`
-from the server) remain English; `StockBadge`, `ProductSyncIndicator` and `CodeCamera` keep English
+the Open Scanner button). The Edit Name & Tax, Update Price, Update Stock and
+Create Product screens are localized as well, including their confirmation
+popups, category picker and success toasts. Backend error messages
+(`AppFailure.message` from the server) remain English; `StockBadge`, `ProductSyncIndicator` and `CodeCamera` keep English
 defaults for them (labels are passed in by localized screens). Sending `Accept-Language` to the API
 (localized server messages and product names) is not implemented.
 

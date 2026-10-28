@@ -11,9 +11,10 @@ import 'package:orange_one/features/products/presentation/widgets/open_scanner_b
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_success_toast.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
-import 'package:orange_one/shared/widgets/product_sync_indicator.dart';
 
 class ProductDetailsPage extends ConsumerStatefulWidget {
   const new({required this.barcode, super.key});
@@ -52,17 +53,6 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
       ? l10n.detailsTaxNone
       : l10n.detailsTaxUnavailable;
 
-  /// Status text with the localized time of the last server verification.
-  String _syncTime(BuildContext context, String status, DateTime time) {
-    final material = MaterialLocalizations.of(context);
-    final local = time.toLocal();
-    return context.l10n.syncLastVerified(
-      status,
-      '${material.formatCompactDate(local)} '
-      '${material.formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -72,38 +62,25 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
     final state = ref.watch(provider);
     final product = state.hasError ? null : state.value?.product;
     return ProductScaffold(
-      floatingActionButton: OpenScannerButton(onPressed: _openScanner),
+      floatingActionButton: SizedBox(
+        width: MediaQuery.sizeOf(context).width - 32,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // The success of a finished form, above the Open Scanner button.
+            ProductSuccessToast(barcode: widget.barcode),
+            const SizedBox(height: 12),
+            OpenScannerButton(onPressed: _openScanner),
+          ],
+        ),
+      ),
       appBar: ProductNavbar(
         title: l10n.detailsTitle,
         // Open Scanner replaces the back arrow; system back still works.
         showBack: false,
         onBack: null,
-        onEdit: null,
-        editTooltip: l10n.detailsEditName,
-        trailing: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: .2),
-          ),
-          alignment: Alignment.center,
-          child: ProductSyncIndicator(
-            barcode: widget.barcode,
-            labels: ProductSyncLabels(
-              pending: l10n.syncPending,
-              online: l10n.syncOnline,
-              offline: l10n.syncOffline,
-              failed: l10n.syncFailed,
-              lastVerified: (status, time) => _syncTime(context, status, time),
-            ),
-            onlineIcon: SvgPicture.asset(
-              'assets/icons/product_detail_online.svg',
-              width: 24,
-              height: 24,
-            ),
-          ),
-        ),
+        trailing: ProductSyncNavButton(barcode: widget.barcode),
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(provider.notifier).refresh(),
@@ -349,10 +326,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
         const SizedBox(height: 12),
         const Text('Schedule\n12–18 Oct 2026 · All day'),
         const SizedBox(height: 8),
-        const Text(
-          'Mock discount changes are not saved '
-          'to Odoo.',
-        ),
+        const Text('Mock discount changes are not saved.'),
       ],
     ),
   );

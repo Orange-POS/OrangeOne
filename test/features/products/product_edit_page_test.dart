@@ -1,15 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
-import 'package:orange_one/shared/theme/orange_theme.dart';
 
 import '../../support/product_details_fakes.dart';
+import '../../support/product_router.dart';
 
 void main() {
   Future<void> mount(
@@ -18,17 +17,10 @@ void main() {
     double scale = 1,
   }) async {
     await tester.pumpWidget(
-      ProviderScope(
+      productFormApp(
+        const ProductEditPage(barcode: '0010101010'),
+        scale: scale,
         overrides: [productDetailsRepositoryProvider.overrideWithValue(repo)],
-        child: MaterialApp(
-          theme: OrangeTheme.light,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!,
-          ),
-          home: const ProductEditPage(barcode: '0010101010'),
-        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -37,13 +29,21 @@ void main() {
   Finder input() => find.byKey(const Key('product-name-input'));
   Finder action() => find.widgetWithText(FilledButton, 'Save Changes');
 
+  /// Save Changes, then Confirm in the confirmation popup.
+  Future<void> saveAndConfirm(WidgetTester tester) async {
+    await tester.tap(action());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('loading state does not expose editable fields', (tester) async {
     final repo = FakeDetailsRepository()
       ..pending = Completer<ProductDetailsState>();
     await tester.pumpWidget(
-      ProviderScope(
+      productFormApp(
+        const ProductEditPage(barcode: '0010101010'),
         overrides: [productDetailsRepositoryProvider.overrideWithValue(repo)],
-        child: const MaterialApp(home: ProductEditPage(barcode: '0010101010')),
       ),
     );
     await tester.pump();
@@ -65,14 +65,14 @@ void main() {
     await mount(tester, repo);
     await tester.enterText(input(), 'Preserved draft');
     await tester.pumpAndSettle();
-    await tester.tap(action());
-    await tester.pumpAndSettle();
+    await saveAndConfirm(tester);
     expect(
       tester.widget<TextField>(input()).controller!.text,
       'Preserved draft',
     );
     expect(find.text('Edit permission denied.'), findsOneWidget);
-    expect(find.text('Name & Tax Updated Successfully'), findsNothing);
+    expect(find.text('details 0010101010'), findsNothing, reason: 'stays');
+    expect(pendingSuccess(tester), isNull);
     expect(repo.writes, 1);
   });
 
@@ -86,6 +86,13 @@ void main() {
       detailsFixture.name,
     );
     expect(find.text('In stock · 48 Units'), findsOneWidget);
+    // The shared name card: category, stock and tax badges; no tax card.
+    expect(find.byKey(const Key('product-category-badge')), findsOneWidget);
+    expect(find.byKey(const Key('product-tax-badge')), findsOneWidget);
+    expect(find.byKey(const Key('product-hero-barcode')), findsOneWidget);
+    expect(find.byTooltip('Edit product name'), findsNothing);
+    expect(find.byTooltip('Update stock'), findsNothing);
+    expect(find.textContaining('Powered'), findsNothing);
     expect(tester.widget<FilledButton>(action()).onPressed, isNull);
     await tester.enterText(input(), '');
     await tester.pumpAndSettle();
@@ -100,12 +107,25 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(action());
     await tester.pumpAndSettle();
+    expect(find.text('Confirm changes'), findsOneWidget);
+    expect(find.textContaining('Name: Aachi 100g'), findsOneWidget);
+    expect(find.textContaining('Tax: VAT (15%)'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(repo.writes, 0, reason: 'cancel never saves');
+    expect(
+      tester.widget<TextField>(input()).controller!.text,
+      'Aachi 100g',
+      reason: 'draft kept',
+    );
+    await saveAndConfirm(tester);
     expect(repo.writtenTaxIds, [1]);
     expect(repo.writes, 1);
-    expect(find.text('Name & Tax Updated Successfully'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Done'), findsOneWidget);
-    expect(tester.widget<TextField>(input()).enabled, isFalse);
-    expect(find.text('In stock · 48 Units'), findsOneWidget);
+    // Success returns to Product Details with the success toast.
+    expect(find.text('details 0010101010'), findsOneWidget);
+    final success = pendingSuccess(tester)!;
+    expect(success.title, 'Name & Tax Updated Successfully');
+    expect(success.message, contains('Aachi 100g'));
     expect(tester.takeException(), isNull);
   });
   testWidgets('tax sheet dismissal does not remove current assignments', (
@@ -128,8 +148,7 @@ void main() {
     await mount(tester, repo);
     await tester.enterText(input(), 'Changed');
     await tester.pumpAndSettle();
-    await tester.tap(action());
-    await tester.pumpAndSettle();
+    await saveAndConfirm(tester);
     expect(find.text('Updating…'), findsOneWidget);
     expect(tester.widget<TextField>(input()).enabled, isFalse);
     expect(repo.writes, 1);
@@ -177,7 +196,11 @@ void main() {
       expect(tester.getTopLeft(find.text('Edit Name & Tax')), header);
       expect(tester.getTopLeft(action()), footer);
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(input());
+      await tester.scrollUntilVisible(
+        input(),
+        -120,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       await tester.tap(input());
       await tester.pumpAndSettle();
@@ -208,10 +231,52 @@ void main() {
     expect(find.text('Select Category'), findsOneWidget);
     await tester.tap(find.text('Drinks'));
     await tester.pumpAndSettle();
-    await tester.tap(action());
-    await tester.pumpAndSettle();
+    await saveAndConfirm(tester);
     expect(repo.writtenCategory?.id, 5);
-    expect(find.text('Name & Tax Updated Successfully'), findsOneWidget);
+    expect(pendingSuccess(tester)?.title, 'Name & Tax Updated Successfully');
+  });
+
+  testWidgets('a category added in the picker is selected for the product', (
+    tester,
+  ) async {
+    final repo = FakeDetailsRepository();
+    await mount(tester, repo);
+    final field = find.byKey(const Key('product-category-input'));
+    await tester.ensureVisible(field);
+    await tester.pumpAndSettle();
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('category-new-input')),
+      'Snacks',
+    );
+    await tester.tap(find.byKey(const Key('category-add-button')));
+    await tester.pumpAndSettle();
+    expect(repo.categoryCreates, 1);
+    expect(
+      find.descendant(of: field, matching: find.text('Snacks')),
+      findsOneWidget,
+    );
+    expect(tester.widget<FilledButton>(action()).onPressed, isNotNull);
+    await saveAndConfirm(tester);
+    expect(repo.writtenCategory?.id, 101);
+  });
+
+  testWidgets('no category creation without permission', (tester) async {
+    final repo = FakeDetailsRepository()
+      ..access = const ProductAccess(
+        editName: true,
+        readReferences: true,
+        updateCategory: true,
+      );
+    await mount(tester, repo);
+    final field = find.byKey(const Key('product-category-input'));
+    await tester.ensureVisible(field);
+    await tester.pumpAndSettle();
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    expect(find.text('Drinks'), findsOneWidget);
+    expect(find.byKey(const Key('category-add-button')), findsNothing);
   });
 
   testWidgets('without category permission the field is read-only', (

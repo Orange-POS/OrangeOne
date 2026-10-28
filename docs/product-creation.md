@@ -88,3 +88,21 @@ phone, with its foreground activity and running process confirmed.
 Returning from created product details resets lookup state and remounts the camera when the scanner route actually becomes visible. This also covers replacement navigation and system Back, allowing the same barcode to be scanned again without stale unknown-product actions.
 
 Regression verification (2026-10-19): 310 Flutter tests passed and static analysis reported no issues. The physical Android scanner-return test passed with the real camera running before and after creation/detail navigation, controlled repositories, and injected barcode detections. No live Odoo inventory was changed; optical recognition and iOS remain unverified for this check.
+
+## Required and optional fields (latest)
+
+- **Required:** product name, tax and category. The tax starts as the backend's
+  configured default (`default_tax_ids` of `GET /taxes`; ids that are not offered
+  are ignored). Without a configured default no tax is invented and the user
+  must choose (including *No Tax*). A category is chosen from `GET /categories`
+  or created inline (`category_create`), and is sent as `category_id`.
+- **Optional:** price (empty is `0.00`) and stock quantity. An entered quantity
+  is sent as `initial_quantity`; an empty one is not sent. The form shows
+  **Not Set** for it, and the created product shows *Not Set* instead of *Out
+  of stock* until a count is saved (`unsetStockProvider`, session only). A
+  quantity of `0` the user typed is a real zero. If the backend reports a stock
+  for the new product that is not zero, that value is shown.
+- **Flow.** Create Product opens the confirmation popup (name, barcode,
+  category, tax, price, stock); Confirm creates, then Product Details opens
+  with the success toast. There is no Done step. The screen shows no product
+  name card.

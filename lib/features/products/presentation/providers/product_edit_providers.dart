@@ -288,6 +288,44 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
     );
   }
 
+  /// Creates a category (`POST /categories`) and selects it for this
+  /// product. Failures are rethrown for the picker to show.
+  Future<ProductCategory> createCategory(String name) async {
+    final current = state.value;
+    if (state.isLoading ||
+        current == null ||
+        !current.canSelectCategory ||
+        !current.details.access.createCategory) {
+      throw const FormatException('Category creation is not available.');
+    }
+    final created = await ref
+        .read(productDetailsRepositoryProvider)
+        .createCategory(name);
+    if (!ref.mounted) return created;
+    final latest = state.value ?? current;
+    state = AsyncData(
+      ProductEditState(
+        details: latest.details,
+        name: latest.name,
+        taxes: latest.taxes,
+        selectedTaxIds: latest.selectedTaxIds,
+        taxMessage: latest.taxMessage,
+        taxSelectionError: latest.taxSelectionError,
+        categories: List.unmodifiable([
+          ...latest.categories.where((c) => c.id != created.id),
+          created,
+        ]),
+        selectedCategory: latest.selectedCategory,
+        categoryMessage: latest.categoryMessage,
+        nameError: latest.nameError,
+        message: latest.message,
+        phase: latest.phase,
+      ),
+    );
+    selectCategory(created.id);
+    return created;
+  }
+
   Future<void> save() async {
     final current = state.value;
     if (state.isLoading || current == null || !current.canSubmit) return;

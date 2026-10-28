@@ -77,22 +77,22 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('stock-count-input')), '50');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Update Stock'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Difference: +2 Units'), findsOneWidget);
     expect(repo.writes, 0);
-    await tester.tap(find.text('Confirm update'));
+    await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
     expect(repo.writes, 1);
     expect(repo.writtenCount?.text, '50');
+    // Success returns to details with the toast; there is no Done step.
+    expect(find.byType(ProductStockUpdatePage), findsNothing);
     expect(find.text('Stock Updated Successfully'), findsOneWidget);
     expect(
       find.text('Previous stock: 48 Units · New stock: 50 Units'),
       findsOneWidget,
     );
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 6));
     expect(
       container.read(routerProvider).routeInformationProvider.value.uri.path,
       '/home/products/details',
@@ -107,7 +107,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('stock-count-input')), '7');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Update Stock'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();

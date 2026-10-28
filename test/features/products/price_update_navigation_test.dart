@@ -29,7 +29,7 @@ void main() {
   });
 
   testWidgets(
-    'details opens dedicated price page and Done returns updated details',
+    'details opens the price page; Confirm returns to details with the toast',
     (tester) async {
       final repo = FakeDetailsRepository();
       await tester.pumpWidget(
@@ -64,14 +64,18 @@ void main() {
         '125.25',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Update Price'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
       await tester.pumpAndSettle();
       expect(repo.writes, 0);
-      await tester.tap(find.text('Confirm update'));
+      await tester.tap(find.text('Confirm'));
       await tester.pumpAndSettle();
       expect(repo.writes, 1);
-      await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-      await tester.pumpAndSettle();
+      // No Done step: success returns to details with the toast.
+      expect(find.byKey(const Key('product-success-toast')), findsOneWidget);
+      expect(find.text('Price Updated Successfully'), findsOneWidget);
+      expect(find.text('New price: CHF 125.25'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 6));
+      expect(find.byKey(const Key('product-success-toast')), findsNothing);
       expect(
         container.read(routerProvider).routeInformationProvider.value.uri.path,
         '/home/products/details',

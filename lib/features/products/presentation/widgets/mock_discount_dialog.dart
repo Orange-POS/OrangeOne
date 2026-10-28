@@ -29,7 +29,7 @@ class _MockDiscountDialogState extends State<MockDiscountDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Preview only. This does not change Odoo prices.'),
+            const Text('Preview only. This does not change product prices.'),
             TextFormField(
               controller: _name,
               maxLength: 100,

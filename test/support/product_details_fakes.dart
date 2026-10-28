@@ -42,6 +42,8 @@ class FakeDetailsRepository implements ProductDetailsRepository {
         access,
       ),
       taxes: taxes,
+      defaultTaxIds: defaultTaxIds,
+      categories: categories,
     );
   }
 
@@ -77,6 +79,7 @@ class FakeDetailsRepository implements ProductDetailsRepository {
     readReferences: true,
     updateTaxes: true,
     updateCategory: true,
+    createCategory: true,
     adjustStock: true,
   );
   List<ProductTax> taxes = const [ProductTax(id: 1, label: 'VAT (15%)')];
@@ -84,6 +87,9 @@ class FakeDetailsRepository implements ProductDetailsRepository {
     ProductCategory(id: 4, name: 'Spices'),
     ProductCategory(id: 5, name: 'Drinks'),
   ];
+  List<int> defaultTaxIds = const [];
+  int categoryCreates = 0;
+  Object? categoryError;
   List<int>? writtenTaxIds;
   CategoryChange? writtenCategory;
   String? writtenName;
@@ -97,6 +103,17 @@ class FakeDetailsRepository implements ProductDetailsRepository {
       Error.throwWithStackTrace(referencesError!, StackTrace.current);
     }
     return taxes;
+  }
+
+  @override
+  Future<ProductCategory> createCategory(String name) async {
+    categoryCreates++;
+    if (categoryError != null) {
+      Error.throwWithStackTrace(categoryError!, StackTrace.current);
+    }
+    final created = ProductCategory(id: 100 + categoryCreates, name: name);
+    categories = [...categories, created];
+    return created;
   }
 
   @override

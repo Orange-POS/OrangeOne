@@ -1,4 +1,5 @@
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/features/products/data/models/product_reference_model.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 
 abstract final class ProductDetailsModel {
@@ -40,7 +41,7 @@ abstract final class ProductDetailsModel {
         }
         taxes.add(
           tax['amount_type'] == 'percent'
-              ? '${tax['name']} ($amount%)'
+              ? ProductReferenceModel.taxLabel(tax['name'] as String, amount)
               : tax['name'] as String,
         );
       }

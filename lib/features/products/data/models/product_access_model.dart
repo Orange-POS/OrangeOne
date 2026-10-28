@@ -16,6 +16,7 @@ abstract final class ProductAccessModel {
       updateTaxes: granted('product_update_taxes'),
       updateCategory: granted('product_update_category'),
       createProduct: granted('product_create'),
+      createCategory: granted('category_create'),
       adjustStock: granted('stock_adjust'),
       readHistory: granted('product_history_read'),
     );

@@ -8,6 +8,7 @@ import 'package:orange_one/features/products/data/data_sources/product_catalog_r
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/mobile_api_fakes.dart';
@@ -64,6 +65,15 @@ void main() {
           }),
         ),
       )
+      ..on(
+        'GET /categories',
+        (_) => FakeReply(
+          200,
+          successEnvelope([
+            {'id': 4, 'name': 'Spices'},
+          ]),
+        ),
+      )
       ..on(create, created);
     repository = OdooProductDetailsRepository(
       ProductCatalogRemoteDataSource(
@@ -78,6 +88,7 @@ void main() {
     name: 'New',
     price: ChfPrice.parse('100'),
     taxIds: taxIds,
+    categoryId: 4,
   );
 
   test('rechecks permission and creates with an explicit No Tax', () async {
@@ -89,6 +100,7 @@ void main() {
       'GET /api/orangeone/mobile/v1/products/by-barcode/0010101010',
       'GET /api/orangeone/mobile/v1/auth/session',
       'GET /api/orangeone/mobile/v1/taxes',
+      'GET /api/orangeone/mobile/v1/categories',
       'POST /api/orangeone/mobile/v1/products',
     ]);
     final request = server.called(create).single;
@@ -97,6 +109,7 @@ void main() {
       'name': 'New',
       'list_price': '100.00',
       'tax_ids': <int>[],
+      'category_id': 4,
     });
     expect(request.headers['Idempotency-Key'], isNotEmpty);
     expect(request.headers.containsKey('If-Match'), isFalse);
@@ -217,5 +230,131 @@ void main() {
       repository.createProduct(draft()),
       _kind(FailureKind.protocol),
     );
+  });
+
+  test('creation sends the category and only an entered quantity', () async {
+    await repository.createProduct(
+      NewProduct(
+        barcode: '0010101010',
+        name: 'New',
+        price: ChfPrice.parse('0'),
+        taxIds: const [1],
+        categoryId: 4,
+        initialQuantity: StockCount.parse('12,5'),
+      ),
+    );
+    expect(requestBody(server.called(create).single), {
+      'barcode': '0010101010',
+      'name': 'New',
+      'list_price': '0.00',
+      'tax_ids': [1],
+      'category_id': 4,
+      'initial_quantity': '12.5',
+    });
+  });
+
+  test(
+    'creation options carry the configured default tax and categories',
+    () async {
+      final context = await repository.prepareCreation('0010101010');
+      expect(context.defaultTaxIds, [1]);
+      expect(context.initialTaxIds, [1]);
+      expect(context.categories.map((c) => c.name), ['Spices']);
+      expect(context.canCreate, isTrue);
+    },
+  );
+
+  test('a default tax that is not offered is not applied', () async {
+    server.on(
+      'GET /taxes',
+      (_) => FakeReply(
+        200,
+        successEnvelope({
+          'taxes': <Object>[],
+          'default_tax_ids': [5],
+        }),
+      ),
+    );
+    final context = await repository.prepareCreation('0010101010');
+    expect(context.defaultTaxIds, [5]);
+    expect(context.initialTaxIds, isNull);
+  });
+
+  test('a category is created with an idempotency key', () async {
+    server.on(
+      'POST /categories',
+      (_) => FakeReply(201, successEnvelope({'id': 9, 'name': 'Snacks'})),
+    );
+    final category = await repository.createCategory(' Snacks ');
+    expect((category.id, category.name), (9, 'Snacks'));
+    final request = server.called('POST /categories').single;
+    expect(requestBody(request), {'name': 'Snacks'});
+    expect(request.headers['Idempotency-Key'], isNotEmpty);
+  });
+
+  test('category creation validates and maps backend answers', () async {
+    await expectLater(
+      repository.createCategory('   '),
+      _kind(FailureKind.validation),
+    );
+    await expectLater(
+      repository.createCategory('x' * 65),
+      _kind(FailureKind.validation),
+    );
+    expect(server.called('POST /categories'), isEmpty);
+    server.on(
+      'POST /categories',
+      (_) => FakeReply(409, errorEnvelope('CATEGORY_EXISTS')),
+    );
+    await expectLater(
+      repository.createCategory('Spices'),
+      _kind(FailureKind.conflict),
+    );
+    server.on(
+      'POST /categories',
+      (_) => FakeReply(403, errorEnvelope('PERMISSION_DENIED')),
+    );
+    await expectLater(
+      repository.createCategory('Spices'),
+      _kind(FailureKind.forbidden),
+    );
+    server.on(
+      'POST /categories',
+      (_) => FakeReply(201, successEnvelope({'id': 'x'})),
+    );
+    await expectLater(
+      repository.createCategory('Spices'),
+      _kind(FailureKind.protocol),
+    );
+  });
+
+  test('tax labels show the rate once', () async {
+    Future<String> label(String name, String amount) async {
+      server.on(
+        'GET /taxes',
+        (_) => FakeReply(
+          200,
+          successEnvelope({
+            'taxes': [
+              {
+                'id': 1,
+                'name': name,
+                'amount': amount,
+                'amount_type': 'percent',
+                'price_include': false,
+              },
+            ],
+            'default_tax_ids': <int>[],
+          }),
+        ),
+      );
+      return (await repository.loadTaxes()).single.label;
+    }
+
+    expect(await label('15%', '15'), '15%');
+    expect(await label('VAT 15 %', '15.000000'), 'VAT 15 %');
+    expect(await label('VAT', '15'), 'VAT (15%)');
+    expect(await label('Reduced', '2.5'), 'Reduced (2.5%)');
+    expect(await label('Sales 7.7%', '7.7'), 'Sales 7.7%');
   });
 }

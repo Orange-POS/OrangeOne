@@ -27,53 +27,71 @@ void main() {
       isNull,
     );
   });
-  testWidgets('pencil opens edit, saves and Done returns refreshed details', (
-    tester,
-  ) async {
-    final repo = FakeDetailsRepository();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authRepositoryProvider.overrideWithValue(
-            FakeAuthRepository()..restored = testSession,
-          ),
-          utcNowProvider.overrideWithValue(() => testNow),
-          productDetailsRepositoryProvider.overrideWithValue(repo),
-        ],
-        child: const App(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(App)),
-    );
-    container
-        .read(routerProvider)
-        .goNamed('productDetails', queryParameters: {'barcode': '0010101010'});
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Edit product name'));
-    await tester.pumpAndSettle();
-    expect(find.byType(ProductEditPage), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const Key('product-name-input')),
-      'Aachi 100g',
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
-    await tester.pumpAndSettle();
-    expect(repo.writes, 1);
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-    await tester.pumpAndSettle();
-    expect(find.byType(ProductEditPage), findsNothing);
-    expect(find.text('Aachi 100g'), findsOneWidget);
-    await container.read(sessionControllerProvider.notifier).signOut();
-    await tester.pumpAndSettle();
-    container
-        .read(routerProvider)
-        .goNamed('productEdit', queryParameters: {'barcode': '0010101010'});
-    await tester.pumpAndSettle();
-    expect(find.text('Tap to scan QR'), findsOneWidget);
-    expect(find.byType(ProductEditPage), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'pencil opens edit; Confirm saves and returns to details with the toast',
+    (tester) async {
+      final repo = FakeDetailsRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authRepositoryProvider.overrideWithValue(
+              FakeAuthRepository()..restored = testSession,
+            ),
+            utcNowProvider.overrideWithValue(() => testNow),
+            productDetailsRepositoryProvider.overrideWithValue(repo),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(App)),
+      );
+      container
+          .read(routerProvider)
+          .goNamed(
+            'productDetails',
+            queryParameters: {'barcode': '0010101010'},
+          );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Edit product name'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProductEditPage), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('product-name-input')),
+        'Aachi 100g',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
+      await tester.pumpAndSettle();
+      expect(repo.writes, 0, reason: 'a confirmation comes first');
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      expect(repo.writes, 1);
+      // Success returns to Product Details with the success toast above the
+      // Open Scanner button.
+      expect(find.byType(ProductEditPage), findsNothing);
+      expect(find.text('Aachi 100g'), findsWidgets);
+      final toast = find.byKey(const Key('product-success-toast'));
+      expect(toast, findsOneWidget);
+      expect(find.text('Name & Tax Updated Successfully'), findsOneWidget);
+      expect(
+        tester.getBottomLeft(toast).dy,
+        lessThanOrEqualTo(
+          tester.getTopLeft(find.byKey(const Key('open-scanner-button'))).dy,
+        ),
+      );
+      await tester.pump(const Duration(seconds: 6));
+      expect(toast, findsNothing);
+      await container.read(sessionControllerProvider.notifier).signOut();
+      await tester.pumpAndSettle();
+      container
+          .read(routerProvider)
+          .goNamed('productEdit', queryParameters: {'barcode': '0010101010'});
+      await tester.pumpAndSettle();
+      expect(find.text('Tap to scan QR'), findsOneWidget);
+      expect(find.byType(ProductEditPage), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

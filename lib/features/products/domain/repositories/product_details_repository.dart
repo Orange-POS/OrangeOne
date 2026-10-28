@@ -33,6 +33,9 @@ abstract interface class ProductDetailsRepository {
   Future<StockAdjustment> adjustStock(ProductDetails product, StockCount count);
   Future<List<ProductCategory>> loadCategories();
 
+  /// Creates a category (`POST /categories`); needs `category_create`.
+  Future<ProductCategory> createCategory(String name);
+
   /// Sends only the given fields: [taxIds] `[]` removes all taxes, and a
   /// [category] with a null id removes the category.
   Future<ProductDetails> updateInformation(

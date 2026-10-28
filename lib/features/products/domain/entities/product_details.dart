@@ -74,6 +74,7 @@ class ProductAccess {
     this.updateTaxes = false,
     this.updateCategory = false,
     this.createProduct = false,
+    this.createCategory = false,
     this.adjustStock = false,
     this.readHistory = false,
   });
@@ -85,6 +86,9 @@ class ProductAccess {
   final bool updateTaxes;
   final bool updateCategory;
   final bool createProduct;
+
+  /// A category may be created inline from the picker.
+  final bool createCategory;
   final bool adjustStock;
   final bool readHistory;
 }

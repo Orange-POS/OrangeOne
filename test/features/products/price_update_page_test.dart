@@ -1,15 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
-import 'package:orange_one/shared/theme/orange_theme.dart';
 
 import '../../support/product_details_fakes.dart';
+import '../../support/product_router.dart';
 
 void main() {
   Future<void> mount(
@@ -18,30 +17,29 @@ void main() {
     double scale = 1,
   }) async {
     await tester.pumpWidget(
-      ProviderScope(
+      productFormApp(
+        const ProductPriceUpdatePage(barcode: '0010101010'),
+        scale: scale,
         overrides: [productDetailsRepositoryProvider.overrideWithValue(repo)],
-        child: MaterialApp(
-          theme: OrangeTheme.light,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!,
-          ),
-          home: const ProductPriceUpdatePage(barcode: '0010101010'),
-        ),
       ),
     );
     await tester.pumpAndSettle();
   }
 
   Finder getInput() => find.byKey(const Key('new-price-input'));
-  Finder getAction() => find.widgetWithText(FilledButton, 'Update Price');
+  Finder getAction() => find.widgetWithText(FilledButton, 'Save Changes');
 
   testWidgets('empty and invalid CHF field disable updates', (tester) async {
     final repo = FakeDetailsRepository();
     await mount(tester, repo);
     expect(find.text('CHF 100.00'), findsOneWidget);
     expect(find.text('In stock · 48 Units'), findsOneWidget);
+    // The shared name card: category and tax badges with the stock badge.
+    expect(find.byKey(const Key('product-category-badge')), findsOneWidget);
+    expect(find.byKey(const Key('product-tax-badge')), findsOneWidget);
+    expect(find.byTooltip('Edit product name'), findsNothing);
+    expect(find.byTooltip('Update stock'), findsNothing);
+    expect(find.textContaining('Powered'), findsNothing);
     expect(tester.widget<FilledButton>(getAction()).onPressed, isNull);
     await tester.enterText(getInput(), 'AAA');
     await tester.pumpAndSettle();
@@ -67,14 +65,14 @@ void main() {
       expect(tester.widget<TextField>(getInput()).controller!.text, '125.00');
       await tester.tap(getAction());
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Confirm update'));
+      await tester.tap(find.text('Confirm'));
       await tester.pumpAndSettle();
       expect(repo.writes, 1);
-      expect(find.text('CHF 125.00'), findsOneWidget);
-      expect(find.textContaining('Price Updated Successfully'), findsOneWidget);
-      expect(find.text('In stock · 48 Units'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, 'Done'), findsOneWidget);
-      expect(tester.widget<TextField>(getInput()).enabled, isFalse);
+      // Success returns to Product Details, which shows the toast.
+      expect(find.text('details 0010101010'), findsOneWidget);
+      final success = pendingSuccess(tester)!;
+      expect(success.title, 'Price Updated Successfully');
+      expect(success.message, 'New price: CHF 125.00');
       expect(tester.takeException(), isNull);
     },
   );
@@ -87,7 +85,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(getAction());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm update'));
+    await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
     expect(find.text('Updating…'), findsOneWidget);
     expect(tester.widget<TextField>(getInput()).enabled, isFalse);
@@ -133,7 +131,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(getAction());
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Confirm update'));
+      await tester.tap(find.text('Confirm'));
       await tester.pumpAndSettle();
       expect(
         find.textContaining('save could not be confirmed'),
@@ -141,6 +139,7 @@ void main() {
       );
       expect(tester.widget<TextField>(getInput()).controller!.text, '125.00');
       expect(find.textContaining('Price Updated Successfully'), findsNothing);
+      expect(find.text('Details 0010101010'), findsNothing);
       await tester.tap(find.text('Check current price'));
       await tester.pumpAndSettle();
       expect(repo.writes, 1);
@@ -163,12 +162,18 @@ void main() {
       await mount(tester, FakeDetailsRepository(), scale: 1.6);
       final top = tester.getTopLeft(find.byTooltip('Back'));
       final bottom = tester.getTopLeft(getAction());
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.byTooltip('Back')), top);
       expect(tester.getTopLeft(getAction()), bottom);
       tester.view.viewInsets = const FakeViewPadding(bottom: 200);
       await tester.pumpAndSettle();
+      // The taller name card pushes the field down: scroll to it.
+      await tester.scrollUntilVisible(
+        getInput(),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.enterText(getInput(), '125.00');
       await tester.pumpAndSettle();
       expect(getAction().hitTestable(), findsOneWidget);

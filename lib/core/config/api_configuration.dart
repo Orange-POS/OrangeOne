@@ -38,7 +38,7 @@ class ApiConfiguration {
         (uri.scheme != 'https' && uri.scheme != 'http')) {
       throw const AppFailure(
         FailureKind.unsupportedQr,
-        'This Odoo server address is unsupported. Use HTTP or HTTPS '
+        'This server address is unsupported. Use HTTP or HTTPS '
         'with a valid server address and port.',
       );
     }
@@ -55,7 +55,7 @@ class ApiConfiguration {
   Uri validateApiBase(String value) {
     const unsupported = AppFailure(
       FailureKind.unsupportedQr,
-      'This Odoo server address is unsupported. Use HTTP or HTTPS '
+      'This server address is unsupported. Use HTTP or HTTPS '
       'with a valid server address and port.',
     );
     final uri = Uri.tryParse(value);

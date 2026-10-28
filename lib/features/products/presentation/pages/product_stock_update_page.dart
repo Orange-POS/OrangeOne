@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/features/products/presentation/product_tax_label.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
@@ -10,7 +12,9 @@ import 'package:orange_one/features/products/presentation/widgets/product_action
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/stock_count_form.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 /// Sets the counted on-hand quantity, following the Update Price layout.
@@ -71,26 +75,44 @@ class _ProductStockUpdatePageState
     await ref.read(provider.notifier).refresh();
   }
 
-  String _blockedMessage(StockUpdateState value) =>
+  String _blockedMessage(AppLocalizations l10n, StockUpdateState value) =>
       !value.details.access.adjustStock
-      ? 'You do not have permission to update this stock.'
+      ? l10n.stockNoPermission
       : value.details.product!.stock == null
-      ? 'Stock is not tracked for this product.'
-      : 'Stock for this product cannot be counted here. Packaged, '
-            'owner-specific or lot-tracked stock must be adjusted in Odoo.';
+      ? l10n.stockNotTracked
+      : l10n.stockCannotCount;
 
-  String _savedMessage(StockUpdateState value) {
+  String _savedMessage(AppLocalizations l10n, StockUpdateState value) {
     final product = value.details.product!;
     final previous = value.previousQuantity;
     final next = stockQuantityLabel(product.stock ?? 0, product.unit);
     return previous == null
-        ? 'New stock: $next'
-        : 'Previous stock: ${stockQuantityLabel(previous, product.unit)}'
-              ' · New stock: $next';
+        ? l10n.stockSuccessNew(next)
+        : l10n.stockSuccessMessage(
+            stockQuantityLabel(previous, product.unit),
+            next,
+          );
+  }
+
+  /// A saved count returns to Product Details with the success toast.
+  void _finish(StockUpdateState value) {
+    final l10n = context.l10n;
+    if (value.details.product == null) return;
+    // A counted quantity, even zero, is a set stock.
+    ref.read(unsetStockProvider.notifier).clear(widget.barcode);
+    ref
+        .read(productSuccessProvider.notifier)
+        .show(
+          barcode: widget.barcode,
+          title: l10n.stockSuccessTitle,
+          message: _savedMessage(l10n, value),
+        );
+    _leave(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     ref.watch(readCacheChangesProvider);
     final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = stockUpdateControllerProvider(widget.barcode);
@@ -102,6 +124,10 @@ class _ProductStockUpdatePageState
     final uncertain = view?.phase == StockUpdatePhase.uncertain;
     ref.listen(provider, (previous, next) {
       final value = next.value;
+      if (value?.phase == StockUpdatePhase.saved &&
+          previous?.value?.phase != StockUpdatePhase.saved) {
+        _finish(value!);
+      }
       if (!next.isLoading &&
           !next.hasError &&
           value != null &&
@@ -117,13 +143,9 @@ class _ProductStockUpdatePageState
       canPop: !busy,
       child: ProductScaffold(
         appBar: ProductNavbar(
-          title: 'Update Stock',
+          title: l10n.stockTitle,
           onBack: busy ? null : () => _leave(saved),
-          onEdit:
-              view != null && view.permitted && !busy && !saved && !uncertain
-              ? _focus.requestFocus
-              : null,
-          editTooltip: 'Edit counted quantity',
+          trailing: ProductSyncNavButton(barcode: widget.barcode),
         ),
         bottomNavigationBar: ProductActionSurface(
           child: SizedBox(
@@ -154,13 +176,11 @@ class _ProductStockUpdatePageState
               child: Text(
                 busy
                     ? view?.phase == StockUpdatePhase.checking
-                          ? 'Checking…'
-                          : 'Updating…'
-                    : saved
-                    ? 'Done'
+                          ? l10n.commonChecking
+                          : l10n.commonUpdating
                     : uncertain
-                    ? 'Check current stock'
-                    : 'Update Stock',
+                    ? l10n.stockCheckCurrent
+                    : l10n.commonSaveChanges,
               ),
             ),
           ),
@@ -172,7 +192,14 @@ class _ProductStockUpdatePageState
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               if (product != null)
-                SliverToBoxAdapter(child: ProductNameCard(product: product)),
+                SliverToBoxAdapter(
+                  child: ProductNameCard(
+                    product: product,
+                    detailsLayout: true,
+                    showActions: false,
+                    taxText: localizedTaxText(l10n, product),
+                  ),
+                ),
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Container(
@@ -184,9 +211,9 @@ class _ProductStockUpdatePageState
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   child: async.when(
-                    loading: () => const Center(
+                    loading: () => Center(
                       child: CircularProgressIndicator(
-                        semanticsLabel: 'Loading current stock',
+                        semanticsLabel: l10n.stockLoading,
                       ),
                     ),
                     error: (error, stack) => Column(
@@ -196,32 +223,33 @@ class _ProductStockUpdatePageState
                               ? error.message
                               : error is FormatException
                               ? error.message
-                              : 'Unable to load the current product stock.',
+                              : l10n.stockLoadFailed,
                         ),
                         if (error is! FormatException)
                           TextButton(
                             onPressed: _refresh,
-                            child: const Text('Try again'),
+                            child: Text(l10n.commonTryAgain),
                           ),
                       ],
                     ),
                     data: (value) {
                       final current = value.details.product;
                       if (current == null) {
-                        return const Text('Product not found');
+                        return Text(l10n.productNotFound);
                       }
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           PriceContextRow(
-                            label: 'Barcode',
-                            value: current.barcode,
-                            barcode: true,
-                          ),
-                          PriceContextRow(
-                            label: 'Current Stock',
-                            value: current.stock == null
-                                ? 'Stock unavailable'
+                            label: l10n.stockCurrentLabel,
+                            value:
+                                ref
+                                        .watch(unsetStockProvider)
+                                        .contains(current.barcode) &&
+                                    (current.stock ?? 0) == 0
+                                ? l10n.stockNotSet
+                                : current.stock == null
+                                ? l10n.stockUnavailable
                                 : stockQuantityLabel(
                                     current.stock!,
                                     current.unit,
@@ -248,12 +276,8 @@ class _ProductStockUpdatePageState
                             ),
                           ),
                           if (!value.permitted)
-                            PriceUpdateNotice(message: _blockedMessage(value)),
-                          if (value.phase == StockUpdatePhase.saved)
                             PriceUpdateNotice(
-                              success: true,
-                              title: 'Stock Updated Successfully',
-                              message: _savedMessage(value),
+                              message: _blockedMessage(l10n, value),
                             ),
                           if (value.message != null)
                             PriceUpdateNotice(message: value.message!),

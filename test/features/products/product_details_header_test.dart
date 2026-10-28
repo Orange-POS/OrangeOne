@@ -66,6 +66,8 @@ void main() {
       find.descendant(of: category, matching: find.text('Spices')),
       findsOneWidget,
     );
+    // Product Details never shows the Tax badge of the editing screens.
+    expect(find.byKey(const Key('product-tax-badge')), findsNothing);
     final badges = find.byType(InfoBadge);
     expect(badges, findsNWidgets(2));
     final categoryBox = tester.getRect(badges.first);

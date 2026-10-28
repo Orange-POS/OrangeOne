@@ -102,3 +102,10 @@ controller also compares the returned CHF amount with the confirmed amount at
 hundredth precision. A mismatch enters the existing uncertain state, preserves
 the draft and requires an authoritative refresh before another write. It never
 retries automatically or replaces the draft with an unconfirmed response.
+
+## Confirmation, toast and navigation (latest)
+
+*Save Changes* opens the confirmation popup; Confirm sends the price. Success
+returns to Product Details with the *Price Updated Successfully* toast above
+Open Scanner (there is no Done step). The screen uses the shared name card with
+Category, Stock and Tax badges; see [product edit](product-edit.md).

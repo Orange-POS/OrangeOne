@@ -60,7 +60,14 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
     final details = await _load(barcode);
     final context = ProductCreationContext(details: details, taxes: const []);
     if (!context.canCreate) return context;
-    return ProductCreationContext(details: details, taxes: await _loadTaxes());
+    final references = await catalog.taxes();
+    final categories = await catalog.categories();
+    return ProductCreationContext(
+      details: details,
+      taxes: ProductReferenceModel.taxes(references),
+      defaultTaxIds: ProductReferenceModel.defaultTaxIds(references),
+      categories: ProductReferenceModel.categories(categories.data),
+    );
   }
 
   @override
@@ -94,6 +101,9 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
           'list_price': product.price.formatted,
           // An empty list is the explicit "No Tax" choice.
           'tax_ids': product.taxIds,
+          'category_id': ?product.categoryId,
+          // Sent only when entered: an unset stock is not zero.
+          'initial_quantity': ?product.initialQuantity?.text,
         };
         return await _write(
           'POST /products',
@@ -380,6 +390,25 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
 
   Future<List<ProductTax>> _loadTaxes() async =>
       ProductReferenceModel.taxes(await catalog.taxes());
+
+  @override
+  Future<ProductCategory> createCategory(String name) =>
+      _authenticated(() async {
+        final value = name.trim();
+        if (value.isEmpty || value.length > 64) {
+          throw const AppFailure(
+            FailureKind.validation,
+            'Enter a category name of 1–64 characters.',
+          );
+        }
+        final body = {'name': value};
+        return await _keys.run(
+          'POST /categories ${jsonEncode(body)}',
+          (key) async => ProductReferenceModel.category(
+            (await catalog.createCategory(body, idempotencyKey: key)).data,
+          ),
+        );
+      });
 
   @override
   Future<List<ProductCategory>> loadCategories() => _authenticated(() async {

@@ -351,5 +351,402 @@
         "type": "String"
       }
     }
+  },
+  "commonCancel": "Cancel",
+  "@commonCancel": {
+    "description": "Cancel button"
+  },
+  "commonConfirm": "Confirm",
+  "@commonConfirm": {
+    "description": "Confirm button of a confirmation popup"
+  },
+  "commonSaveChanges": "Save Changes",
+  "@commonSaveChanges": {
+    "description": "Primary save button"
+  },
+  "commonTryAgain": "Try again",
+  "@commonTryAgain": {
+    "description": "Retry button"
+  },
+  "commonChecking": "Checking…",
+  "@commonChecking": {
+    "description": "Busy label while data is checked"
+  },
+  "commonUpdating": "Updating…",
+  "@commonUpdating": {
+    "description": "Busy label while a change is saved"
+  },
+  "commonCreating": "Creating…",
+  "@commonCreating": {
+    "description": "Busy label while a product is created"
+  },
+  "taxNoTax": "No Tax",
+  "@taxNoTax": {
+    "description": "Explicit choice of no tax"
+  },
+  "taxSelect": "Select Tax",
+  "@taxSelect": {
+    "description": "Tax picker title and placeholder"
+  },
+  "taxSelectSemantics": "Select product tax",
+  "@taxSelectSemantics": {
+    "description": "Screen reader label of the tax field"
+  },
+  "taxCloseTooltip": "Close tax selection",
+  "@taxCloseTooltip": {
+    "description": "Closes the tax picker"
+  },
+  "taxMultipleNotice": "Multiple taxes are currently assigned. Selecting an option replaces all of them.",
+  "@taxMultipleNotice": {
+    "description": "Shown when several taxes are assigned"
+  },
+  "productNameLabel": "Product Name",
+  "@productNameLabel": {
+    "description": "Product name field label"
+  },
+  "productTaxLabel": "TAX",
+  "@productTaxLabel": {
+    "description": "Tax field label"
+  },
+  "productCategoryLabel": "CATEGORY",
+  "@productCategoryLabel": {
+    "description": "Category field label"
+  },
+  "categorySelect": "Select Category",
+  "@categorySelect": {
+    "description": "Category picker title and placeholder"
+  },
+  "categorySelectSemantics": "Select product category",
+  "@categorySelectSemantics": {
+    "description": "Screen reader label of the category field"
+  },
+  "categoryCloseTooltip": "Close category selection",
+  "@categoryCloseTooltip": {
+    "description": "Closes the category picker"
+  },
+  "categoryNewHint": "New category name",
+  "@categoryNewHint": {
+    "description": "Hint of the new category field"
+  },
+  "categoryAddTooltip": "Add category",
+  "@categoryAddTooltip": {
+    "description": "Creates the typed category"
+  },
+  "categoryRequired": "Select a category.",
+  "@categoryRequired": {
+    "description": "Category is required for a new product"
+  },
+  "editTitle": "Edit Name & Tax",
+  "@editTitle": {
+    "description": "Title of the edit name and tax screen"
+  },
+  "editLoading": "Loading product information",
+  "@editLoading": {
+    "description": "Loading product information"
+  },
+  "editLoadFailed": "Unable to load product information.",
+  "@editLoadFailed": {
+    "description": "Product information could not be loaded"
+  },
+  "editNoPermission": "You do not have permission to edit this product.",
+  "@editNoPermission": {
+    "description": "No permission to edit the product"
+  },
+  "editCheckCurrent": "Check current information",
+  "@editCheckCurrent": {
+    "description": "Re-reads the product after an uncertain save"
+  },
+  "editConfirmTitle": "Confirm changes",
+  "@editConfirmTitle": {
+    "description": "Title of the edit confirmation popup"
+  },
+  "editConfirmMessage": "Save these changes?\n\nName: {name}\nTax: {tax}\nCategory: {category}",
+  "@editConfirmMessage": {
+    "description": "Body of the edit confirmation popup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "tax": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "editSuccessTitle": "Name & Tax Updated Successfully",
+  "@editSuccessTitle": {
+    "description": "Success toast title after editing"
+  },
+  "editSuccessMessage": "New name: {name} · Tax: {tax}",
+  "@editSuccessMessage": {
+    "description": "Success toast text after editing",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "tax": {
+        "type": "String"
+      }
+    }
+  },
+  "priceTitle": "Update Price",
+  "@priceTitle": {
+    "description": "Title of the price update screen"
+  },
+  "priceNewLabel": "New Price",
+  "@priceNewLabel": {
+    "description": "New price field label"
+  },
+  "priceNewHint": "Enter new price",
+  "@priceNewHint": {
+    "description": "New price field hint"
+  },
+  "priceCurrentLabel": "Current Price",
+  "@priceCurrentLabel": {
+    "description": "Current price row label"
+  },
+  "priceLoading": "Loading current price",
+  "@priceLoading": {
+    "description": "Loading the current price"
+  },
+  "priceLoadFailed": "Unable to load the current product price.",
+  "@priceLoadFailed": {
+    "description": "The current price could not be loaded"
+  },
+  "priceNoPermission": "You do not have permission to update this price.",
+  "@priceNoPermission": {
+    "description": "No permission to update the price"
+  },
+  "priceCheckCurrent": "Check current price",
+  "@priceCheckCurrent": {
+    "description": "Re-reads the price after an uncertain save"
+  },
+  "priceConfirmTitle": "Confirm price update",
+  "@priceConfirmTitle": {
+    "description": "Title of the price confirmation popup"
+  },
+  "priceConfirmMessage": "{name}\n\nCurrent price: CHF {current}\nNew price: CHF {price}\n\nSave this product price?",
+  "@priceConfirmMessage": {
+    "description": "Body of the price confirmation popup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "priceSuccessTitle": "Price Updated Successfully",
+  "@priceSuccessTitle": {
+    "description": "Success toast title after a price update"
+  },
+  "priceSuccessMessage": "New price: CHF {price}",
+  "@priceSuccessMessage": {
+    "description": "Success toast text after a price update",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "stockTitle": "Update Stock",
+  "@stockTitle": {
+    "description": "Title of the stock update screen"
+  },
+  "stockCountedLabel": "Counted Quantity",
+  "@stockCountedLabel": {
+    "description": "Counted quantity field label"
+  },
+  "stockCountedHint": "Enter the counted quantity",
+  "@stockCountedHint": {
+    "description": "Counted quantity hint"
+  },
+  "stockCountedHelper": "Replaces the current stock at the POS location.",
+  "@stockCountedHelper": {
+    "description": "Counted quantity helper text"
+  },
+  "stockCurrentLabel": "Current Stock",
+  "@stockCurrentLabel": {
+    "description": "Current stock row label"
+  },
+  "stockLoading": "Loading current stock",
+  "@stockLoading": {
+    "description": "Loading the current stock"
+  },
+  "stockLoadFailed": "Unable to load the current product stock.",
+  "@stockLoadFailed": {
+    "description": "The current stock could not be loaded"
+  },
+  "stockNoPermission": "You do not have permission to update this stock.",
+  "@stockNoPermission": {
+    "description": "No permission to update stock"
+  },
+  "stockNotTracked": "Stock is not tracked for this product.",
+  "@stockNotTracked": {
+    "description": "The product has no tracked stock"
+  },
+  "stockCannotCount": "Stock for this product cannot be counted here. Packaged, owner-specific or lot-tracked stock must be adjusted in the back office.",
+  "@stockCannotCount": {
+    "description": "Packaged, owner-specific or lot-tracked stock"
+  },
+  "stockCheckCurrent": "Check current stock",
+  "@stockCheckCurrent": {
+    "description": "Re-reads the stock after an uncertain save"
+  },
+  "stockConfirmTitle": "Confirm stock update",
+  "@stockConfirmTitle": {
+    "description": "Title of the stock confirmation popup"
+  },
+  "stockConfirmMessage": "{name}\n\nCurrent stock: {current}\nCounted stock: {counted}\nDifference: {difference}\n\nSave this count?",
+  "@stockConfirmMessage": {
+    "description": "Body of the stock confirmation popup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "counted": {
+        "type": "String"
+      },
+      "difference": {
+        "type": "String"
+      }
+    }
+  },
+  "stockSuccessTitle": "Stock Updated Successfully",
+  "@stockSuccessTitle": {
+    "description": "Success toast title after a stock update"
+  },
+  "stockSuccessMessage": "Previous stock: {previous} · New stock: {next}",
+  "@stockSuccessMessage": {
+    "description": "Success toast text with the previous and new stock",
+    "placeholders": {
+      "previous": {
+        "type": "String"
+      },
+      "next": {
+        "type": "String"
+      }
+    }
+  },
+  "stockSuccessNew": "New stock: {next}",
+  "@stockSuccessNew": {
+    "description": "Success toast text with the new stock",
+    "placeholders": {
+      "next": {
+        "type": "String"
+      }
+    }
+  },
+  "stockNotSet": "Not Set",
+  "@stockNotSet": {
+    "description": "Stock that was never set (not zero)"
+  },
+  "createTitle": "Create New Product",
+  "@createTitle": {
+    "description": "Title of the product creation screen"
+  },
+  "createNameHint": "Enter product name",
+  "@createNameHint": {
+    "description": "Product name hint"
+  },
+  "createPriceLabel": "Price (optional)",
+  "@createPriceLabel": {
+    "description": "Optional price field label"
+  },
+  "createPriceHint": "0.00",
+  "@createPriceHint": {
+    "description": "Price hint: an empty price is 0.00"
+  },
+  "createStockLabel": "Stock Quantity (optional)",
+  "@createStockLabel": {
+    "description": "Optional stock quantity field label"
+  },
+  "createLoading": "Loading product creation options",
+  "@createLoading": {
+    "description": "Loading the creation options"
+  },
+  "createLoadFailed": "Unable to load product creation options.",
+  "@createLoadFailed": {
+    "description": "The creation options could not be loaded"
+  },
+  "createExists": "This barcode already exists. Open the product instead.",
+  "@createExists": {
+    "description": "The barcode already belongs to a product"
+  },
+  "createNoPermission": "You do not have permission to create products.",
+  "@createNoPermission": {
+    "description": "No permission to create products"
+  },
+  "createButton": "Create Product",
+  "@createButton": {
+    "description": "Creates the product"
+  },
+  "createOpenDetails": "Open Product Details",
+  "@createOpenDetails": {
+    "description": "Opens the product that already exists"
+  },
+  "createCheckBarcode": "Check barcode",
+  "@createCheckBarcode": {
+    "description": "Checks the barcode after an uncertain creation"
+  },
+  "createConfirmTitle": "Confirm new product",
+  "@createConfirmTitle": {
+    "description": "Title of the creation confirmation popup"
+  },
+  "createConfirmMessage": "Create this product?\n\nName: {name}\nBarcode: {barcode}\nCategory: {category}\nTax: {tax}\nPrice: CHF {price}\nStock: {stock}",
+  "@createConfirmMessage": {
+    "description": "Body of the creation confirmation popup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "barcode": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      },
+      "tax": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "stock": {
+        "type": "String"
+      }
+    }
+  },
+  "createSuccessTitle": "Product Created Successfully",
+  "@createSuccessTitle": {
+    "description": "Success toast title after creating a product"
+  },
+  "createSuccessMessage": "{name} · CHF {price} · {tax}",
+  "@createSuccessMessage": {
+    "description": "Success toast text after creating a product",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "tax": {
+        "type": "String"
+      }
+    }
+  },
+  "mockDiscountNote": "Preview only. This does not change product prices.",
+  "@mockDiscountNote": {
+    "description": "Note of the discount preview"
   }
 }

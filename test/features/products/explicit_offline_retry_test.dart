@@ -19,6 +19,7 @@ import 'package:orange_one/features/products/presentation/providers/price_update
 import 'package:orange_one/features/products/presentation/providers/product_creation_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
+import 'package:orange_one/l10n/l10n.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/mobile_api_fakes.dart';
@@ -79,7 +80,9 @@ void main() {
       }
       if (request.uri.path == _categories) {
         return const FakeReply(200, {
-          'data': <Object>[],
+          'data': <Object>[
+            {'id': 4, 'name': 'Spices'},
+          ],
           'meta': {'next_cursor': null},
         });
       }
@@ -180,7 +183,11 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(home: page),
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: page,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -215,7 +222,7 @@ void main() {
         _byBarcode,
         if (screen == 'creation') _session,
         if (screen != 'price') _taxes,
-        if (screen == 'edit') _categories,
+        if (screen != 'price') _categories,
       ]);
       switch (screen) {
         case 'creation':
@@ -294,7 +301,7 @@ void main() {
     container.listen(provider, (_, _) {});
     await container.read(provider.future);
     final controller = container.read(provider.notifier)
-      ..edit(name: 'Draft name', price: '12.50', taxIds: []);
+      ..edit(name: 'Draft name', price: '12.50', taxIds: [], categoryId: 4);
     paths.clear();
     available = false;
     await controller.check();
@@ -316,7 +323,7 @@ void main() {
 
     available = true;
     await controller.check();
-    expect(paths.skip(2), [_byBarcode, _session, _taxes]);
+    expect(paths.skip(2), [_byBarcode, _session, _taxes, _categories]);
     final state = container.read(provider).requireValue;
     expect(state.phase, ProductCreationPhase.editing);
     expect(state.canSubmit, isTrue);
@@ -334,7 +341,7 @@ void main() {
       container.listen(provider, (_, _) {});
       await container.read(provider.future);
       final controller = container.read(provider.notifier)
-        ..edit(name: 'Preserved', price: '10', taxIds: []);
+        ..edit(name: 'Preserved', price: '10', taxIds: [], categoryId: 4);
       available = false;
       await controller.check();
       available = true;
@@ -356,7 +363,12 @@ void main() {
       container.listen(provider, (_, _) {});
       await container.read(provider.future);
       final controller = container.read(provider.notifier)
-        ..edit(name: 'Uncertain draft', price: '12.50', taxIds: []);
+        ..edit(
+          name: 'Uncertain draft',
+          price: '12.50',
+          taxIds: [],
+          categoryId: 4,
+        );
       failSave = true;
       await controller.save();
       expect(

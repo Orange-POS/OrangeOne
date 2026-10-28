@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orange_one/features/products/domain/use_cases/adjust_stock.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 /// Quantity text without insignificant zeros (`48`, `12.5`) plus the unit.
@@ -30,9 +31,9 @@ class StockCountForm extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text(
-        'Counted Quantity',
-        style: TextStyle(fontWeight: FontWeight.w500),
+      Text(
+        context.l10n.stockCountedLabel,
+        style: const TextStyle(fontWeight: FontWeight.w500),
       ),
       const SizedBox(height: 8),
       TextField(
@@ -46,8 +47,8 @@ class StockCountForm extends StatelessWidget {
         onSubmitted: (_) => focusNode.unfocus(),
         decoration: InputDecoration(
           suffixText: unit.isEmpty ? null : unit,
-          hintText: 'Enter the counted quantity',
-          helperText: 'Replaces the current stock at the POS location.',
+          hintText: context.l10n.stockCountedHint,
+          helperText: context.l10n.stockCountedHelper,
           errorText: error,
           errorMaxLines: 3,
           filled: !enabled,
@@ -94,23 +95,25 @@ class _StockCountDialogState extends State<StockCountDialog> {
         ? '-'
         : '';
     final change = stockQuantityLabel(difference.abs(), product.unit);
+    final l10n = context.l10n;
     return AlertDialog(
-      title: const Text('Confirm stock update'),
+      title: Text(l10n.stockConfirmTitle),
       content: Text(
-        '${product.name}\n\n'
-        'Current stock: ${stockQuantityLabel(current, product.unit)}\n'
-        'Counted stock: ${stockQuantityLabel(counted, product.unit)}\n'
-        'Difference: $sign$change\n\n'
-        'Save this count to Odoo?',
+        l10n.stockConfirmMessage(
+          product.name,
+          stockQuantityLabel(current, product.unit),
+          stockQuantityLabel(counted, product.unit),
+          '$sign$change',
+        ),
       ),
       actions: [
         TextButton(
           onPressed: _answered ? null : () => _answer(false),
-          child: const Text('Cancel'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
           onPressed: _answered ? null : () => _answer(true),
-          child: const Text('Confirm update'),
+          child: Text(l10n.commonConfirm),
         ),
       ],
     );

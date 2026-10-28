@@ -284,16 +284,7 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                         ],
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Text(
-                        l10n.poweredBy,
-                        style: const TextStyle(
-                          color: OrangeTheme.secondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),

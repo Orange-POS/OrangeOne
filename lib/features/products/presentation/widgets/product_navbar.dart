@@ -6,8 +6,8 @@ class ProductNavbar extends StatelessWidget implements PreferredSizeWidget {
   const new({
     required this.title,
     required this.onBack,
-    required this.onEdit,
-    required this.editTooltip,
+    this.onEdit,
+    this.editTooltip = '',
     this.trailing,
     this.backTooltip = 'Back',
     this.showBack = true,

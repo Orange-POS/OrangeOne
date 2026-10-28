@@ -298,7 +298,7 @@ class MobileApiClient {
       case DioExceptionType.unknown:
         return const AppFailure(
           FailureKind.network,
-          'Unable to reach the Odoo server. Check your connection.',
+          'Unable to reach the server. Check your connection.',
           retryable: true,
         );
     }
@@ -374,7 +374,7 @@ class MobileApiClient {
     FailureKind.rateLimited: 'Too many requests. Try again shortly.',
     FailureKind.network: 'The POS server is unavailable. Try again shortly.',
     FailureKind.backend:
-        'The Odoo server could not process this request. '
+        'The server could not process this request. '
         'Contact your administrator.',
   };
 }

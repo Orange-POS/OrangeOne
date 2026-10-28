@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/widgets/app_logo.dart';
 import 'package:orange_one/shared/widgets/info_badge.dart';
-import 'package:orange_one/shared/widgets/product_sync_indicator.dart';
 import 'package:orange_one/shared/widgets/stock_badge.dart';
 
-class ProductNameCard extends StatelessWidget {
+class ProductNameCard extends ConsumerWidget {
   const new({
     required this.product,
     this.emptyTitle = 'Product Not Found',
     this.detailsLayout = false,
+    this.showActions = true,
+    this.taxText,
     this.onEdit,
     this.onAdjustStock,
     super.key,
@@ -19,12 +22,30 @@ class ProductNameCard extends StatelessWidget {
   final ProductDetails? product;
   final String emptyTitle;
   final bool detailsLayout;
+
+  /// Shows the pencil actions; the editing screens hide them.
+  final bool showActions;
+
+  /// The Tax badge shown with the stock badge on the editing screens; null
+  /// keeps it hidden (Product Details never shows it).
+  final String? taxText;
   final VoidCallback? onEdit;
 
   /// Opens Update Stock; null keeps the stock action disabled.
   final VoidCallback? onAdjustStock;
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = product;
+    // A product created without a stock quantity has no stock set yet, which
+    // is not the same as a counted zero.
+    final stockNotSet =
+        current != null &&
+        (current.stock ?? 0) == 0 &&
+        ref.watch(unsetStockProvider).contains(current.barcode);
+    return _card(context, stockNotSet);
+  }
+
+  Widget _card(BuildContext context, bool stockNotSet) => Container(
     padding: EdgeInsets.fromLTRB(16, 0, 16, detailsLayout ? 16 : 24),
     child: Container(
       width: double.infinity,
@@ -34,17 +55,11 @@ class ProductNameCard extends StatelessWidget {
         border: Border.all(color: Colors.white, width: .5),
       ),
       child: detailsLayout
-          ? _detailsContent(context)
+          ? _detailsContent(context, stockNotSet)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const AppLogo(),
-                    const Spacer(),
-                    ProductSyncIndicator(barcode: product?.barcode),
-                  ],
-                ),
+                const Row(children: [AppLogo()]),
                 const SizedBox(height: 16),
                 Text(
                   product?.name ?? emptyTitle,
@@ -68,7 +83,7 @@ class ProductNameCard extends StatelessWidget {
             ),
     ),
   );
-  Widget _detailsContent(BuildContext context) {
+  Widget _detailsContent(BuildContext context, bool stockNotSet) {
     final l10n = context.l10n;
     final category = product?.category?.name.trim();
     final categoryText = category == null || category.isEmpty
@@ -91,12 +106,14 @@ class ProductNameCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            _pencil(
-              l10n.detailsEditName,
-              'assets/icons/product_detail_name_edit.svg',
-              onEdit,
-            ),
+            if (showActions) ...[
+              const SizedBox(width: 10),
+              _pencil(
+                l10n.detailsEditName,
+                'assets/icons/product_detail_name_edit.svg',
+                onEdit,
+              ),
+            ],
           ],
         ),
         if (product?.reference.isNotEmpty ?? false)
@@ -124,23 +141,34 @@ class ProductNameCard extends StatelessWidget {
                     singleLine: true,
                   ),
                   StockBadge(
-                    quantity: product?.stock,
+                    quantity: stockNotSet ? null : product?.stock,
                     unit: product?.unit ?? '',
                     compact: true,
                     labels: StockBadgeLabels(
                       inStock: l10n.stockInStock,
                       outOfStock: l10n.stockOutOfStock,
-                      unavailable: l10n.stockUnavailable,
+                      unavailable: stockNotSet
+                          ? l10n.stockNotSet
+                          : l10n.stockUnavailable,
                     ),
                   ),
+                  if (taxText case final tax?)
+                    InfoBadge(
+                      key: const Key('product-tax-badge'),
+                      text: tax,
+                      semanticsLabel: l10n.detailsTax,
+                      compact: true,
+                      singleLine: true,
+                    ),
                 ],
               ),
             ),
-            _pencil(
-              l10n.detailsUpdateStock,
-              'assets/icons/product_detail_stock_edit.svg',
-              onAdjustStock,
-            ),
+            if (showActions)
+              _pencil(
+                l10n.detailsUpdateStock,
+                'assets/icons/product_detail_stock_edit.svg',
+                onAdjustStock,
+              ),
           ],
         ),
         Container(
