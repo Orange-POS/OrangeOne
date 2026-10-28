@@ -95,10 +95,12 @@ All four screens follow one flow and one set of components:
 - **Header.** The pencil action in the navigation bar is replaced by the cloud
   sync icon (`ProductSyncNavButton`, as on Product Details). The cloud is no
   longer part of the product name card.
-- **Name card.** Edit, Price and Stock reuse the Product Details card
-  (`ProductNameCard(detailsLayout: true, showActions: false, taxText: …)`):
-  name, Category badge, Stock badge, a **Tax badge** and the barcode. The Tax
-  badge appears only on these screens, never on Product Details. The separate
+- **Name card (glass hero).** Product Details, Edit, Price and Stock share one
+  hero card (`ProductNameCard(detailsLayout: true, taxText: …)`): a glass pane
+  (blur, 10% tint, thin white edge, soft shadow; the scaffold's colors show
+  through) with the Category pill, name (pencil on Details only), reference,
+  Stock pill (pencil on Details only), a **Tax row** and the **Barcode** row.
+  Edit, Price and Stock pass `showActions: false`. The separate
   Tax card of Edit Name & Tax was removed. Creation has no card (the product
   does not exist yet). Tax percentages are shown once (`15%`, not `15% (15%)`;
   `ProductReferenceModel.taxLabel`).

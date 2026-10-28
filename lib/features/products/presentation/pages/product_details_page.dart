@@ -92,6 +92,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                 child: ProductNameCard(
                   product: product,
                   detailsLayout: true,
+                  taxText: _taxLabel(l10n, product),
                   onEdit: !offline && state.value!.access.editName
                       ? () => context.pushNamed<bool>(
                           'productEdit',

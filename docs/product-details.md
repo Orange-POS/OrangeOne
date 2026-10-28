@@ -105,5 +105,5 @@ SVG. These fixed-header/sticky-action conventions are recorded in AGENTS.md.
 
 After Edit Name & Tax, Price, Stock or Creation succeeds, this screen shows the
 success toast above the Open Scanner button (`ProductSuccessToast`, the shared
-success notice design, about five seconds). The Tax badge of the editing
-screens is not shown here.
+success notice design, about five seconds). The hero is the shared glass card
+with the Tax row (see [product edit](product-edit.md)).

@@ -36,7 +36,7 @@ void main() {
     expect(find.text('In stock · 48 Units'), findsOneWidget);
     // The shared name card: category and tax badges with the stock badge.
     expect(find.byKey(const Key('product-category-badge')), findsOneWidget);
-    expect(find.byKey(const Key('product-tax-badge')), findsOneWidget);
+    expect(find.byKey(const Key('product-tax-row')), findsOneWidget);
     expect(find.byTooltip('Edit product name'), findsNothing);
     expect(find.byTooltip('Update stock'), findsNothing);
     expect(find.textContaining('Powered'), findsNothing);

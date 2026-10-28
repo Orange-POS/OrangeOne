@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -26,8 +28,7 @@ class ProductNameCard extends ConsumerWidget {
   /// Shows the pencil actions; the editing screens hide them.
   final bool showActions;
 
-  /// The Tax badge shown with the stock badge on the editing screens; null
-  /// keeps it hidden (Product Details never shows it).
+  /// The text of the Tax row between the stock and the barcode; null hides it.
   final String? taxText;
   final VoidCallback? onEdit;
 
@@ -45,43 +46,82 @@ class ProductNameCard extends ConsumerWidget {
     return _card(context, stockNotSet);
   }
 
+  /// The hero is a glass card: a blurred, barely tinted pane with a thin white
+  /// edge and a soft shadow. The scaffold's gradient shows through it.
+  Widget _glass(Widget child) => DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x40000000),
+          offset: Offset(0, 4),
+          blurRadius: 4,
+        ),
+      ],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0x1AFFF3E8),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white, width: .5),
+          ),
+          child: child,
+        ),
+      ),
+    ),
+  );
+
   Widget _card(BuildContext context, bool stockNotSet) => Container(
     padding: EdgeInsets.fromLTRB(16, 0, 16, detailsLayout ? 16 : 24),
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white, width: .5),
-      ),
-      child: detailsLayout
-          ? _detailsContent(context, stockNotSet)
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(children: [AppLogo()]),
-                const SizedBox(height: 16),
-                Text(
-                  product?.name ?? emptyTitle,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                if (product?.reference.isNotEmpty ?? false)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      product!.reference,
-                      style: const TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                StockBadge(quantity: product?.stock, unit: product?.unit ?? ''),
-              ],
+    child: detailsLayout
+        ? _glass(_detailsContent(context, stockNotSet))
+        : Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white, width: .5),
             ),
-    ),
+            child: detailsLayout
+                ? _detailsContent(context, stockNotSet)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(children: [AppLogo()]),
+                      const SizedBox(height: 16),
+                      Text(
+                        product?.name ?? emptyTitle,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      if (product?.reference.isNotEmpty ?? false)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(
+                            product!.reference,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      StockBadge(
+                        quantity: product?.stock,
+                        unit: product?.unit ?? '',
+                      ),
+                    ],
+                  ),
+          ),
   );
   Widget _detailsContent(BuildContext context, bool stockNotSet) {
     final l10n = context.l10n;
@@ -93,6 +133,14 @@ class ProductNameCard extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 12,
       children: [
+        // The category pill leads the card.
+        InfoBadge(
+          key: const Key('product-category-badge'),
+          text: categoryText,
+          semanticsLabel: l10n.categoryLabel(categoryText),
+          compact: true,
+          singleLine: true,
+        ),
         Row(
           children: [
             Expanded(
@@ -129,17 +177,7 @@ class ProductNameCard extends ConsumerWidget {
           children: [
             Expanded(
               child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
                 children: [
-                  // The category sits left of the stock, with the same design.
-                  InfoBadge(
-                    key: const Key('product-category-badge'),
-                    text: categoryText,
-                    semanticsLabel: l10n.categoryLabel(categoryText),
-                    compact: true,
-                    singleLine: true,
-                  ),
                   StockBadge(
                     quantity: stockNotSet ? null : product?.stock,
                     unit: product?.unit ?? '',
@@ -152,14 +190,6 @@ class ProductNameCard extends ConsumerWidget {
                           : l10n.stockUnavailable,
                     ),
                   ),
-                  if (taxText case final tax?)
-                    InfoBadge(
-                      key: const Key('product-tax-badge'),
-                      text: tax,
-                      semanticsLabel: l10n.detailsTax,
-                      compact: true,
-                      singleLine: true,
-                    ),
                 ],
               ),
             ),
@@ -171,51 +201,63 @@ class ProductNameCard extends ConsumerWidget {
               ),
           ],
         ),
-        Container(
+        if (taxText case final tax?)
+          _fact(
+            key: const Key('product-tax-row'),
+            asset: 'assets/icons/product_detail_tax.svg',
+            label: l10n.detailsTax,
+            value: tax,
+          ),
+        _fact(
           key: const Key('product-hero-barcode'),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: .2),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              SvgPicture.asset(
-                'assets/icons/product_barcode.svg',
-                width: 20,
-                height: 20,
-                colorFilter: const ColorFilter.mode(
-                  Colors.white,
-                  BlendMode.srcIn,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                l10n.detailsBarcode,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  height: 20 / 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  product?.barcode ?? '',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    height: 20 / 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          asset: 'assets/icons/product_barcode.svg',
+          label: l10n.detailsBarcode,
+          value: product?.barcode ?? '',
         ),
       ],
+    );
+  }
+
+  /// An icon, a label and a right-aligned value on a darker pane.
+  Widget _fact({
+    required Key key,
+    required String asset,
+    required String label,
+    required String value,
+  }) {
+    const style = TextStyle(
+      color: Colors.white,
+      fontSize: 14,
+      height: 20 / 14,
+      fontWeight: FontWeight.w500,
+    );
+    return Container(
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          SvgPicture.asset(
+            asset,
+            width: 20,
+            height: 20,
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: style),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: style.copyWith(color: const Color(0xFFDADCE0)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

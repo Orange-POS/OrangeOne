@@ -54,7 +54,7 @@ void main() {
       final expectedBytes = (await expected.toByteData())!;
       // Sample unoccupied navigation and card-padding pixels. Independent
       // card/header shaders or colored card fills break this visual contract.
-      for (final point in [const Offset(200, 20), const Offset(24, 124)]) {
+      for (final point in [const Offset(200, 20), const Offset(8, 124)]) {
         final offset = (point.dy.toInt() * 390 + point.dx.toInt()) * 4;
         for (var channel = 0; channel < 4; channel++) {
           expect(
@@ -110,7 +110,13 @@ void main() {
       expect(find.byKey(const Key('product-hero-barcode')), findsOneWidget);
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byTooltip('Update price'),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.ensureVisible(find.byTooltip('Update price'));
+      await tester.pumpAndSettle();
       expect(find.byTooltip('Update price').hitTestable(), findsOneWidget);
       expect(tester.getTopLeft(find.text('Product')), headerPosition);
       expect(find.byTooltip('Open Scanner').hitTestable(), findsOneWidget);

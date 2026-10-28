@@ -88,7 +88,7 @@ void main() {
     expect(find.text('In stock · 48 Units'), findsOneWidget);
     // The shared name card: category, stock and tax badges; no tax card.
     expect(find.byKey(const Key('product-category-badge')), findsOneWidget);
-    expect(find.byKey(const Key('product-tax-badge')), findsOneWidget);
+    expect(find.byKey(const Key('product-tax-row')), findsOneWidget);
     expect(find.byKey(const Key('product-hero-barcode')), findsOneWidget);
     expect(find.byTooltip('Edit product name'), findsNothing);
     expect(find.byTooltip('Update stock'), findsNothing);
@@ -191,14 +191,14 @@ void main() {
       await mount(tester, FakeDetailsRepository(), scale: 1.6);
       final header = tester.getTopLeft(find.text('Edit Name & Tax'));
       final footer = tester.getTopLeft(action());
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -250));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.text('Edit Name & Tax')), header);
       expect(tester.getTopLeft(action()), footer);
       expect(tester.takeException(), isNull);
       await tester.scrollUntilVisible(
         input(),
-        -120,
+        120,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();

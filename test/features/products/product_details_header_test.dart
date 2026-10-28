@@ -56,32 +56,28 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('the category badge sits left of the stock badge', (
+  testWidgets('the glass hero leads with the category pill above the name', (
     tester,
   ) async {
-    // The test font is far wider than a real one; leave room for one row.
-    await mount(tester, FakeDetailsRepository(), width: 900);
+    await mount(tester, FakeDetailsRepository());
     final category = find.byKey(const Key('product-category-badge'));
     expect(
       find.descendant(of: category, matching: find.text('Spices')),
       findsOneWidget,
     );
-    // Product Details never shows the Tax badge of the editing screens.
-    expect(find.byKey(const Key('product-tax-badge')), findsNothing);
-    final badges = find.byType(InfoBadge);
-    expect(badges, findsNWidgets(2));
-    final categoryBox = tester.getRect(badges.first);
-    final stockBox = tester.getRect(badges.last);
     expect(
-      find.descendant(
-        of: badges.last,
-        matching: find.text('In stock · 48 Units'),
-      ),
-      findsOneWidget,
+      tester.getTopLeft(category).dy,
+      lessThan(tester.getTopLeft(find.text('Aachi Fish Fry Masala')).dy),
     );
-    expect(tester.getRect(category), categoryBox);
-    expect(categoryBox.right, lessThanOrEqualTo(stockBox.left));
-    expect(categoryBox.height, stockBox.height, reason: 'same design');
+    final stock = find.byType(InfoBadge);
+    expect(stock, findsNWidgets(2), reason: 'category and stock pills');
+    // Rows after the stock: Tax, then Barcode.
+    expect(
+      tester.getTopLeft(find.byKey(const Key('product-tax-row'))).dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(const Key('product-hero-barcode'))).dy,
+      ),
+    );
   });
 
   testWidgets('a product without a category shows "No Category"', (
