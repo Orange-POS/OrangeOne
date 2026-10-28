@@ -15,7 +15,9 @@ import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
+import 'package:orange_one/features/home/domain/entities/product.dart';
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
+import 'package:orange_one/features/home/presentation/providers/recent_scans_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 
 import '../support/auth_fakes.dart';
@@ -147,18 +149,34 @@ void main() {
     late StreamController<bool> connectivity;
     late ProviderContainer container;
 
+    /// Answers `GET /products/changes` with (status, error code) when set.
+    Future<(int, String)> Function()? feedReply;
+
     setUp(() {
       dio = Dio();
       database = ReadCacheDatabase(NativeDatabase.memory());
       auth = FakeAuthRepository()..restored = testSession;
       authorizations = [];
       paths = [];
+      feedReply = null;
       connectivity = StreamController<bool>.broadcast();
       dio.interceptors.add(
         InterceptorsWrapper(
-          onRequest: (options, handler) {
+          onRequest: (options, handler) async {
             authorizations.add(options.headers['Authorization'] as String?);
             paths.add(options.uri.path);
+            final reply = feedReply;
+            if (reply != null && options.uri.path.endsWith('/changes')) {
+              final (status, code) = await reply();
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  statusCode: status,
+                  data: errorEnvelope(code),
+                ),
+              );
+              return;
+            }
             handler.resolve(
               Response(
                 requestOptions: options,
@@ -174,6 +192,7 @@ void main() {
           readCacheOverride,
           authenticatedMobileApiOverride,
           productRepositoryOverride,
+          recentScansRepositoryOverride,
           productDetailsRepositoryOverride,
           readCacheDatabaseProvider.overrideWithValue(database),
           connectivityProvider.overrideWithValue(connectivity.stream),
@@ -266,6 +285,48 @@ void main() {
       },
     );
 
+    test('recent scans follow the session: kept on refresh, gone after '
+        'logout, never shown to the next session', () async {
+      await container.read(sessionControllerProvider.future);
+      // The app keeps the session cache alive (see App), so logout closes it.
+      container.listen(readCacheProvider, (_, _) {});
+      const scanned = Product(
+        id: 7,
+        name: 'Recent product',
+        barcode: '4006381333931',
+        price: 12.5,
+        stockQuantity: 3,
+        unit: 'Units',
+      );
+      final first = container.read(recentScansRepositoryProvider);
+      await first.record(scanned);
+      expect((await first.load()).single.barcode, scanned.barcode);
+
+      auth.currentToken = 'oa_refreshed';
+      await container.read(sessionControllerProvider.notifier).accessToken();
+      await container.pump();
+      expect(container.read(recentScansRepositoryProvider), same(first));
+      expect(await first.load(), hasLength(1));
+
+      await container.read(sessionControllerProvider.notifier).signOut();
+      await container.pump();
+      await Future<void>.delayed(Duration.zero);
+      expect(await _rowsAfterPurge(database), 0);
+      expect(
+        await container.read(recentScansRepositoryProvider).load(),
+        isEmpty,
+      );
+
+      auth.pendingLogin = Completer<AuthSession>()
+        ..complete(_session(sessionId: 'family-2', userId: 3));
+      await container.read(sessionControllerProvider.notifier).signIn('qr');
+      await container.pump();
+      expect(
+        await container.read(recentScansRepositoryProvider).load(),
+        isEmpty,
+      );
+    });
+
     test('logout purges the session cache and closes the wiring', () async {
       await container.read(sessionControllerProvider.future);
       final cache = container.read(readCacheProvider)!;
@@ -282,6 +343,84 @@ void main() {
         throwsA(anything),
       );
     });
+
+    /// Opens the session cache with one product and triggers a recovery sync.
+    Future<void> recoverWithCachedProduct() async {
+      await container.read(sessionControllerProvider.future);
+      await container
+          .read(readCacheProvider)!
+          .load('4006381333931', () async => _product('4006381333931'));
+      connectivity.add(false);
+      await container.pump();
+      connectivity.add(true);
+    }
+
+    Future<void> waitFor(bool Function() done) async {
+      for (var i = 0; i < 100 && !done(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+
+    for (final (status, code) in [
+      (401, 'TOKEN_REVOKED'),
+      (401, 'TOKEN_INVALID'),
+    ]) {
+      test('$code on background sync signs out and purges the cache', () async {
+        feedReply = () async => (status, code);
+        await recoverWithCachedProduct();
+        await waitFor(
+          () => container.read(sessionControllerProvider).value == null,
+        );
+        await container.pump();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(container.read(sessionControllerProvider).value, isNull);
+        expect(container.read(readCacheProvider), isNull);
+        expect(await _rowsAfterPurge(database), 0);
+        expect(auth.tokenRequests, lessThanOrEqualTo(1), reason: 'no replay');
+      });
+    }
+
+    test('an outage on background sync keeps the session and cache', () async {
+      feedReply = () async => (503, 'MAINTENANCE');
+      await recoverWithCachedProduct();
+      await waitFor(() => paths.isNotEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await container.pump();
+
+      expect(container.read(sessionControllerProvider).value, isNotNull);
+      final cache = container.read(readCacheProvider)!;
+      expect((await cache.read('4006381333931'))?['name'], 'Cached product');
+    });
+
+    test(
+      'a stale sync rejection never signs out a replacement session',
+      () async {
+        final reply = Completer<(int, String)>();
+        feedReply = () => reply.future;
+        await recoverWithCachedProduct();
+        await waitFor(() => paths.isNotEmpty);
+
+        await container.read(sessionControllerProvider.notifier).signOut();
+        await container.pump();
+        auth.pendingLogin = Completer<AuthSession>()
+          ..complete(_session(sessionId: 'family-2', userId: 3));
+        await container.read(sessionControllerProvider.notifier).signIn('qr');
+        await container.pump();
+        final replacement = container.read(sessionControllerProvider).value;
+        expect(replacement, isNotNull);
+
+        reply.complete((401, 'TOKEN_REVOKED'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await container.pump();
+
+        expect(
+          container.read(sessionControllerProvider).value,
+          same(replacement),
+        );
+        expect(container.read(readCacheProvider), isNotNull);
+      },
+    );
 
     test('a rejected refresh signs out and removes cached data', () async {
       await container.read(sessionControllerProvider.future);

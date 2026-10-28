@@ -148,5 +148,208 @@
   "cameraAllowRetry": "Allow camera / Retry",
   "@cameraAllowRetry": {
     "description": "Button that requests the camera permission again"
+  },
+  "homeLogoutTooltip": "Logout",
+  "@homeLogoutTooltip": {
+    "description": "Tooltip of the Home logout button"
+  },
+  "homeScanSemantics": "Scan product barcode",
+  "@homeScanSemantics": {
+    "description": "Screen-reader label of the circular scan button on Home"
+  },
+  "homeScanTitle": "Tap to scan Barcode",
+  "@homeScanTitle": {
+    "description": "Headline under the Home scan button"
+  },
+  "homeScanSubtitle": "Scan Your Product",
+  "@homeScanSubtitle": {
+    "description": "Subtitle under the Home headline"
+  },
+  "scannerTitle": "Scan Barcode",
+  "@scannerTitle": {
+    "description": "Barcode scanner screen title"
+  },
+  "scannerBackTooltip": "Back to home",
+  "@scannerBackTooltip": {
+    "description": "Tooltip of the scanner back button"
+  },
+  "scannerLookingUp": "Looking up product…",
+  "@scannerLookingUp": {
+    "description": "Shown while a scanned barcode is looked up"
+  },
+  "scannerPaused": "Scan paused · Review the result below",
+  "@scannerPaused": {
+    "description": "Scanner status while a result is shown"
+  },
+  "recentTitle": "Last scanned",
+  "@recentTitle": {
+    "description": "Title of the card listing recently scanned products"
+  },
+  "recentEmpty": "Scan a product barcode to look it up.",
+  "@recentEmpty": {
+    "description": "Shown in the card before any product was scanned"
+  },
+  "recentOpenSemantics": "Open product {name}, barcode {barcode}",
+  "@recentOpenSemantics": {
+    "description": "Screen-reader label of a recently scanned product",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "lookupFailed": "Unable to look up this product.",
+  "@lookupFailed": {
+    "description": "Fallback when a product lookup failed"
+  },
+  "lookupRetry": "Retry lookup",
+  "@lookupRetry": {
+    "description": "Button that repeats a failed lookup"
+  },
+  "scanAnother": "Scan another barcode",
+  "@scanAnother": {
+    "description": "Button that returns to scanning"
+  },
+  "productNotFound": "Product not found",
+  "@productNotFound": {
+    "description": "Title when no POS product has the scanned barcode"
+  },
+  "productNotFoundBody": "No POS product matches barcode {barcode}.",
+  "@productNotFoundBody": {
+    "description": "Explains that the barcode matches no POS product",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "addProduct": "Add product",
+  "@addProduct": {
+    "description": "Button that starts creating a product for an unknown barcode"
+  },
+  "stockInStock": "In stock",
+  "@stockInStock": {
+    "description": "Stock badge for a positive quantity"
+  },
+  "stockOutOfStock": "Out of stock",
+  "@stockOutOfStock": {
+    "description": "Stock badge for zero or negative quantity"
+  },
+  "stockUnavailable": "Stock unavailable",
+  "@stockUnavailable": {
+    "description": "Stock badge when the quantity is unknown"
+  },
+  "productCameraInstructions": "Allow camera access to scan product barcodes.",
+  "@productCameraInstructions": {
+    "description": "Camera permission explanation of the product scanner"
+  },
+  "productCameraReady": "Camera is on · just point at a barcode",
+  "@productCameraReady": {
+    "description": "Status when the product scanner camera is running"
+  },
+  "detailsTitle": "Product",
+  "@detailsTitle": {
+    "description": "Title of the Product Details screen"
+  },
+  "detailsOpenScanner": "Open Scanner",
+  "@detailsOpenScanner": {
+    "description": "Tooltip and screen-reader label of the Open Scanner button"
+  },
+  "detailsEditName": "Edit product name",
+  "@detailsEditName": {
+    "description": "Tooltip of the product name edit button"
+  },
+  "detailsUpdateStock": "Update stock",
+  "@detailsUpdateStock": {
+    "description": "Tooltip of the stock edit button"
+  },
+  "detailsUpdatePrice": "Update price",
+  "@detailsUpdatePrice": {
+    "description": "Tooltip of the price edit button"
+  },
+  "detailsBarcode": "Barcode",
+  "@detailsBarcode": {
+    "description": "Label of the barcode row"
+  },
+  "detailsPrice": "Price",
+  "@detailsPrice": {
+    "description": "Label of the price row"
+  },
+  "detailsTax": "TAX",
+  "@detailsTax": {
+    "description": "Label of the tax row (uppercase in the design)"
+  },
+  "detailsTaxNone": "No taxes assigned",
+  "@detailsTaxNone": {
+    "description": "Shown when the product has no taxes assigned"
+  },
+  "detailsTaxUnavailable": "Tax information unavailable",
+  "@detailsTaxUnavailable": {
+    "description": "Shown when tax identities could not be read"
+  },
+  "detailsLoading": "Loading product details",
+  "@detailsLoading": {
+    "description": "Screen-reader label of the details loading spinner"
+  },
+  "detailsLoadFailed": "Unable to load product details.",
+  "@detailsLoadFailed": {
+    "description": "Fallback when details could not be loaded"
+  },
+  "detailsPullToRefresh": "Pull down to refresh product details.",
+  "@detailsPullToRefresh": {
+    "description": "Hint under a load failure"
+  },
+  "categoryNone": "No Category",
+  "@categoryNone": {
+    "description": "Category badge text when the product has no category"
+  },
+  "categoryLabel": "Category: {name}",
+  "@categoryLabel": {
+    "description": "Screen-reader label of a category badge",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "barcodeLabel": "Barcode: {barcode}",
+  "@barcodeLabel": {
+    "description": "Screen-reader label of a barcode badge",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "syncPending": "Syncing product",
+  "@syncPending": {
+    "description": "Sync indicator while the server is being asked"
+  },
+  "syncOnline": "Online: server verified",
+  "@syncOnline": {
+    "description": "Sync indicator when the server verified the product"
+  },
+  "syncOffline": "Offline: cached data may be outdated",
+  "@syncOffline": {
+    "description": "Sync indicator for cached data"
+  },
+  "syncFailed": "Product synchronization failed",
+  "@syncFailed": {
+    "description": "Sync indicator after a failed read"
+  },
+  "syncLastVerified": "{status}. Last verified {time}",
+  "@syncLastVerified": {
+    "description": "Sync indicator text with the last verification time",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

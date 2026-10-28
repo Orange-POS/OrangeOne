@@ -8,6 +8,7 @@ class Product {
     required this.stockQuantity,
     this.unit = '',
     this.reference = '',
+    this.category,
   });
 
   final int id;
@@ -19,4 +20,8 @@ class Product {
   final double? stockQuantity;
   final String unit;
   final String reference;
+
+  /// Name of the product's category; null when it has none or the data does
+  /// not say.
+  final String? category;
 }

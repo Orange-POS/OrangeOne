@@ -76,7 +76,7 @@ void main() {
         if (systemBack) {
           container.read(routerProvider).pop();
         } else {
-          await tester.tap(find.byTooltip('Back to scanner'));
+          await tester.tap(find.byTooltip('Open Scanner'));
         }
         await tester.pumpAndSettle();
         final restarted = await runningCamera(tester);

@@ -81,7 +81,7 @@ void main() {
         if (systemBack) {
           container.read(routerProvider).pop();
         } else {
-          await tester.tap(find.byTooltip('Back to scanner'));
+          await tester.tap(find.byTooltip('Open Scanner'));
         }
         await tester.pumpAndSettle();
         expect(find.text('Scan test barcode'), findsOneWidget);

@@ -34,6 +34,7 @@ void main() {
   late ProductCatalogRemoteDataSource catalog;
   late ProductCacheSynchronizer sync;
   late DateTime now;
+  var rejected = 0;
   setUp(() async {
     database = ReadCacheDatabase(NativeDatabase.memory());
     now = DateTime.utc(2026, 10, 27, 9);
@@ -43,7 +44,12 @@ void main() {
       fakeProductApi(server),
       cancelToken: CancelToken(),
     );
-    sync = ProductCacheSynchronizer(catalog, cache);
+    rejected = 0;
+    sync = ProductCacheSynchronizer(
+      catalog,
+      cache,
+      onSessionRejected: () async => rejected++,
+    );
     await cache.load(
       '0010101010',
       () async => ProductPayload.productRecord({
@@ -147,6 +153,23 @@ void main() {
       expect(await cache.syncState(), isNull);
     });
   }
+
+  for (final code in ['TOKEN_REVOKED', 'TOKEN_INVALID', 'AUTH_REQUIRED']) {
+    test('$code is reported once and stops the sync', () async {
+      server.on(_feed, (_) => FakeReply(401, errorEnvelope(code)));
+      await sync.sync();
+      expect(rejected, 1);
+      expect(server.called(_feed), hasLength(1), reason: 'no retry or replay');
+    });
+  }
+
+  test('outages and a disabled feed are not session rejections', () async {
+    server.on(_feed, (_) => FakeReply(404, errorEnvelope('NOT_FOUND')));
+    await sync.sync();
+    server.on(_feed, (_) => FakeReply(503, errorEnvelope('MAINTENANCE')));
+    await sync.sync();
+    expect(rejected, 0);
+  });
 
   test('a disabled feed or outage keeps the cache', () async {
     server.on(_feed, (_) => FakeReply(404, errorEnvelope('NOT_FOUND')));

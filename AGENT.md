@@ -110,5 +110,17 @@ reports Wi-Fi; otherwise it shows "Please connect to the same Wi-Fi network as
 the POS machine to scan the QR code." and starts again automatically when Wi-Fi
 returns. Wi-Fi only reads the device's network, never claim it verifies that
 the POS machine is on the same network. Widget tests that open the scanner must
-override Wi-Fi (`test/support/wifi_fakes.dart`). Only login and the QR scanner
-are localized so far; see docs/localization.md.
+override Wi-Fi (`test/support/wifi_fakes.dart`). Login, the QR scanner,
+Barcode Home and the Barcode scanner screen are localized so far; see
+docs/localization.md.
+
+Recent scans: the barcode scanner's "Last scanned" card shows the latest found
+product (name, category, barcode, stock, CHF price); the stored history of five
+is unchanged. They are
+stored in the session's EncryptedReadCache (`recordRecent`/`readRecents`, the
+`\u0000recent` row), survive restarts, are deleted with the session and are
+kept across product writes. Recording happens in `ProductLookupController.scan`
+through `recentScansControllerProvider`; tapping an entry calls the same
+`scan`. The "Powered By" footer is gone from Barcode Home. `App` keeps
+`readCacheProvider` listened to so logout purges the cache immediately. See
+docs/home-scanner.md and docs/offline-data.md.

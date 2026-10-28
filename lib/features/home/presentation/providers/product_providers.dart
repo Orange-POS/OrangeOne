@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/home/domain/entities/product.dart';
 import 'package:orange_one/features/home/domain/repositories/product_repository.dart';
 import 'package:orange_one/features/home/domain/use_cases/lookup_product.dart';
+import 'package:orange_one/features/home/presentation/providers/recent_scans_providers.dart';
 
 /// App composition binds this contract to the current authenticated session.
 final Provider<ProductRepository> productRepositoryProvider =
@@ -58,6 +61,12 @@ class ProductLookupController extends AsyncNotifier<ProductLookup?> {
       final product = await lookup(barcode, refresh: retry);
       if (ref.mounted && generation == _generation) {
         state = AsyncData(ProductLookup(barcode: barcode, product: product));
+        // A found product joins the recent scans (best effort).
+        if (product != null) {
+          unawaited(
+            ref.read(recentScansControllerProvider.notifier).record(product),
+          );
+        }
       }
     } on FormatException catch (_, stack) {
       if (ref.mounted && generation == _generation) {

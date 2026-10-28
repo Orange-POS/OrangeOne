@@ -162,9 +162,36 @@ void main() {
         l10n.cameraRestricted,
         l10n.cameraOpenSettings,
         l10n.cameraAllowRetry,
+        l10n.homeLogoutTooltip,
+        l10n.homeScanSemantics,
+        l10n.homeScanTitle,
+        l10n.homeScanSubtitle,
+        l10n.scannerTitle,
+        l10n.scannerBackTooltip,
+        l10n.scannerLookingUp,
+        l10n.scannerPaused,
+        l10n.recentTitle,
+        l10n.recentEmpty,
+        l10n.recentOpenSemantics('N', 'B'),
+        l10n.lookupFailed,
+        l10n.lookupRetry,
+        l10n.scanAnother,
+        l10n.productNotFound,
+        l10n.productNotFoundBody('B'),
+        l10n.addProduct,
+        l10n.stockInStock,
+        l10n.stockOutOfStock,
+        l10n.stockUnavailable,
+        l10n.productCameraInstructions,
+        l10n.productCameraReady,
       ];
       expect(texts.every((text) => text.trim().isNotEmpty), isTrue);
       expect(l10n.languageSelectorSemantics('X'), contains('X'));
+      expect(
+        l10n.recentOpenSemantics('N', 'B'),
+        allOf(contains('N'), contains('B')),
+      );
+      expect(l10n.productNotFoundBody('B'), contains('B'));
       if (language.locale.languageCode != 'en') {
         expect(l10n.scanWifiRequired, isNot(english.scanWifiRequired));
         expect(l10n.loginScanTitle, isNot(english.loginScanTitle));

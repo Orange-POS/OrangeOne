@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/widgets/app_logo.dart';
+import 'package:orange_one/shared/widgets/info_badge.dart';
 import 'package:orange_one/shared/widgets/product_sync_indicator.dart';
 import 'package:orange_one/shared/widgets/stock_badge.dart';
 
@@ -32,7 +34,7 @@ class ProductNameCard extends StatelessWidget {
         border: Border.all(color: Colors.white, width: .5),
       ),
       child: detailsLayout
-          ? _detailsContent()
+          ? _detailsContent(context)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -66,93 +68,102 @@ class ProductNameCard extends StatelessWidget {
             ),
     ),
   );
-  Widget _detailsContent() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    spacing: 12,
-    children: [
-      Row(
-        children: [
-          Expanded(
-            child: Text(
-              product?.name ?? emptyTitle,
-              style: const TextStyle(
-                fontSize: 28,
-                height: 36 / 28,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          _pencil(
-            'Edit product name',
-            'assets/icons/product_detail_name_edit.svg',
-            onEdit,
-          ),
-        ],
-      ),
-      if (product?.reference.isNotEmpty ?? false)
-        Text(
-          product!.reference,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            height: 1.5,
-          ),
-        ),
-      Row(
-        children: [
-          Expanded(
-            child: Wrap(
-              children: [
-                StockBadge(
-                  quantity: product?.stock,
-                  unit: product?.unit ?? '',
-                  compact: true,
-                ),
-              ],
-            ),
-          ),
-          _pencil(
-            'Update stock',
-            'assets/icons/product_detail_stock_edit.svg',
-            onAdjustStock,
-          ),
-        ],
-      ),
-      Container(
-        key: const Key('product-hero-barcode'),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: .2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
+  Widget _detailsContent(BuildContext context) {
+    final l10n = context.l10n;
+    final category = product?.category?.name.trim();
+    final categoryText = category == null || category.isEmpty
+        ? l10n.categoryNone
+        : category;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 12,
+      children: [
+        Row(
           children: [
-            SvgPicture.asset(
-              'assets/icons/product_barcode.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(
-                Colors.white,
-                BlendMode.srcIn,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'Barcode',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                height: 20 / 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                product?.barcode ?? '',
-                textAlign: TextAlign.right,
+                product?.name ?? emptyTitle,
+                style: const TextStyle(
+                  fontSize: 28,
+                  height: 36 / 28,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            _pencil(
+              l10n.detailsEditName,
+              'assets/icons/product_detail_name_edit.svg',
+              onEdit,
+            ),
+          ],
+        ),
+        if (product?.reference.isNotEmpty ?? false)
+          Text(
+            product!.reference,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              height: 1.5,
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  // The category sits left of the stock, with the same design.
+                  InfoBadge(
+                    key: const Key('product-category-badge'),
+                    text: categoryText,
+                    semanticsLabel: l10n.categoryLabel(categoryText),
+                    compact: true,
+                    singleLine: true,
+                  ),
+                  StockBadge(
+                    quantity: product?.stock,
+                    unit: product?.unit ?? '',
+                    compact: true,
+                    labels: StockBadgeLabels(
+                      inStock: l10n.stockInStock,
+                      outOfStock: l10n.stockOutOfStock,
+                      unavailable: l10n.stockUnavailable,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _pencil(
+              l10n.detailsUpdateStock,
+              'assets/icons/product_detail_stock_edit.svg',
+              onAdjustStock,
+            ),
+          ],
+        ),
+        Container(
+          key: const Key('product-hero-barcode'),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: .2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              SvgPicture.asset(
+                'assets/icons/product_barcode.svg',
+                width: 20,
+                height: 20,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                l10n.detailsBarcode,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
@@ -160,12 +171,25 @@ class ProductNameCard extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  product?.barcode ?? '',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    height: 20 / 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 
   Widget _pencil(String tooltip, String asset, VoidCallback? onPressed) =>
       IconButton(

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:orange_one/l10n/camera_messages.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/widgets/code_camera.dart';
 
 const List<BarcodeFormat> supportedProductFormats = [
@@ -36,8 +38,9 @@ final productCameraBuilderProvider = Provider<ProductCameraBuilder>(
         formats: defaultTargetPlatform == TargetPlatform.android
             ? androidProductFormats
             : supportedProductFormats,
-        instructions: 'Allow camera access to scan product barcodes.',
-        readyMessage: 'Camera is on · just point at a barcode',
+        instructions: context.l10n.productCameraInstructions,
+        readyMessage: context.l10n.productCameraReady,
+        messages: context.l10n.cameraMessages,
         singleScan: false,
       ),
   name: 'productCameraBuilderProvider',

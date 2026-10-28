@@ -15,7 +15,9 @@ import 'package:orange_one/features/authentication/domain/entities/auth_session.
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/home/data/data_sources/product_remote_data_source.dart';
 import 'package:orange_one/features/home/data/repositories/odoo_product_repository.dart';
+import 'package:orange_one/features/home/data/repositories/recent_scans_repositories.dart';
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
+import 'package:orange_one/features/home/presentation/providers/recent_scans_providers.dart';
 import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/data/repositories/product_cache_synchronizer.dart';
@@ -115,6 +117,13 @@ final Override productRepositoryOverride = productRepositoryProvider
       );
     });
 
+/// Recent scans live in the session's encrypted cache: they survive restarts
+/// and are isolated per session. The cache is null while signed out.
+final Override recentScansRepositoryOverride = recentScansRepositoryProvider
+    .overrideWith(
+      (ref) => CachedRecentScansRepository(ref.watch(readCacheProvider)),
+    );
+
 /// Network interface changes (`true` when any interface is connected).
 final connectivityProvider = Provider<Stream<bool>>(
   (ref) => Connectivity().onConnectivityChanged.map(
@@ -130,6 +139,7 @@ final connectivityProvider = Provider<Stream<bool>>(
 final Override readCacheOverride = readCacheProvider.overrideWith((ref) {
   final identity = ref.watch(readCacheIdentityProvider);
   if (identity == null) return null;
+  final session = ref.watch(activeSessionProvider);
   final cache = EncryptedReadCache(
     ref.watch(readCacheDatabaseProvider),
     sessionSecret: identity,
@@ -141,6 +151,13 @@ final Override readCacheOverride = readCacheProvider.overrideWith((ref) {
       cancelToken: cancel,
     ),
     cache,
+    onSessionRejected: () async {
+      // A stale rejection must not sign out a replacement session.
+      if (ref.mounted &&
+          identical(ref.read(sessionControllerProvider).value, session)) {
+        await ref.read(sessionControllerProvider.notifier).signOut();
+      }
+    },
   );
   final subscription = ref
       .watch(connectivityProvider)

@@ -9,11 +9,21 @@ import 'package:orange_one/features/products/data/models/product_changes_model.d
 /// snapshots and the last applied position untouched, so the next run
 /// resumes. Only an expired position (`SYNC_TOKEN_EXPIRED`) or lost read
 /// access drops the session's snapshots, because they can no longer be
-/// verified or must not be shown.
+/// verified or must not be shown. A definitive authentication rejection
+/// (revoked or invalid token) is reported through [onSessionRejected] so the
+/// session signs out and its cache is purged; the sync itself stops.
 class ProductCacheSynchronizer {
-  new(this._catalog, this._cache, {this.maxPages = 10});
+  new(
+    this._catalog,
+    this._cache, {
+    required this.onSessionRejected,
+    this.maxPages = 10,
+  });
   final ProductCatalogRemoteDataSource _catalog;
   final EncryptedReadCache _cache;
+
+  /// Signs the session out; the caller guards against a replaced session.
+  final Future<void> Function() onSessionRejected;
 
   /// Bounds one run; the saved position lets the next run continue.
   final int maxPages;
@@ -33,6 +43,10 @@ class ProductCacheSynchronizer {
             (await _catalog.changes(state.since)).data,
           );
         } on AppFailure catch (failure) {
+          if (failure.kind == FailureKind.unauthenticated) {
+            await onSessionRejected();
+            return;
+          }
           if (failure.code == 'SYNC_TOKEN_EXPIRED' ||
               failure.kind == FailureKind.forbidden) {
             await _cache.resetSync();

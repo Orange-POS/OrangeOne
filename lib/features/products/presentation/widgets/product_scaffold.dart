@@ -8,12 +8,14 @@ class ProductScaffold extends StatelessWidget {
     required this.appBar,
     required this.body,
     this.bottomNavigationBar,
+    this.floatingActionButton,
     super.key,
   });
 
   final PreferredSizeWidget appBar;
   final Widget body;
   final Widget? bottomNavigationBar;
+  final Widget? floatingActionButton;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -22,6 +24,7 @@ class ProductScaffold extends StatelessWidget {
       backgroundColor: Colors.transparent,
       appBar: appBar,
       body: body,
+      floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar == null
           ? null
           : ColoredBox(color: Colors.white, child: bottomNavigationBar),

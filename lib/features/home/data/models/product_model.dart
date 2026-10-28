@@ -26,7 +26,14 @@ abstract final class ProductModel {
       stockQuantity: (stock as num?)?.toDouble(),
       unit: _optionalText(json['uom']),
       reference: _optionalText(json['default_code']),
+      category: _categoryName(json['category']),
     );
+  }
+
+  /// `{id, name}` from a product record, or a plain name from the history.
+  static String? _categoryName(Object? value) {
+    final name = value is Map<String, dynamic> ? value['name'] : value;
+    return name is String && name.trim().isNotEmpty ? name.trim() : null;
   }
 
   static String _optionalText(Object? value) {

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/brand_mark.dart';
 
@@ -46,7 +47,7 @@ class HomePage extends StatelessWidget {
                           dimension: 48,
                           child: IconButton(
                             key: const Key('logout-button'),
-                            tooltip: 'Logout',
+                            tooltip: context.l10n.homeLogoutTooltip,
                             onPressed: onSignOut,
                             iconSize: 20,
                             style: IconButton.styleFrom(
@@ -77,7 +78,7 @@ class HomePage extends StatelessWidget {
                     top: height * 395 / 844 - circle / 2,
                     child: Semantics(
                       button: true,
-                      label: 'Scan product barcode',
+                      label: context.l10n.homeScanSemantics,
                       child: Material(
                         color: Colors.white,
                         shape: const CircleBorder(),
@@ -110,43 +111,29 @@ class HomePage extends StatelessWidget {
                     right: 16,
                     child: GestureDetector(
                       onTap: onScan,
-                      child: const Column(
+                      child: Column(
                         children: [
                           Text(
-                            'Tap to scan Barcode',
+                            context.l10n.homeScanTitle,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 28,
                               height: 1.25,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           Text(
-                            'Scan Your Product',
+                            context.l10n.homeScanSubtitle,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               height: 1.5,
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: math.max<double>(
-                      MediaQuery.paddingOf(context).bottom + 16,
-                      height * 42 / 844,
-                    ),
-                    child: const Text(
-                      'Powered By OrangeONE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        height: 1.4,
                       ),
                     ),
                   ),

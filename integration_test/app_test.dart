@@ -125,7 +125,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Done'));
     await tester.pumpAndSettle();
     expect(find.text('Aachi Fish Fry Masala 100g'), findsOneWidget);
-    await tester.tap(find.byTooltip('Back to scanner'));
+    await tester.tap(find.byTooltip('Open Scanner'));
     await tester.pumpAndSettle();
     products.product = null;
     scanBarcode = '999000';
@@ -152,7 +152,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('New mobile product'), findsOneWidget);
     expect(find.text('CHF 12.50'), findsOneWidget);
-    await tester.tap(find.byTooltip('Back to scanner'));
+    await tester.tap(find.byTooltip('Open Scanner'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back to home'));
     await tester.pumpAndSettle();

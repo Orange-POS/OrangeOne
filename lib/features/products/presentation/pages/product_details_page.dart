@@ -4,12 +4,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
+import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/mock_discount_dialog.dart';
+import 'package:orange_one/features/products/presentation/widgets/open_scanner_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/product_sync_indicator.dart';
 
@@ -39,22 +41,45 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
     }
   }
 
+  /// The same way back to the scanner the screen always had.
+  void _openScanner() =>
+      context.canPop() ? context.pop() : context.goNamed('productScanner');
+
+  String _taxLabel(AppLocalizations l10n, ProductDetails product) =>
+      product.taxes.isNotEmpty
+      ? product.taxes.join(', ')
+      : product.taxIds?.isEmpty == true
+      ? l10n.detailsTaxNone
+      : l10n.detailsTaxUnavailable;
+
+  /// Status text with the localized time of the last server verification.
+  String _syncTime(BuildContext context, String status, DateTime time) {
+    final material = MaterialLocalizations.of(context);
+    final local = time.toLocal();
+    return context.l10n.syncLastVerified(
+      status,
+      '${material.formatCompactDate(local)} '
+      '${material.formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     ref.watch(readCacheChangesProvider);
     final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = productDetailsControllerProvider(widget.barcode);
     final state = ref.watch(provider);
     final product = state.hasError ? null : state.value?.product;
     return ProductScaffold(
+      floatingActionButton: OpenScannerButton(onPressed: _openScanner),
       appBar: ProductNavbar(
-        title: 'Product',
-        backTooltip: 'Back to scanner',
-        onBack: () => context.canPop()
-            ? context.pop()
-            : context.goNamed('productScanner'),
+        title: l10n.detailsTitle,
+        // Open Scanner replaces the back arrow; system back still works.
+        showBack: false,
+        onBack: null,
         onEdit: null,
-        editTooltip: 'Edit product name',
+        editTooltip: l10n.detailsEditName,
         trailing: Container(
           width: 48,
           height: 48,
@@ -65,6 +90,13 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
           alignment: Alignment.center,
           child: ProductSyncIndicator(
             barcode: widget.barcode,
+            labels: ProductSyncLabels(
+              pending: l10n.syncPending,
+              online: l10n.syncOnline,
+              offline: l10n.syncOffline,
+              failed: l10n.syncFailed,
+              lastVerified: (status, time) => _syncTime(context, status, time),
+            ),
             onlineIcon: SvgPicture.asset(
               'assets/icons/product_detail_online.svg',
               width: 24,
@@ -121,9 +153,9 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     state.when(
                       skipLoadingOnRefresh: false,
                       skipLoadingOnReload: false,
-                      loading: () => const Center(
+                      loading: () => Center(
                         child: CircularProgressIndicator(
-                          semanticsLabel: 'Loading product details',
+                          semanticsLabel: l10n.detailsLoading,
                         ),
                       ),
                       error: (error, stack) => Column(
@@ -133,15 +165,15 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                                 ? error.message
                                 : error is FormatException
                                 ? error.message
-                                : 'Unable to load product details.',
+                                : l10n.detailsLoadFailed,
                           ),
-                          const Text('Pull down to refresh product details.'),
+                          Text(l10n.detailsPullToRefresh),
                         ],
                       ),
                       data: (details) => details.product == null
                           ? Column(
                               children: [
-                                const Text('Product not found'),
+                                Text(l10n.productNotFound),
                                 FilledButton(
                                   onPressed: () => context.pushReplacementNamed(
                                     'addProduct',
@@ -149,7 +181,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                                       'barcode': widget.barcode,
                                     },
                                   ),
-                                  child: const Text('Add product'),
+                                  child: Text(l10n.addProduct),
                                 ),
                               ],
                             )
@@ -158,10 +190,11 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                               children: [
                                 _row(
                                   'assets/icons/product_detail_price.svg',
-                                  'Price',
+                                  l10n.detailsPrice,
                                   _priceLabel(details.product!.price),
+                                  isPrice: true,
                                   action: IconButton(
-                                    tooltip: 'Update price',
+                                    tooltip: l10n.detailsUpdatePrice,
                                     constraints: const BoxConstraints.tightFor(
                                       width: 48,
                                       height: 48,
@@ -192,8 +225,8 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                                 const SizedBox(height: 10),
                                 _row(
                                   'assets/icons/product_detail_tax.svg',
-                                  'TAX',
-                                  details.product!.currentTaxLabel,
+                                  l10n.detailsTax,
+                                  _taxLabel(l10n, details.product!),
                                 ),
                                 // Keep discounts hidden for future use.
                                 Visibility(
@@ -203,29 +236,6 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                                 ),
                               ],
                             ),
-                    ),
-                    const Spacer(),
-                    const Padding(
-                      padding: EdgeInsets.only(top: 24),
-                      child: Text.rich(
-                        TextSpan(
-                          text: 'Powered By ',
-                          children: [
-                            TextSpan(
-                              text: 'OrangeONE',
-                              style: TextStyle(
-                                color: OrangeTheme.actionPressed,
-                              ),
-                            ),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: OrangeTheme.secondary,
-                          fontSize: 12,
-                          height: 16 / 12,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -239,49 +249,54 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
 
   String _priceLabel(double price) => 'CHF ${price.toStringAsFixed(2)}';
 
-  Widget _row(String asset, String label, String value, {Widget? action}) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: OrangeTheme.actionDisabled),
+  Widget _row(
+    String asset,
+    String label,
+    String value, {
+    Widget? action,
+    bool isPrice = false,
+  }) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: OrangeTheme.actionDisabled),
+    ),
+    child: Row(
+      children: [
+        SvgPicture.asset(
+          asset,
+          width: isPrice ? 24 : 20,
+          height: isPrice ? 24 : 20,
         ),
-        child: Row(
-          children: [
-            SvgPicture.asset(
-              asset,
-              width: label == 'Price' ? 24 : 20,
-              height: label == 'Price' ? 24 : 20,
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: OrangeTheme.secondary,
+              fontSize: 14,
+              height: 20 / 14,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: OrangeTheme.secondary,
-                  fontSize: 14,
-                  height: 20 / 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: Text(
-                value,
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 20 / 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            if (action != null) ...[const SizedBox(width: 8), action],
-          ],
+          ),
         ),
-      );
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 20 / 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        if (action != null) ...[const SizedBox(width: 8), action],
+      ],
+    ),
+  );
 
   Widget _discountCard() => Container(
     padding: const EdgeInsets.all(16),

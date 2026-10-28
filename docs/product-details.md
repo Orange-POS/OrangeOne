@@ -16,6 +16,19 @@ loads authoritative data itself, supports direct navigation, refresh and safe
 loading/empty/failure states. All routes remain protected by session restoration
 and logout checks. Add product remains a prefilled draft without saving.
 
+## Header, actions and localization
+
+- The top bar has no back arrow; the title stays centered. A round **Open
+  Scanner** button (floating, bottom right) returns to the scanner with the
+  previous navigation (`pop`, or `goNamed('productScanner')`). System back still
+  works. The "Powered by OrangeONE" footer was removed.
+- The name card shows a Category badge to the left of the Stock badge with the
+  same design (`InfoBadge`); a product without a category shows "No Category".
+  Long category names are truncated; the badges wrap on narrow screens.
+- Every text of the screen (title, labels, tooltips, states, tax text, sync
+  indicator) follows the selected language of the six supported; see
+  [localization](localization.md).
+
 ## Server operations (Mobile API v2)
 
 The authenticated Mobile API v2 client, timeouts and secure session are reused

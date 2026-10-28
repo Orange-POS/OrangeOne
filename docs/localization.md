@@ -15,11 +15,16 @@ template file was removed so that the supported set is exactly these six.
   translates every message. The translations were written without a native
   review: have native speakers check them before release.
 
-Localized so far: the Login home screen and the QR scanner screen, including the
-camera status and permission messages of `QrCamera`. Other screens, Odoo error
-messages (`AppFailure.message` from the server) and the CodeCamera used by the
-product scanner remain English; the product scanner keeps its English
-defaults via `CodeCameraMessages`. Sending `Accept-Language` to the API
+Localized so far: the Login home screen, the QR scanner screen, the Barcode
+Home screen and the Barcode scanner screen, including the "Last scanned" card,
+lookup states, the stock badge labels shown there and the camera status and
+permission messages of both scanners (`CodeCameraMessages` built from
+`l10n.cameraMessages`, `lib/l10n/camera_messages.dart`). The Product Details screen is localized completely (title, name card, Category,
+Barcode, Price, TAX, actions, loading and error states, the sync indicator and
+the Open Scanner button). Other screens (price, edit, creation) and Odoo error
+messages (`AppFailure.message`
+from the server) remain English; `StockBadge`, `ProductSyncIndicator` and `CodeCamera` keep English
+defaults for them (labels are passed in by localized screens). Sending `Accept-Language` to the API
 (localized server messages and product names) is not implemented.
 
 ## Language selector

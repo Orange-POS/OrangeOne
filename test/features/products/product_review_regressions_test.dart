@@ -12,6 +12,7 @@ import 'package:orange_one/features/products/presentation/product_tax_label.dart
 import 'package:orange_one/features/products/presentation/providers/price_update_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
+import 'package:orange_one/l10n/l10n.dart';
 
 import '../../support/product_details_fakes.dart';
 import '../../support/product_fakes.dart';
@@ -230,6 +231,8 @@ void main() {
               productDetailsRepositoryProvider.overrideWithValue(repository),
             ],
             child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
               home: editing
                   ? const ProductEditPage(barcode: code)
                   : const ProductDetailsPage(barcode: code),

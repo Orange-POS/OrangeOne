@@ -5,7 +5,7 @@
 Home owns the authenticated scanner landing page, camera page and all barcode
 lookup actions. The supplied landing PNG/SVG defines the gradient, OrangeONE
 wordmark, white circle with the exported box-scan icon, “Tap to scan Barcode”,
-“Scan Your Product”, and footer. The barcode page follows the supplied scanner
+“Scan Your Product” (the “Powered By OrangeONE” footer was removed). The barcode page follows the supplied scanner
 PNG/CSS: orange header, open-corner frame, live camera status and compact last
 scanned card. The exported vector icon is `assets/icons/box_scan.svg`.
 
@@ -23,6 +23,33 @@ the current page's form fields and discarded on leaving it. There is no save API
 offline write queue, product update, stock adjustment or price mutation in this
 task. Product creation was added later in the Products feature
 (`POST /products`, see [product creation](product-creation.md)).
+
+## Recent scans and localization
+
+The scanner's bottom card ("Last scanned") shows the product the user scanned
+last while the scanner is idle: one card, which each new scan replaces. The Home
+screen itself has no card; the card is the existing one of the barcode screen.
+
+- A product is recorded when a lookup finds it (online or from the offline
+  cache); unknown barcodes, errors and invalid codes are not. A rescan moves it
+  to the top; the five latest are kept in the stored history (unchanged), but
+  only the newest is displayed.
+- The card shows the product name; a row of two badges with the same design as
+  the stock badge (`InfoBadge`): the Category (or "No Category") first, then
+  the Barcode; and below them the stock text on the left and the price as
+  `CHF 12.50` on the right. Storage holds those fields, the unit, the category
+  name and the product id that keeps the entry current; never the reference,
+  taxes, permissions or version.
+- Tapping the card runs the same lookup as a scan (`ProductLookupController.scan`
+  through the existing repository and API) and opens Product Details, or the
+  creation form if the product no longer exists.
+- Storage is the session's encrypted read cache (`EncryptedReadCache`,
+  `recentScansRepositoryOverride`), so the list survives restarts, belongs to one
+  session and is deleted with it; see [offline data](offline-data.md). History
+  failures never interrupt scanning.
+- Home and the scanner screen (texts, tooltips, camera status and permission
+  messages, stock badge labels) follow the selected language; see
+  [localization](localization.md).
 
 ## API contract (Mobile API v2)
 

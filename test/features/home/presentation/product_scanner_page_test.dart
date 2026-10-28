@@ -70,7 +70,7 @@ void main() {
       expect(products.barcodes.length, 1);
       expect(find.byTooltip('Product information'), findsNothing);
       expect(find.text('Test scan'), findsNothing);
-      await tester.tap(find.byTooltip('Back to scanner'));
+      await tester.tap(find.byTooltip('Open Scanner'));
       await tester.pumpAndSettle();
       expect(products.barcodes.length, 1);
       await tester.tap(find.byTooltip('Back to home'));

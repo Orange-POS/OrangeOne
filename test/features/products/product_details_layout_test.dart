@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 import '../../support/product_details_fakes.dart';
@@ -23,6 +24,8 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: MediaQuery(
             data: MediaQueryData(size: size, padding: EdgeInsets.only(top: 34)),
             child: RepaintBoundary(
@@ -84,6 +87,8 @@ void main() {
             ),
           ],
           child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context)
                   .copyWith(textScaler: const TextScaler.linear(1.6)),
@@ -108,7 +113,7 @@ void main() {
       await tester.ensureVisible(find.byTooltip('Update price'));
       expect(find.byTooltip('Update price').hitTestable(), findsOneWidget);
       expect(tester.getTopLeft(find.text('Product')), headerPosition);
-      expect(find.byTooltip('Back to scanner').hitTestable(), findsOneWidget);
+      expect(find.byTooltip('Open Scanner').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

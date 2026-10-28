@@ -48,6 +48,12 @@ class EncryptedReadCache {
   /// Reserved code input for the sync position; barcodes are printable.
   static const _syncCode = '\u0000sync';
 
+  /// Reserved code input for the recently scanned products of the session.
+  static const _recentCode = '\u0000recent';
+
+  /// Most recently scanned products that are kept.
+  static const recentScanLimit = 5;
+
   final ReadCacheDatabase database;
   final String _identity;
   final DateTime Function() _now;
@@ -221,13 +227,19 @@ class EncryptedReadCache {
     });
   }
 
-  Future<void> _purge() async {
+  Future<void> _purge({bool keepRecents = false}) async {
     final identity = await owner;
+    final recent = await _hash(_recentCode);
     await _persist(
-      () => database.customStatement(
-        'DELETE FROM product_reads WHERE owner = ?',
-        [identity],
-      ),
+      () => keepRecents
+          ? database.customStatement(
+              'DELETE FROM product_reads WHERE owner = ? AND code != ?',
+              [identity, recent],
+            )
+          : database.customStatement(
+              'DELETE FROM product_reads WHERE owner = ?',
+              [identity],
+            ),
     );
   }
 
@@ -365,6 +377,7 @@ class EncryptedReadCache {
       await _store(barcode, _approved(product), time, revision: revision);
       _unavailable.remove(barcode);
       _set(barcode, ReadSyncPhase.online, time);
+      await _syncRecents(changed: [product], removedIds: const []);
     } on Exception {
       if (_closed || revision != _revision) return;
       _unavailable.add(barcode);
@@ -448,6 +461,11 @@ class EncryptedReadCache {
       _unavailable.remove(barcode);
       touched.add(barcode);
     }
+    await _syncRecents(
+      changed: changed,
+      removedIds: removedIds,
+      revision: revision,
+    );
     final identity = await owner;
     final payload = await _seal(syncCode, {'since': nextSince});
     await _persist(() async {
@@ -512,6 +530,148 @@ class EncryptedReadCache {
     });
   }
 
+  /// Recently scanned products of this session, newest first, as display
+  /// records (`id`, `name`, `barcode`, `price`, `stock_quantity`, `uom`,
+  /// `category` name).
+  /// They are encrypted like snapshots, belong to this session only and are
+  /// deleted with it. Malformed or tampered data is a safe storage failure.
+  Future<List<Map<String, dynamic>>> readRecents() async {
+    if (_closed) return const [];
+    try {
+      final code = await _hash(_recentCode);
+      final row = await database
+          .customSelect(
+            'SELECT payload FROM product_reads WHERE owner = ? AND code = ?',
+            variables: [Variable(await owner), Variable(code)],
+          )
+          .getSingleOrNull();
+      if (row == null) return const [];
+      final value = await _open(row.read<String>('payload'), code);
+      final items = value?['items'];
+      return items is List ? _recentItems(items) : const [];
+    } on Object {
+      throw const AppFailure(
+        FailureKind.storage,
+        'Recent scans are unavailable on this device.',
+      );
+    }
+  }
+
+  /// Puts [product] (a product read record) first, replacing an earlier
+  /// entry of the same product, and keeps at most [recentScanLimit].
+  Future<void> recordRecent(Map<String, dynamic> product) async {
+    final item = _recentItem(product);
+    if (_closed || _writing || item == null) return;
+    await _changeRecents(
+      _revision,
+      (items) => [
+        item,
+        ...items.where(
+          (other) =>
+              other['id'] != item['id'] && other['barcode'] != item['barcode'],
+        ),
+      ].take(recentScanLimit).toList(),
+    );
+  }
+
+  /// Refreshes entries of [changed] products and drops [removedIds].
+  Future<void> _syncRecents({
+    required List<Map<String, dynamic>> changed,
+    required List<int> removedIds,
+    int? revision,
+  }) async {
+    try {
+      await _changeRecents(revision ?? _revision, (items) {
+        final updated = <Map<String, dynamic>>[];
+        for (final item in items) {
+          if (removedIds.contains(item['id'])) continue;
+          final record = changed
+              .where((c) => c['id'] == item['id'])
+              .firstOrNull;
+          final next = record == null ? item : _recentItem(record);
+          if (next != null &&
+              !updated.any((other) => other['barcode'] == next['barcode'])) {
+            updated.add(next);
+          }
+        }
+        return updated;
+      });
+    } on Exception {
+      // The recent list is best effort and never blocks a refresh.
+    }
+  }
+
+  Future<void> _changeRecents(
+    int revision,
+    List<Map<String, dynamic>> Function(List<Map<String, dynamic>> items)
+    change,
+  ) async {
+    final identity = await owner;
+    final code = await _hash(_recentCode);
+    await _persist(() async {
+      if (_closed || revision != _revision) throw cancelledOperation;
+      var current = <Map<String, dynamic>>[];
+      try {
+        current = await readRecents();
+      } on AppFailure {
+        // A damaged list is replaced by the next change.
+      }
+      final next = change(current);
+      if (jsonEncode(next) == jsonEncode(current)) return;
+      final payload = await _seal(code, {'items': next});
+      await database.customStatement(
+        'INSERT OR REPLACE INTO product_reads VALUES (?, ?, ?)',
+        [identity, code, payload],
+      );
+    });
+  }
+
+  static List<Map<String, dynamic>> _recentItems(List<Object?> raw) {
+    final items = <Map<String, dynamic>>[];
+    for (final value in raw) {
+      final item = value is Map<String, dynamic> ? _recentItem(value) : null;
+      if (item != null && items.length < recentScanLimit) items.add(item);
+    }
+    return items;
+  }
+
+  /// Only what the recent card shows, plus the id used to keep it current.
+  static Map<String, dynamic>? _recentItem(Map<String, dynamic> product) {
+    final id = product['id'];
+    final barcode = product['barcode'];
+    final name = product['name'];
+    final price = product['price'];
+    final stock = product['stock_quantity'];
+    final unit = product['uom'];
+    // A product record has `{id, name}`; a stored entry just the name.
+    final rawCategory = product['category'];
+    final category = rawCategory is Map<String, dynamic>
+        ? rawCategory['name']
+        : rawCategory;
+    if (id is! int ||
+        id <= 0 ||
+        barcode is! String ||
+        barcode.isEmpty ||
+        name is! String ||
+        name.trim().isEmpty ||
+        price is! num ||
+        !price.isFinite ||
+        (stock != null && (stock is! num || !stock.isFinite))) {
+      return null;
+    }
+    return {
+      'id': id,
+      'name': name,
+      'barcode': barcode,
+      'price': price.toDouble(),
+      'stock_quantity': (stock as num?)?.toDouble(),
+      'uom': unit is String ? unit : '',
+      'category': category is String && category.trim().isNotEmpty
+          ? category.trim()
+          : null,
+    };
+  }
+
   Future<T> write<T>(Future<T> Function() operation) async {
     if (_closed || offline || _writing) {
       throw const AppFailure(
@@ -524,8 +684,9 @@ class EncryptedReadCache {
     _revision++;
     try {
       // Invalidate before uncertain writes; never reuse pre-write data.
+      // The recent list holds display fields only and is refreshed by `put`.
       try {
-        await _purge();
+        await _purge(keepRecents: true);
       } on Exception {
         throw const AppFailure(
           FailureKind.storage,

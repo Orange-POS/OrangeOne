@@ -10,6 +10,7 @@ import 'package:orange_one/features/products/domain/entities/product_details.dar
 import 'package:orange_one/features/products/domain/use_cases/manage_product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/l10n/l10n.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/product_details_fakes.dart';
@@ -104,6 +105,8 @@ void main() {
       ProviderScope(
         overrides: [productDetailsRepositoryProvider.overrideWithValue(repo)],
         child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ProductDetailsPage(barcode: '0010101010'),
         ),
       ),

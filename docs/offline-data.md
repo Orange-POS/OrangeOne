@@ -48,6 +48,25 @@ a verified connection and use the Mobile API v2 `If-Match` version and
   failures preserve a valid server response and show the failed sync indicator.
   Do not log payloads, keys, tokens, endpoints or raw exceptions.
 
+## Recent scans
+
+The same table also holds one encrypted row per session with the recently
+scanned products for the scanner's "Last scanned" card (reserved code input
+`\u0000recent`, AAD-bound like snapshots). It stores at most five entries of
+`id`, `name`, `barcode`, `price`, `stock_quantity`, `uom` and the `category`
+name (null without one), written by
+`recordRecent` and read by `readRecents`.
+
+- It has no 24-hour expiry; it lives as long as the session cache.
+- A product write purges the snapshots but keeps this row; a confirmed write
+  (`put`) refreshes the matching entry. The change feed refreshes or removes
+  entries (removed products, lost barcodes), and losing feed access
+  (`resetSync`), logout, expiry or session disposal delete it.
+- The app keeps `readCacheProvider` listened to at the root, so closing the
+  cache (and deleting its rows) happens at logout, not at the next read.
+- Tampered or malformed data is a safe storage failure on read and is replaced
+  by the next scan; the history never blocks scanning.
+
 ## Synchronization and conflicts
 
 | Phase | Icon | Meaning |
@@ -71,7 +90,11 @@ before the oldest snapshot; afterwards the saved `next_since` (encrypted) is
 used. Only already cached products are updated: changed products replace
 their snapshot unless it has a newer `updated_at`, a new barcode drops the old
 entry, and `removed_ids` are deleted. Pages are bounded per run and the position
-is saved after each applied page, so interrupted syncs resume. Mutations or
+is saved after each applied page, so interrupted syncs resume. A definitive
+authentication rejection of the feed (`TOKEN_REVOKED`, `TOKEN_INVALID`,
+`AUTH_REQUIRED`) is routed to the session sign-out handler, guarded by the
+session identity so a stale failure never signs out a replacement session; the
+sign-out purges the session cache. Outages never sign out. Mutations or
 logout during a page cancel it. `SYNC_TOKEN_EXPIRED` (410) or lost read access
 (403) delete the session's snapshots; other failures, a disabled feed or
 malformed pages keep valid data untouched. Products the user can no longer

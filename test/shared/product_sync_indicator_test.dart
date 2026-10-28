@@ -8,6 +8,7 @@ import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
+import 'package:orange_one/l10n/l10n.dart';
 
 import '../support/product_details_fakes.dart';
 import '../support/product_fakes.dart';
@@ -30,6 +31,8 @@ void main() {
         ProviderScope(
           overrides: [readCacheProvider.overrideWithValue(cache)],
           child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(body: ProductNameCard(product: detailsFixture)),
           ),
         ),
@@ -68,6 +71,8 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ProductDetailsPage(barcode: '0010101010'),
         ),
       ),
