@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/features/authentication/presentation/widgets/qr_camera.dart';
+import 'package:orange_one/l10n/l10n.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,8 @@ void main() {
         ..setMockMethodCallHandler(scanner, (call) async => null);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: QrCamera(onCode: (value) => scans++, onStatus: (value) {}),
           ),

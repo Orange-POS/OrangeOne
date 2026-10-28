@@ -67,7 +67,7 @@ convention unless the user or supplied design explicitly requests otherwise.
   layouts, enlarged text, and the rendered glass surface on a neutral backing.
 
 Reference implementation:
-`lib/features/products/presentation/widgets/product_action_bar.dart`.
+`lib/features/products/presentation/widgets/product_action_surface.dart`.
 
 Task 07 adds the dedicated protected Products price-update page. Read
 `docs/product-price-update.md` before changing pricing: CHF is fixed; validate
@@ -98,3 +98,17 @@ with `flutter test tool/generate_brand_background_test.dart` after theme changes
 The OS-controlled Android 12 splash permits a solid endpoint only; following
 native/Flutter backgrounds use the shared gradient. See docs/brand-gradient.md.
 
+Localization and login: the app supports English, Dutch, French, Italian,
+Turkish and Tamil via the Very Good CLI l10n setup (`lib/l10n/arb`, generated
+code is git-ignored). Add texts to all six ARB files and read them with
+`context.l10n`; `test/l10n` fails when a language misses a message. The login
+screen has the white `LanguageSelector` pill under the subtitle; the choice is
+kept by `localeControllerProvider` (stored under `orangeone.locale` through
+`SecretStore`, restored at startup, device language or English otherwise).
+The QR scanner screen runs the camera only while `wifiConnectionProvider`
+reports Wi-Fi; otherwise it shows "Please connect to the same Wi-Fi network as
+the POS machine to scan the QR code." and starts again automatically when Wi-Fi
+returns. Wi-Fi only reads the device's network, never claim it verifies that
+the POS machine is on the same network. Widget tests that open the scanner must
+override Wi-Fi (`test/support/wifi_fakes.dart`). Only login and the QR scanner
+are localized so far; see docs/localization.md.

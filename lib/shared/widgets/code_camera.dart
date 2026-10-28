@@ -4,6 +4,38 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+/// Texts shown by [CodeCamera]. The defaults are English; callers with
+/// localized screens pass translated values.
+class CodeCameraMessages {
+  const new({
+    this.permissionRequired = 'Camera permission is required to scan',
+    this.unavailable = 'Camera unavailable',
+    this.paused = 'Camera paused',
+    this.busy = 'Camera unavailable. Close other camera apps and try again.',
+    this.openFailed =
+        'Unable to open the camera. Check camera access in Settings.',
+    this.tryAgain = 'Camera unavailable. Try again.',
+    this.restricted = 'Camera access is restricted on this device.',
+    this.openSettings = 'Open Settings',
+    this.allowRetry = 'Allow camera / Retry',
+  });
+
+  /// Status when the permission is missing.
+  final String permissionRequired;
+
+  /// Status when the camera cannot start.
+  final String unavailable;
+
+  /// Status while the app is in the background.
+  final String paused;
+  final String busy;
+  final String openFailed;
+  final String tryAgain;
+  final String restricted;
+  final String openSettings;
+  final String allowRetry;
+}
+
 /// Platform camera lifecycle shared by login and product scanners.
 class CodeCamera extends StatefulWidget {
   const new({
@@ -13,6 +45,7 @@ class CodeCamera extends StatefulWidget {
     required this.instructions,
     required this.readyMessage,
     this.singleScan = true,
+    this.messages = const CodeCameraMessages(),
     super.key,
   });
   final ValueChanged<String> onCode;
@@ -21,6 +54,7 @@ class CodeCamera extends StatefulWidget {
   final String instructions;
   final String readyMessage;
   final bool singleScan;
+  final CodeCameraMessages messages;
 
   @override
   State<CodeCamera> createState() => _CodeCameraState();
@@ -60,7 +94,7 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
         _cameraError = null;
       });
       if (!permission.isGranted) {
-        widget.onStatus('Camera permission is required to scan');
+        widget.onStatus(widget.messages.permissionRequired);
         return;
       }
       // Allow the preview to attach before starting its controller.
@@ -70,19 +104,13 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
       if (mounted) widget.onStatus(widget.readyMessage);
     } on MobileScannerException {
       if (mounted) {
-        setState(
-          () => _cameraError =
-              'Camera unavailable. Close other camera apps and try again.',
-        );
-        widget.onStatus('Camera unavailable');
+        setState(() => _cameraError = widget.messages.busy);
+        widget.onStatus(widget.messages.unavailable);
       }
     } on Exception {
       if (mounted) {
-        setState(
-          () => _cameraError =
-              'Unable to open the camera. Check camera access in Settings.',
-        );
-        widget.onStatus('Camera unavailable');
+        setState(() => _cameraError = widget.messages.openFailed);
+        widget.onStatus(widget.messages.unavailable);
       }
     } finally {
       _starting = false;
@@ -96,7 +124,7 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
       unawaited(_start());
     } else {
       unawaited(_controller.stop());
-      widget.onStatus('Camera paused');
+      widget.onStatus(widget.messages.paused);
     }
   }
 
@@ -122,7 +150,7 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
               Text(
                 _cameraError ??
                     (restricted
-                        ? 'Camera access is restricted on this device.'
+                        ? widget.messages.restricted
                         : widget.instructions),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white),
@@ -138,7 +166,9 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
                     }
                   },
                   child: Text(
-                    blocked ? 'Open Settings' : 'Allow camera / Retry',
+                    blocked
+                        ? widget.messages.openSettings
+                        : widget.messages.allowRetry,
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -159,13 +189,13 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
         }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || _starting || _cameraError != null) return;
-          setState(() => _cameraError = 'Camera unavailable. Try again.');
-          widget.onStatus('Camera unavailable');
+          setState(() => _cameraError = widget.messages.tryAgain);
+          widget.onStatus(widget.messages.unavailable);
         });
-        return const Center(
+        return Center(
           child: Text(
-            'Camera unavailable. Try again.',
-            style: TextStyle(color: Colors.white),
+            widget.messages.tryAgain,
+            style: const TextStyle(color: Colors.white),
           ),
         );
       },

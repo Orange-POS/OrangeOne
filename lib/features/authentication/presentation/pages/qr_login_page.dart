@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/wifi_connection.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/authentication/presentation/widgets/qr_camera.dart';
 import 'package:orange_one/features/authentication/presentation/widgets/scan_frame.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class QrLoginPage extends ConsumerStatefulWidget {
@@ -19,14 +21,31 @@ class QrLoginPage extends ConsumerStatefulWidget {
 }
 
 class _QrLoginPageState extends ConsumerState<QrLoginPage> {
-  String _cameraStatus = 'Opening camera…';
+  // Null until the camera reports; the localized default is shown meanwhile.
+  String? _cameraStatus;
   var _cameraGeneration = 0;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final session = ref.watch(sessionControllerProvider);
     final controller = ref.read(sessionControllerProvider.notifier);
     final failure = session.error;
+    // Scanning needs a Wi-Fi connection. This only reads the device's
+    // network: it cannot confirm that the POS machine is on that network.
+    // Reading failures count as "not connected".
+    final wifi = ref.watch(wifiConnectionProvider);
+    final checkingWifi = wifi.isLoading;
+    final wifiOn = wifi.value ?? false;
+    // A fresh camera starts whenever Wi-Fi returns.
+    ref.listen(wifiConnectionProvider, (previous, next) {
+      if (previous?.value != next.value && mounted) {
+        setState(() {
+          _cameraGeneration++;
+          _cameraStatus = null;
+        });
+      }
+    });
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
         if (didPop && session.isLoading) {
@@ -47,7 +66,7 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                     children: [
                       IconButton(
                         onPressed: () => context.pop(false),
-                        tooltip: 'Back to login',
+                        tooltip: l10n.scanBackTooltip,
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: .2),
                           fixedSize: const Size(48, 48),
@@ -62,11 +81,11 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                           ),
                         ),
                       ),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Scan QR Code',
+                          l10n.scanTitle,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -112,6 +131,8 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                                   )
                                 : session.hasError
                                 ? const SizedBox.shrink()
+                                : !wifiOn
+                                ? _ScannerOff(checking: checkingWifi)
                                 : KeyedSubtree(
                                     key: ValueKey(_cameraGeneration),
                                     child: ref.watch(qrCameraBuilderProvider)(
@@ -147,10 +168,10 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                             top: top + frameSize + 24,
                             child: Column(
                               children: [
-                                const Text(
-                                  'Scan to sign in',
+                                Text(
+                                  l10n.scanHeading,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,
                                     height: 1.3,
@@ -158,21 +179,24 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                Text(
-                                  session.isLoading
-                                      ? 'Signing in securely…'
-                                      : failure is AppFailure
-                                      ? failure.message
-                                      : session.hasError
-                                      ? 'Unable to sign in. '
-                                            'Generate a new POS QR code.'
-                                      : 'Point your camera at the QR code on '
-                                            'the POS machine.',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    height: 1.5,
+                                Semantics(
+                                  liveRegion: true,
+                                  child: Text(
+                                    session.isLoading
+                                        ? l10n.scanSigningIn
+                                        : failure is AppFailure
+                                        ? failure.message
+                                        : session.hasError
+                                        ? l10n.scanFailure
+                                        : !wifiOn && !checkingWifi
+                                        ? l10n.scanWifiRequired
+                                        : l10n.scanInstruction,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      height: 1.5,
+                                    ),
                                   ),
                                 ),
                                 if (session.hasError)
@@ -188,10 +212,10 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                                             .clearLoginFailure();
                                         setState(() {
                                           _cameraGeneration++;
-                                          _cameraStatus = 'Opening camera…';
+                                          _cameraStatus = null;
                                         });
                                       },
-                                      child: const Text('Scan a new QR code'),
+                                      child: Text(l10n.scanAgain),
                                     ),
                                   ),
                               ],
@@ -241,10 +265,14 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                           Flexible(
                             child: Text(
                               session.isLoading
-                                  ? 'Verifying POS login…'
+                                  ? l10n.scanVerifying
                                   : session.hasError
-                                  ? 'Scan paused · Check the message above'
-                                  : _cameraStatus,
+                                  ? l10n.scanPausedError
+                                  : checkingWifi
+                                  ? l10n.scanCheckingWifi
+                                  : !wifiOn
+                                  ? l10n.scanWifiStatus
+                                  : _cameraStatus ?? l10n.scanOpeningCamera,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 color: OrangeTheme.dark,
@@ -256,11 +284,11 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                         ],
                       ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Text(
-                        'Powered By OrangeONE',
-                        style: TextStyle(
+                        l10n.poweredBy,
+                        style: const TextStyle(
                           color: OrangeTheme.secondary,
                           fontSize: 12,
                         ),
@@ -275,4 +303,25 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
       ),
     );
   }
+}
+
+/// Stands in for the camera while the scanner is off: a progress indicator
+/// while the Wi-Fi state is read, otherwise a Wi-Fi-off icon (the message
+/// below the frame explains it).
+class _ScannerOff extends StatelessWidget {
+  const new({required this.checking});
+  final bool checking;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: checking
+        ? const CircularProgressIndicator(color: OrangeTheme.brand)
+        : const ExcludeSemantics(
+            child: Icon(
+              Icons.wifi_off_rounded,
+              size: 64,
+              color: Colors.white54,
+            ),
+          ),
+  );
 }

@@ -8,6 +8,8 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/authentication/presentation/pages/splash_page.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/authentication/presentation/widgets/brand_mark.dart';
+import 'package:orange_one/features/authentication/presentation/widgets/language_selector.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class LoginPage extends ConsumerWidget {
@@ -18,6 +20,7 @@ class LoginPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionControllerProvider);
     if (session.isLoading) return const SplashPage();
+    final l10n = context.l10n;
     final failure = session.error;
     return Scaffold(
       body: DecoratedBox(
@@ -33,7 +36,7 @@ class LoginPage extends ConsumerWidget {
                 child: SizedBox(
                   height: math.max(
                     constraints.maxHeight,
-                    620 * MediaQuery.textScalerOf(context).scale(1),
+                    700 * MediaQuery.textScalerOf(context).scale(1),
                   ),
                   width: constraints.maxWidth,
                   child: Padding(
@@ -44,7 +47,7 @@ class LoginPage extends ConsumerWidget {
                         const Spacer(),
                         Semantics(
                           button: true,
-                          label: 'Scan POS QR code to sign in',
+                          label: l10n.loginScanSemantics,
                           child: InkWell(
                             key: const Key('scan-login-button'),
                             onTap: session.isLoading
@@ -62,7 +65,7 @@ class LoginPage extends ConsumerWidget {
                               child: SvgPicture.asset(
                                 'assets/icons/qr_code.svg',
                                 colorFilter: const ColorFilter.mode(
-                                  OrangeTheme.brand,
+                                  OrangeTheme.action,
                                   BlendMode.srcIn,
                                 ),
                               ),
@@ -70,10 +73,10 @@ class LoginPage extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 40),
-                        const Text(
-                          'Tap to scan QR',
+                        Text(
+                          l10n.loginScanTitle,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 28,
                             height: 1.25,
@@ -81,30 +84,32 @@ class LoginPage extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Sign in with your POS machine',
+                        Text(
+                          l10n.loginSubtitle,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             height: 1.5,
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        const LanguageSelector(),
                         if (sessionExpired)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 12),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
                             child: Text(
-                              'Your session expired. Scan a new POS QR code.',
+                              l10n.loginSessionExpired,
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white),
+                              style: const TextStyle(color: Colors.white),
                             ),
                           ),
                         if (session.isLoading)
-                          const Padding(
-                            padding: EdgeInsets.all(16),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
                             child: CircularProgressIndicator(
                               color: Colors.white,
-                              semanticsLabel: 'Restoring session',
+                              semanticsLabel: l10n.loginRestoringSemantics,
                             ),
                           ),
                         if (session.hasError)
@@ -115,8 +120,7 @@ class LoginPage extends ConsumerWidget {
                                 Text(
                                   failure is AppFailure
                                       ? failure.message
-                                      : 'Unable to restore your session. '
-                                            'Try again.',
+                                      : l10n.loginRestoreFailed,
                                   style: const TextStyle(color: Colors.white),
                                   textAlign: TextAlign.center,
                                 ),
@@ -124,18 +128,18 @@ class LoginPage extends ConsumerWidget {
                                   onPressed: () => ref
                                       .read(sessionControllerProvider.notifier)
                                       .retryRestore(),
-                                  child: const Text(
-                                    'Retry session check',
-                                    style: TextStyle(color: Colors.white),
+                                  child: Text(
+                                    l10n.loginRetryRestore,
+                                    style: const TextStyle(color: Colors.white),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         const Spacer(),
-                        const Text(
-                          'Powered By OrangeONE',
-                          style: TextStyle(
+                        Text(
+                          l10n.poweredBy,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
                             height: 1.4,

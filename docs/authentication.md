@@ -141,6 +141,12 @@ Figma returned both initial screens/screenshots before the Starter-plan MCP call
 limit prevented further inspection. The authenticated home design was not supplied
 or independently inspected, so it intentionally remains minimal.
 
+The login screen has a language selector (six languages, remembered across
+restarts) and the QR scanner only runs on Wi-Fi: see
+[localization](localization.md). Without Wi-Fi the camera is not started and the
+screen asks the user to connect to the POS machine's Wi-Fi network; the app
+cannot verify which network that is.
+
 The native scanner is QR-only, uses the rear camera and stops after accepting a
 code. It is stopped/disposed on route removal and paused in the background.
 Permission denial offers a retry; permanent denial offers Settings; restrictions

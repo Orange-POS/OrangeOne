@@ -1,5 +1,152 @@
 {
   "@@locale": "en",
   "appTitle": "OrangeONE",
-  "@appTitle": { "description": "Application name" }
+  "@appTitle": {
+    "description": "Application name"
+  },
+  "loginScanTitle": "Tap to scan QR",
+  "@loginScanTitle": {
+    "description": "Headline of the login screen's scan button"
+  },
+  "loginSubtitle": "Sign in with your POS machine",
+  "@loginSubtitle": {
+    "description": "Subtitle under the scan headline"
+  },
+  "loginScanSemantics": "Scan POS QR code to sign in",
+  "@loginScanSemantics": {
+    "description": "Screen-reader label of the circular scan button"
+  },
+  "loginSessionExpired": "Your session expired. Scan a new POS QR code.",
+  "@loginSessionExpired": {
+    "description": "Shown on the login screen after a session ended"
+  },
+  "loginRestoringSemantics": "Restoring session",
+  "@loginRestoringSemantics": {
+    "description": "Screen-reader label of the session restore spinner"
+  },
+  "loginRestoreFailed": "Unable to restore your session. Try again.",
+  "@loginRestoreFailed": {
+    "description": "Fallback when a saved session cannot be restored"
+  },
+  "loginRetryRestore": "Retry session check",
+  "@loginRetryRestore": {
+    "description": "Button that repeats the saved-session check"
+  },
+  "poweredBy": "Powered By OrangeONE",
+  "@poweredBy": {
+    "description": "Footer brand line"
+  },
+  "languageSelectorLabel": "Language",
+  "@languageSelectorLabel": {
+    "description": "Screen-reader name of the language selector"
+  },
+  "languageSelectorTooltip": "Change language",
+  "@languageSelectorTooltip": {
+    "description": "Tooltip of the language selector"
+  },
+  "languageSelectorSemantics": "Language: {language}",
+  "@languageSelectorSemantics": {
+    "description": "Screen-reader label with the current language name",
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "scanTitle": "Scan QR Code",
+  "@scanTitle": {
+    "description": "QR scanner screen title"
+  },
+  "scanBackTooltip": "Back to login",
+  "@scanBackTooltip": {
+    "description": "Tooltip of the scanner back button"
+  },
+  "scanHeading": "Scan to sign in",
+  "@scanHeading": {
+    "description": "Scanner heading"
+  },
+  "scanInstruction": "Point your camera at the QR code on the POS machine.",
+  "@scanInstruction": {
+    "description": "Scanner instruction while Wi-Fi is connected"
+  },
+  "scanSigningIn": "Signing in securely…",
+  "@scanSigningIn": {
+    "description": "Shown while the scanned QR code is exchanged"
+  },
+  "scanFailure": "Unable to sign in. Generate a new POS QR code.",
+  "@scanFailure": {
+    "description": "Fallback when QR sign-in failed without a server message"
+  },
+  "scanAgain": "Scan a new QR code",
+  "@scanAgain": {
+    "description": "Button that restarts scanning after a failure"
+  },
+  "scanVerifying": "Verifying POS login…",
+  "@scanVerifying": {
+    "description": "Status pill while signing in"
+  },
+  "scanPausedError": "Scan paused · Check the message above",
+  "@scanPausedError": {
+    "description": "Status pill after a sign-in failure"
+  },
+  "scanOpeningCamera": "Opening camera…",
+  "@scanOpeningCamera": {
+    "description": "Status pill before the camera is ready"
+  },
+  "scanCheckingWifi": "Checking Wi-Fi…",
+  "@scanCheckingWifi": {
+    "description": "Status pill while the Wi-Fi state is being read"
+  },
+  "scanWifiRequired": "Please connect to the same Wi-Fi network as the POS machine to scan the QR code.",
+  "@scanWifiRequired": {
+    "description": "Shown instead of the camera when the device is not on Wi-Fi"
+  },
+  "scanWifiStatus": "Scanner off · Wi-Fi required",
+  "@scanWifiStatus": {
+    "description": "Status pill while the scanner is disabled for lack of Wi-Fi"
+  },
+  "cameraReady": "Camera on · Looking for QR code…",
+  "@cameraReady": {
+    "description": "Status pill when the camera is looking for a QR code"
+  },
+  "cameraAllowInstructions": "Allow camera access to scan the QR code on your POS machine.",
+  "@cameraAllowInstructions": {
+    "description": "Camera permission explanation"
+  },
+  "cameraPermissionRequired": "Camera permission is required to scan",
+  "@cameraPermissionRequired": {
+    "description": "Status when the camera permission is missing"
+  },
+  "cameraUnavailable": "Camera unavailable",
+  "@cameraUnavailable": {
+    "description": "Status when the camera cannot start"
+  },
+  "cameraPaused": "Camera paused",
+  "@cameraPaused": {
+    "description": "Status when the app is in the background"
+  },
+  "cameraBusy": "Camera unavailable. Close other camera apps and try again.",
+  "@cameraBusy": {
+    "description": "Camera is in use by another app"
+  },
+  "cameraOpenFailed": "Unable to open the camera. Check camera access in Settings.",
+  "@cameraOpenFailed": {
+    "description": "Camera could not be opened"
+  },
+  "cameraTryAgain": "Camera unavailable. Try again.",
+  "@cameraTryAgain": {
+    "description": "Camera error with a retry hint"
+  },
+  "cameraRestricted": "Camera access is restricted on this device.",
+  "@cameraRestricted": {
+    "description": "Camera access is restricted by device policy"
+  },
+  "cameraOpenSettings": "Open Settings",
+  "@cameraOpenSettings": {
+    "description": "Button that opens the system settings"
+  },
+  "cameraAllowRetry": "Allow camera / Retry",
+  "@cameraAllowRetry": {
+    "description": "Button that requests the camera permission again"
+  }
 }

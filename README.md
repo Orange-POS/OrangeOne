@@ -223,6 +223,7 @@ for inputs, environments and release checks.
 - [Environments and logging](docs/environments-and-logging.md)
 - [Offline product reads and recovery](docs/offline-data.md)
 - [Mobile API v2 integration](docs/mobile-api-v2.md)
+- [Localization, language selector and QR Wi-Fi check](docs/localization.md)
 - [Authentication setup and contract](docs/authentication.md)
 - [Architecture](docs/architecture.md)
 - [Riverpod state management](docs/state-management.md)

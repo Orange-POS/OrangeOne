@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/app/router/app_router.dart';
 import 'package:orange_one/l10n/l10n.dart';
+import 'package:orange_one/l10n/locale_controller.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class App extends ConsumerWidget {
@@ -28,6 +29,8 @@ class App extends ConsumerWidget {
       ),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      // The user's saved language; null follows the device language.
+      locale: ref.watch(localeControllerProvider),
       routerConfig: ref.watch(routerProvider),
     );
   }
