@@ -107,3 +107,5 @@ After Edit Name & Tax, Price, Stock or Creation succeeds, this screen shows the
 success toast above the Open Scanner button (`ProductSuccessToast`, the shared
 success notice design, about five seconds). The hero is the shared glass card
 with the Tax row (see [product edit](product-edit.md)).
+
+The Tax appears only in the hero (not as a separate row below Price). The glass shadow is drawn outside the card only, so the theme colors are not darkened.

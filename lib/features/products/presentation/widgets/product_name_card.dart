@@ -48,33 +48,45 @@ class ProductNameCard extends ConsumerWidget {
 
   /// The hero is a glass card: a blurred, barely tinted pane with a thin white
   /// edge and a soft shadow. The scaffold's gradient shows through it.
-  Widget _glass(Widget child) => DecoratedBox(
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x40000000),
-          offset: Offset(0, 4),
-          blurRadius: 4,
-        ),
-      ],
-    ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0x1AFFF3E8),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white, width: .5),
+  Widget _glass(Widget child) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      // The shadow is clipped away inside the card: under a translucent pane
+      // it would darken the glass and change the theme colors.
+      Positioned.fill(
+        child: ClipPath(
+          clipper: const _OutsideClipper(20),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  offset: Offset(0, 4),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
           ),
-          child: child,
         ),
       ),
-    ),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0x1AFFF3E8),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white, width: .5),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    ],
   );
 
   Widget _card(BuildContext context, bool stockNotSet) => Container(
@@ -276,4 +288,21 @@ class ProductNameCard extends ConsumerWidget {
           ),
         ),
       );
+}
+
+/// Everything outside a rounded rectangle of the same size as the child.
+class _OutsideClipper extends CustomClipper<Path> {
+  const new(this.radius);
+  final double radius;
+
+  @override
+  Path getClip(Size size) => Path()
+    ..fillType = PathFillType.evenOdd
+    ..addRect(Rect.fromLTWH(-40, -40, size.width + 80, size.height + 80))
+    ..addRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+    );
+
+  @override
+  bool shouldReclip(_OutsideClipper oldClipper) => oldClipper.radius != radius;
 }

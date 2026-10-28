@@ -123,7 +123,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                   16,
                   16,
                   16,
-                  MediaQuery.paddingOf(context).bottom + 8,
+                  MediaQuery.paddingOf(context).bottom + 96,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -199,12 +199,6 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                                       ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 10),
-                                _row(
-                                  'assets/icons/product_detail_tax.svg',
-                                  l10n.detailsTax,
-                                  _taxLabel(l10n, details.product!),
                                 ),
                                 // Keep discounts hidden for future use.
                                 Visibility(
