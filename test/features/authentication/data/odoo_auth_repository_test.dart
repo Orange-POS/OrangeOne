@@ -31,7 +31,7 @@ void main() {
   late DateTime now;
 
   OdooAuthRepository build() => OdooAuthRepository(
-    AuthRemoteDataSource(MobileApiClient(dio, config)),
+    AuthRemoteDataSource(MobileApiClient(dio, config, appVersion: '1.2.3')),
     store,
     config,
     () => now,
@@ -82,6 +82,81 @@ void main() {
       ),
     );
   }
+
+  group('app version gate', () {
+    /// Mirrors the backend: a parseable X-App-Version below the configured
+    /// minimum is refused with APP_UPGRADE_REQUIRED; a missing one is not.
+    void enforce(String minimum) {
+      List<int> parts(String version) => [
+        for (final part in version.split('.')) int.parse(part),
+      ];
+      int compare(List<int> a, List<int> b) {
+        for (var i = 0; i < 3; i++) {
+          if (a[i] != b[i]) return a[i].compareTo(b[i]);
+        }
+        return 0;
+      }
+
+      FakeReply gate(RequestOptions request) {
+        final current = request.headers['X-App-Version'] as String?;
+        if (current != null && compare(parts(current), parts(minimum)) < 0) {
+          return FakeReply(426, errorEnvelope('APP_UPGRADE_REQUIRED'));
+        }
+        return FakeReply(200, successEnvelope(tokenGrant()));
+      }
+
+      server.on('POST /auth/qr-exchange', gate);
+    }
+
+    test('X-App-Version equals device.app_version on QR exchange', () async {
+      await repository.signIn(validQr());
+      final request = server.called('POST /auth/qr-exchange').single;
+      final device = requestBody(request)['device'] as Map<String, dynamic>;
+      expect(request.headers['X-App-Version'], '1.2.3');
+      expect(request.headers['X-App-Version'], device['app_version']);
+    });
+
+    test('later requests carry the same version', () async {
+      await repository.signIn(validQr());
+      await repository.accessToken();
+      await repository.signOut();
+      for (final request in server.requests) {
+        expect(request.headers['X-App-Version'], '1.2.3', reason: request.path);
+      }
+    });
+
+    test(
+      'a version below the minimum creates no session or credentials',
+      () async {
+        enforce('1.3.0');
+        await expectLater(
+          repository.signIn(validQr()),
+          throwsA(
+            isA<AppFailure>()
+                .having((e) => e.kind, 'kind', FailureKind.upgradeRequired)
+                .having((e) => e.code, 'code', 'APP_UPGRADE_REQUIRED'),
+          ),
+        );
+        expect(store.values.containsKey(key), isFalse, reason: 'no tokens');
+        expect(
+          store.values.keys.where((k) => k != installKey),
+          isEmpty,
+          reason: 'only the device install id may exist',
+        );
+        expect(await repository.restore(), isNull);
+        expect(server.called('GET /auth/session'), isEmpty);
+      },
+    );
+
+    for (final minimum in ['1.2.3', '1.2.0', '1.0.9', '0.9.0']) {
+      test('version 1.2.3 signs in when the minimum is $minimum', () async {
+        enforce(minimum);
+        final session = await repository.signIn(validQr());
+        expect(session.accessToken, 'oa_access_1');
+        expect(stored().refreshToken, 'or_refresh_1');
+      });
+    }
+  });
 
   group('QR sign-in', () {
     test(

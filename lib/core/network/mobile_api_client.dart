@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
+import 'package:orange_one/core/config/app_version.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/logging/app_logger.dart';
 import 'package:orange_one/core/network/dio_provider.dart';
@@ -12,6 +13,7 @@ final mobileApiClientProvider = Provider<MobileApiClient>(
     ref.watch(dioProvider),
     ref.watch(apiConfigurationProvider),
     logger: ref.watch(appLoggerProvider),
+    appVersion: ref.watch(appVersionProvider),
   ),
   name: 'mobileApiClientProvider',
 );
@@ -57,11 +59,15 @@ class MobileApiResponse {
 /// bearer token on each request, so token refresh can be added around this
 /// client without rebuilding it.
 class MobileApiClient {
-  new(this._dio, this._configuration, {this._logger});
+  new(this._dio, this._configuration, {this._logger, this._appVersion});
 
   final Dio _dio;
   final ApiConfiguration _configuration;
   final AppLogger? _logger;
+
+  /// Sent as `X-App-Version` on every request: the backend's minimum-version
+  /// gate reads this header (not `device.app_version`). Null sends none.
+  final String? _appVersion;
   final _random = Random.secure();
   var _requestCount = 0;
 
@@ -150,6 +156,7 @@ class MobileApiClient {
     );
     final headers = <String, String>{
       'X-Request-Id': _newRequestId(),
+      'X-App-Version': ?_appVersion,
       'Authorization': ?(accessToken == null ? null : 'Bearer $accessToken'),
       'Accept-Language': ?language,
       'Idempotency-Key': ?idempotencyKey,

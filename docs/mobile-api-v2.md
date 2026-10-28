@@ -86,3 +86,13 @@ flutter test
 
 Real-backend checks against a local Docker Odoo are documented in
 [testing](testing.md#real-backend-validation).
+
+## App version gate
+
+`MobileApiClient` sends `X-App-Version` (the installed build version from
+`appVersionProvider`) on every request, including `POST /auth/qr-exchange`. The
+backend's minimum-version check reads this header, not `device.app_version`;
+both come from the same provider so they always agree. A version below the
+configured minimum is refused with `APP_UPGRADE_REQUIRED` (`FailureKind.upgradeRequired`);
+on QR exchange nothing is persisted and no session exists. Tests inject the
+version (`appVersion:` / `appVersionProvider`).

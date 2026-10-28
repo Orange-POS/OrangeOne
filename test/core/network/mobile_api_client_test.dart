@@ -139,6 +139,35 @@ void main() {
       expect(dio.options.headers.containsKey('Authorization'), isFalse);
     });
 
+    test(
+      'send X-App-Version on every request when a version is known',
+      () async {
+        final versioned = MobileApiClient(
+          dio,
+          const ApiConfiguration(
+            baseUrl: 'https://fallback.example',
+            environment: AppEnvironment.development,
+          ),
+          appVersion: '1.2.3',
+        );
+        await versioned.send(
+          MobileApiMethod.post,
+          '/auth/qr-exchange',
+          apiBase: Uri.parse(_apiBase),
+        );
+        await versioned.send(
+          MobileApiMethod.get,
+          '/products',
+          apiBase: Uri.parse(_apiBase),
+          accessToken: 'oa_fixture',
+        );
+        expect(
+          [for (final r in adapter.requests) r.headers['X-App-Version']],
+          ['1.2.3', '1.2.3'],
+        );
+      },
+    );
+
     test('omit optional headers and use a fresh request id per call', () async {
       await client.send(
         MobileApiMethod.get,
@@ -158,6 +187,7 @@ void main() {
         'Idempotency-Key',
         'If-Match',
         'If-None-Match',
+        'X-App-Version',
       ]) {
         expect(first.headers.containsKey(header), isFalse, reason: header);
       }

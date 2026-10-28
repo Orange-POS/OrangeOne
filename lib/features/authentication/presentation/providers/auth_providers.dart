@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
+import 'package:orange_one/core/config/app_version.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/mobile_api_client.dart';
 import 'package:orange_one/core/storage/secret_store.dart';
@@ -19,11 +20,8 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
     ref.watch(apiConfigurationProvider),
     ref.watch(utcNowProvider),
     platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-    // Set by the Flutter tool from the pubspec version.
-    appVersion: const String.fromEnvironment(
-      'FLUTTER_BUILD_NAME',
-      defaultValue: '0.0.0',
-    ),
+    // The same version the client sends as X-App-Version.
+    appVersion: ref.watch(appVersionProvider),
   );
   ref.onDispose(repository.dispose);
   return repository;
