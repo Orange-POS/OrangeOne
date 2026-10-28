@@ -77,7 +77,7 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('stock-count-input')), '50');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Update Stock'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Difference: +2 Units'), findsOneWidget);
     expect(repo.writes, 0);
@@ -107,7 +107,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('stock-count-input')), '7');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Update Stock'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();

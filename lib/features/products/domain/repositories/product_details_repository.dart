@@ -28,9 +28,14 @@ abstract interface class ProductDetailsRepository {
   Future<ProductDetails> updatePrice(ProductDetails product, ChfPrice price);
   Future<List<ProductTax>> loadTaxes();
 
-  /// Sets the absolute counted quantity at the POS stock location, guarded
-  /// by the verified product version like other updates.
-  Future<StockAdjustment> adjustStock(ProductDetails product, StockCount count);
+  /// Changes the stock at the POS stock location, guarded by the verified
+  /// product version like other updates: [StockOperation.update] sets the
+  /// counted quantity, add and remove change the stock found by the backend.
+  Future<StockAdjustment> adjustStock(
+    ProductDetails product,
+    StockCount count, {
+    StockOperation operation = StockOperation.update,
+  });
   Future<List<ProductCategory>> loadCategories();
 
   /// Creates a category (`POST /categories`); needs `category_create`.

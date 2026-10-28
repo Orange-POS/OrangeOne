@@ -347,8 +347,9 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
   @override
   Future<StockAdjustment> adjustStock(
     ProductDetails product,
-    StockCount count,
-  ) async {
+    StockCount count, {
+    StockOperation operation = StockOperation.update,
+  }) async {
     final location = product.stockLocationId;
     if (!product.stockAdjustable || location == null) {
       // Untracked, lot/serial, packaged or owner-specific stock: one
@@ -358,29 +359,46 @@ class OdooProductDetailsRepository implements ProductDetailsRepository {
         'Stock for this product cannot be counted here.',
       );
     }
-    final body = {
-      'new_quantity': count.text,
-      // Counts apply only at the POS stock location the product reports.
-      'location_id': location,
-      'reason': 'count',
-    };
+    final movement = operation.movementName;
+    // Counts apply only at the POS stock location the product reports.
+    final body = movement == null
+        ? {
+            'new_quantity': count.text,
+            'location_id': location,
+            'reason': 'count',
+          }
+        : {
+            'operation': movement,
+            'quantity': count.text,
+            'location_id': location,
+          };
     return await _update(
       product,
-      'POST /products/${product.id}/stock-adjustments',
+      movement == null
+          ? 'POST /products/${product.id}/stock-adjustments'
+          : 'POST /products/${product.id}/stock-movements',
       body,
-      (version, key) => catalog.adjustStock(
-        product.id,
-        body,
-        version: version,
-        idempotencyKey: key,
-      ),
+      (version, key) => movement == null
+          ? catalog.adjustStock(
+              product.id,
+              body,
+              version: version,
+              idempotencyKey: key,
+            )
+          : catalog.moveStock(
+              product.id,
+              body,
+              version: version,
+              idempotencyKey: key,
+            ),
       productOf: (data) =>
           data is Map<String, dynamic> ? data['product'] : null,
       result: (updated, data) => StockAdjustmentModel.parse(
         data,
         updated,
         locationId: location,
-        counted: count.quantity,
+        operation: operation,
+        amount: count.quantity,
       ),
     );
   }

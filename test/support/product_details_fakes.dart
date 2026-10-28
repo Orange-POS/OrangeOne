@@ -196,13 +196,17 @@ class FakeDetailsRepository implements ProductDetailsRepository {
   }
 
   StockCount? writtenCount;
+  StockOperation? writtenOperation;
   @override
   Future<StockAdjustment> adjustStock(
     ProductDetails current,
-    StockCount count,
-  ) async {
+    StockCount count, {
+    StockOperation operation = StockOperation.update,
+  }) async {
     writes++;
     writtenCount = count;
+    writtenOperation = operation;
+    final applied = operation.resultFor(current.stock ?? 0, count.quantity);
     writtenVersions.add(current.version);
     if (writeError != null) {
       Error.throwWithStackTrace(writeError!, StackTrace.current);
@@ -212,7 +216,8 @@ class FakeDetailsRepository implements ProductDetailsRepository {
       return StockAdjustment(
         product: written,
         previousQuantity: current.stock ?? 0,
-        newQuantity: count.quantity,
+        newQuantity: applied,
+        operation: operation,
       );
     }
     final previous = product!;
@@ -221,7 +226,7 @@ class FakeDetailsRepository implements ProductDetailsRepository {
       name: previous.name,
       barcode: previous.barcode,
       price: previous.price,
-      stock: count.quantity,
+      stock: applied,
       unit: previous.unit,
       reference: previous.reference,
       taxes: previous.taxes,
@@ -236,7 +241,8 @@ class FakeDetailsRepository implements ProductDetailsRepository {
     return StockAdjustment(
       product: product!,
       previousQuantity: previous.stock ?? 0,
-      newQuantity: count.quantity,
+      newQuantity: applied,
+      operation: operation,
     );
   }
 

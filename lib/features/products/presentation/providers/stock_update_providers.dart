@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/domain/use_cases/adjust_stock.dart';
 import 'package:orange_one/features/products/domain/use_cases/manage_product_details.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
@@ -15,6 +16,7 @@ class StockUpdateState {
   const new({
     required this.details,
     this.draft = '',
+    this.operation = StockOperation.update,
     this.phase = StockUpdatePhase.editing,
     this.fieldError,
     this.message,
@@ -22,8 +24,13 @@ class StockUpdateState {
   });
   final ProductDetailsState details;
   final String draft;
+
+  /// Update (count), Add or Remove.
+  final StockOperation operation;
   final StockUpdatePhase phase;
-  final String? fieldError;
+
+  /// Why the entered quantity cannot be submitted (null while valid/empty).
+  final StockInputException? fieldError;
   final String? message;
 
   /// The on-hand quantity before the confirmed adjustment.
@@ -42,6 +49,22 @@ class StockUpdateState {
       permitted &&
       draft.trim().isNotEmpty &&
       fieldError == null;
+
+  /// The stock after the entered quantity, for the live preview. Null until
+  /// the quantity is valid. It is only a preview: the backend result decides.
+  double? get previewStock {
+    final product = details.product;
+    if (!permitted || draft.trim().isEmpty || fieldError != null) return null;
+    try {
+      final count = StockCount.parse(
+        draft,
+        maxDecimals: product!.quantityDecimals,
+      );
+      return operation.resultFor(product.stock!, count.quantity);
+    } on FormatException {
+      return null;
+    }
+  }
 }
 
 final AsyncNotifierProviderFamily<
@@ -72,35 +95,52 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
     return StockUpdateState(details: details);
   }
 
-  void changeQuantity(String raw) {
+  /// The state while the quantity can be edited (not saving, saved or unsure).
+  StockUpdateState? get _editable {
     final current = state.value;
     if (state.isLoading ||
         current == null ||
         current.busy ||
         current.phase == StockUpdatePhase.saved ||
         current.phase == StockUpdatePhase.uncertain) {
-      return;
+      return null;
     }
-    state = AsyncData(_editing(current.details, raw));
+    return current;
+  }
+
+  void changeQuantity(String raw) {
+    final current = _editable;
+    if (current == null) return;
+    state = AsyncData(_editing(current.details, raw, current.operation));
+  }
+
+  /// Switches between Update, Add and Remove. The entered quantity is kept
+  /// and checked again for the new operation.
+  void changeOperation(StockOperation operation) {
+    final current = _editable;
+    if (current == null || current.operation == operation) return;
+    state = AsyncData(_editing(current.details, current.draft, operation));
   }
 
   StockUpdateState _editing(
     ProductDetailsState details,
-    String draft, {
+    String draft,
+    StockOperation operation, {
     String? message,
   }) {
-    String? error;
+    StockInputException? error;
     if (draft.trim().isNotEmpty && details.product != null) {
       try {
         AdjustStock(ref.read(productDetailsRepositoryProvider))
-            .validate(draft, details.product!);
-      } on FormatException catch (failure) {
-        error = failure.message;
+            .validate(draft, details.product!, operation: operation);
+      } on StockInputException catch (failure) {
+        error = failure;
       }
     }
     return StockUpdateState(
       details: details,
       draft: draft,
+      operation: operation,
       fieldError: error,
       message: message,
     );
@@ -113,7 +153,8 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
     return StockCountConfirmation(
       product: product,
       count: AdjustStock(ref.read(productDetailsRepositoryProvider))
-          .validate(current.draft, product),
+          .validate(current.draft, product, operation: current.operation),
+      operation: current.operation,
     );
   }
 
@@ -124,6 +165,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
     if (proposed == null ||
         proposed.product.id != confirmation.product.id ||
         proposed.product.stock != confirmation.product.stock ||
+        proposed.operation != confirmation.operation ||
         proposed.count.text != confirmation.count.text) {
       return;
     }
@@ -135,6 +177,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
       StockUpdateState(
         details: details,
         draft: current.draft,
+        operation: current.operation,
         phase: StockUpdatePhase.saving,
       ),
     );
@@ -149,6 +192,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
           _editing(
             details,
             current.draft,
+            current.operation,
             message: product == null
                 ? 'Product is no longer available.'
                 : !details.access.adjustStock
@@ -164,6 +208,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
           _editing(
             details,
             current.draft,
+            current.operation,
             message:
                 'The stock changed. Review the current quantity '
                 'and confirm again.',
@@ -174,19 +219,24 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
       writeStarted = true;
       // The freshly verified version guards the write (If-Match).
       final adjustment = await AdjustStock(repository)(
-        StockCountConfirmation(product: product, count: confirmation.count),
+        StockCountConfirmation(
+          product: product,
+          count: confirmation.count,
+          operation: confirmation.operation,
+        ),
       );
       if (!ref.mounted || generation != _generation) return;
       final updated = adjustment.product;
       if (updated.id != product.id ||
           updated.barcode != barcode ||
-          updated.stock != confirmation.count.quantity) {
+          updated.stock != adjustment.newQuantity) {
         throw invalidResponse;
       }
       state = AsyncData(
         StockUpdateState(
           details: ProductDetailsState(updated, details.access),
           draft: confirmation.count.text,
+          operation: confirmation.operation,
           phase: StockUpdatePhase.saved,
           previousQuantity: adjustment.previousQuantity,
         ),
@@ -200,7 +250,12 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
           final latest = await ManageProductDetails(repository).load(barcode);
           if (!ref.mounted || generation != _generation) return;
           state = AsyncData(
-            _editing(latest, current.draft, message: error.message),
+            _editing(
+              latest,
+              current.draft,
+              current.operation,
+              message: error.message,
+            ),
           );
           ref.invalidate(productDetailsControllerProvider(barcode));
           return;
@@ -224,6 +279,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
           StockUpdateState(
             details: details,
             draft: current.draft,
+            operation: current.operation,
             phase: StockUpdatePhase.uncertain,
             message:
                 'The stock update could not be confirmed. Check the current '
@@ -235,6 +291,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
           _editing(
             details,
             current.draft,
+            current.operation,
             message: error is AppFailure
                 ? error.message
                 : error is FormatException
@@ -271,6 +328,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
       StockUpdateState(
         details: current.details,
         draft: current.draft,
+        operation: current.operation,
         phase: StockUpdatePhase.checking,
       ),
     );
@@ -281,6 +339,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
         _editing(
           details,
           current.draft,
+          current.operation,
           message: 'Current stock refreshed. Review before updating.',
         ),
       );
@@ -291,6 +350,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
         StockUpdateState(
           details: current.details,
           draft: current.draft,
+          operation: current.operation,
           phase: current.phase == StockUpdatePhase.uncertain
               ? StockUpdatePhase.uncertain
               : StockUpdatePhase.editing,

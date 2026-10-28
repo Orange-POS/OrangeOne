@@ -40,4 +40,37 @@ void main() {
     expect(StockCount.parse('2.000', maxDecimals: 0).quantity, 2);
     expect(StockCount.parse('1.123456').quantity, 1.123456);
   });
+
+  group('operations', () {
+    test('the result follows the operation', () {
+      expect(StockOperation.update.resultFor(150, 40), 40);
+      expect(StockOperation.add.resultFor(150, 40), 190);
+      expect(StockOperation.remove.resultFor(150, 40), 110);
+      expect(StockOperation.add.resultFor(150.1, 40.2), 190.3);
+      expect(StockOperation.remove.resultFor(0.3, 0.1), 0.2);
+    });
+
+    test('only add and remove are stock movements', () {
+      expect(StockOperation.update.movementName, isNull);
+      expect(StockOperation.add.movementName, 'add');
+      expect(StockOperation.remove.movementName, 'remove');
+    });
+
+    test('rejections carry a localizable reason', () {
+      StockInputException reason(String raw, {int? decimals}) {
+        try {
+          StockCount.parse(raw, maxDecimals: decimals);
+        } on StockInputException catch (error) {
+          return error;
+        }
+        fail('accepted $raw');
+      }
+
+      expect(reason('x').issue, StockInputIssue.invalid);
+      expect(reason('1.5', decimals: 0).issue, StockInputIssue.wholeNumber);
+      final decimals = reason('1.234', decimals: 2);
+      expect(decimals.issue, StockInputIssue.decimals);
+      expect(decimals.decimals, 2);
+    });
+  });
 }

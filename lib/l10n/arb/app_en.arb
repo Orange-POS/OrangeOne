@@ -650,6 +650,163 @@
   "@stockNotSet": {
     "description": "Stock that was never set (not zero)"
   },
+  "stockOperationsLabel": "Stock operation",
+  "@stockOperationsLabel": {
+    "description": "Accessibility label of the Update, Add and Remove selector"
+  },
+  "stockOperationUpdate": "Update",
+  "@stockOperationUpdate": {
+    "description": "Stock operation: replace the stock with the counted quantity"
+  },
+  "stockOperationAdd": "Add",
+  "@stockOperationAdd": {
+    "description": "Stock operation: increase the stock"
+  },
+  "stockOperationRemove": "Remove",
+  "@stockOperationRemove": {
+    "description": "Stock operation: decrease the stock"
+  },
+  "stockAddLabel": "Quantity to add",
+  "@stockAddLabel": {
+    "description": "Quantity field label in Add mode"
+  },
+  "stockRemoveLabel": "Quantity to remove",
+  "@stockRemoveLabel": {
+    "description": "Quantity field label in Remove mode"
+  },
+  "stockAddHint": "Enter the quantity to add",
+  "@stockAddHint": {
+    "description": "Quantity field hint in Add mode"
+  },
+  "stockRemoveHint": "Enter the quantity to remove",
+  "@stockRemoveHint": {
+    "description": "Quantity field hint in Remove mode"
+  },
+  "stockAddHelper": "Increases the current stock.",
+  "@stockAddHelper": {
+    "description": "Helper text in Add mode"
+  },
+  "stockRemoveHelper": "Decreases the current stock. It cannot go below zero.",
+  "@stockRemoveHelper": {
+    "description": "Helper text in Remove mode"
+  },
+  "stockPreviewUpdate": "New stock: {result}",
+  "@stockPreviewUpdate": {
+    "description": "Preview of the stock after an update",
+    "placeholders": {
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "stockPreviewAdd": "{current} + {amount} = {result}",
+  "@stockPreviewAdd": {
+    "description": "Preview of the stock after adding, for example 150 + 40 = 190 Units",
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "stockPreviewRemove": "{current} − {amount} = {result}",
+  "@stockPreviewRemove": {
+    "description": "Preview of the stock after removing, for example 150 - 40 = 110 Units",
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "stockErrorInvalid": "Enter a valid number.",
+  "@stockErrorInvalid": {
+    "description": "The quantity is not a valid number"
+  },
+  "stockErrorWhole": "Enter a whole number for this unit.",
+  "@stockErrorWhole": {
+    "description": "The unit only allows whole numbers"
+  },
+  "stockErrorDecimals": "Use at most {decimals} decimal places for this unit.",
+  "@stockErrorDecimals": {
+    "description": "The quantity has too many decimals",
+    "placeholders": {
+      "decimals": {
+        "type": "int"
+      }
+    }
+  },
+  "stockErrorZero": "Enter a quantity greater than zero.",
+  "@stockErrorZero": {
+    "description": "Add and Remove need a quantity above zero"
+  },
+  "stockErrorExceeds": "You cannot remove more than the current stock ({current}).",
+  "@stockErrorExceeds": {
+    "description": "Remove would take the stock below zero",
+    "placeholders": {
+      "current": {
+        "type": "String"
+      }
+    }
+  },
+  "stockActionUpdate": "Update Stock",
+  "@stockActionUpdate": {
+    "description": "Action button in Update mode"
+  },
+  "stockActionAdd": "Add Stock",
+  "@stockActionAdd": {
+    "description": "Action button in Add mode"
+  },
+  "stockActionRemove": "Remove Stock",
+  "@stockActionRemove": {
+    "description": "Action button in Remove mode"
+  },
+  "stockConfirmAddMessage": "{name}\n\nCurrent stock: {current}\nAdd: {amount}\nNew stock: {result}\n\nAdd this stock?",
+  "@stockConfirmAddMessage": {
+    "description": "Body of the confirmation popup when adding stock",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "stockConfirmRemoveMessage": "{name}\n\nCurrent stock: {current}\nRemove: {amount}\nNew stock: {result}\n\nRemove this stock?",
+  "@stockConfirmRemoveMessage": {
+    "description": "Body of the confirmation popup when removing stock",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "result": {
+        "type": "String"
+      }
+    }
+  },
   "createTitle": "Create New Product",
   "@createTitle": {
     "description": "Title of the product creation screen"

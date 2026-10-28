@@ -42,6 +42,7 @@ fallback). Server messages up to 500 characters are shown; traces never are.
 | Edit | `PATCH /products/{id}` | Only changed `name`, `tax_ids`, `category_id` (null removes) |
 | Price | `PUT /products/{id}/price` | `list_price` decimal string |
 | Stock count | `POST /products/{id}/stock-adjustments` | Absolute `new_quantity`, POS `location_id`, `reason: count` |
+| Stock add / remove | `POST /products/{id}/stock-movements` | `operation: add\|remove`, `quantity` above zero, POS `location_id`; reply `{product, movement}`; same `stock_adjust` permission, `If-Match` and `Idempotency-Key` |
 | Tax / category pickers | `GET /taxes`, `GET /categories` | Categories: first page of 100; `default_tax_ids` seeds a new product's tax |
 | Create category | `POST /categories` | `{name}` with `Idempotency-Key`; needs `category_create`; the created category is selected in the form |
 | Offline sync | `GET /products/changes` | `since`, `limit`; see [offline data](offline-data.md) |

@@ -141,6 +141,22 @@ class ProductCatalogRemoteDataSource {
     cancelToken: cancelToken,
   );
 
+  /// `POST /products/{id}/stock-movements` guarded by the product JSON
+  /// [version]: adds to or removes from the stock at the POS stock location.
+  Future<MobileApiResponse> moveStock(
+    int id,
+    Map<String, dynamic> body, {
+    required String version,
+    required String idempotencyKey,
+  }) => _api.send(
+    MobileApiMethod.post,
+    '/products/$id/stock-movements',
+    body: body,
+    ifMatchVersion: version,
+    idempotencyKey: idempotencyKey,
+    cancelToken: cancelToken,
+  );
+
   /// `GET /products/changes`: changed and removed readable products since
   /// a position (`next_since` or an RFC 3339 time).
   Future<MobileApiResponse> changes(String since, {int limit = 100}) =>

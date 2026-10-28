@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
 
@@ -130,6 +131,100 @@ void main() {
     repo.writeError = null;
     await controller().refresh();
     expect(value().phase, StockUpdatePhase.editing);
+    expect(repo.writes, 1);
+  });
+
+  test('add and remove keep the quantity and change the preview', () {
+    controller().changeQuantity('10');
+    expect(value().operation, StockOperation.update);
+    expect(value().previewStock, 10);
+    controller().changeOperation(StockOperation.add);
+    expect(value().draft, '10');
+    expect(value().previewStock, 58);
+    controller().changeOperation(StockOperation.remove);
+    expect(value().previewStock, 38);
+    controller().changeQuantity('49');
+    expect(value().fieldError?.issue, StockInputIssue.exceedsStock);
+    expect(value().previewStock, isNull);
+    expect(controller().confirmation(), isNull);
+    controller().changeQuantity('0');
+    expect(value().fieldError?.issue, StockInputIssue.zero);
+    controller().changeOperation(StockOperation.update);
+    expect(value().fieldError, isNull, reason: 'a count of zero is valid');
+    expect(controller().confirmation(), isNotNull);
+  });
+
+  for (final (operation, expected) in [
+    (StockOperation.add, 58.0),
+    (StockOperation.remove, 38.0),
+  ]) {
+    test('${operation.name} is written with the fresh version', () async {
+      controller()
+        ..changeOperation(operation)
+        ..changeQuantity('10');
+      final confirmed = controller().confirmation()!;
+      expect(confirmed.operation, operation);
+      expect(confirmed.expectedStock, expected);
+      await controller().save(confirmed);
+      expect(repo.writtenOperation, operation);
+      expect(repo.writtenCount?.text, '10');
+      expect(repo.writtenVersions, ['3']);
+      expect(value().phase, StockUpdatePhase.saved);
+      expect(value().details.product?.stock, expected);
+      expect(value().previousQuantity, 48);
+      expect(value().operation, operation);
+    });
+  }
+
+  test('the operation cannot change while saving or after success', () async {
+    repo.pendingWrite = Completer<ProductDetails>();
+    controller()
+      ..changeOperation(StockOperation.add)
+      ..changeQuantity('2');
+    final confirmed = controller().confirmation()!;
+    final saving = controller().save(confirmed);
+    await Future<void>.delayed(Duration.zero);
+    controller().changeOperation(StockOperation.remove);
+    expect(value().operation, StockOperation.add);
+    repo.pendingWrite!.complete(_with(stock: 50));
+    await saving;
+    controller().changeOperation(StockOperation.remove);
+    expect(value().operation, StockOperation.add);
+    expect(repo.writes, 1);
+  });
+
+  test('a stale confirmation of another mode is not written', () async {
+    controller()
+      ..changeOperation(StockOperation.add)
+      ..changeQuantity('2');
+    final confirmed = controller().confirmation()!;
+    controller().changeOperation(StockOperation.remove);
+    await controller().save(confirmed);
+    expect(repo.writes, 0);
+  });
+
+  test('a removal above the stock found on save is not sent', () async {
+    controller()
+      ..changeOperation(StockOperation.remove)
+      ..changeQuantity('40');
+    final confirmed = controller().confirmation()!;
+    repo.product = _with(stock: 30);
+    await controller().save(confirmed);
+    expect(repo.writes, 0);
+    expect(value().fieldError?.issue, StockInputIssue.exceedsStock);
+    expect(value().canSubmit, isFalse);
+  });
+
+  test('a lost add acknowledgement blocks a repeat until a check', () async {
+    controller()
+      ..changeOperation(StockOperation.add)
+      ..changeQuantity('5');
+    final confirmed = controller().confirmation()!;
+    repo.writeError = const AppFailure(FailureKind.network, 'Offline.');
+    await controller().save(confirmed);
+    expect(value().phase, StockUpdatePhase.uncertain);
+    expect(value().operation, StockOperation.add);
+    expect(value().canSubmit, isFalse);
     expect(repo.writes, 1);
   });
 

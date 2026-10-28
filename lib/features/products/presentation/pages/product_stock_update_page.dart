@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
@@ -14,10 +15,12 @@ import 'package:orange_one/features/products/presentation/widgets/product_navbar
 import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/stock_count_form.dart';
+import 'package:orange_one/features/products/presentation/widgets/stock_operation_selector.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
-/// Sets the counted on-hand quantity, following the Update Price layout.
+/// Updates, adds to or removes from the on-hand stock, following the Update
+/// Price layout.
 class ProductStockUpdatePage extends ConsumerStatefulWidget {
   const new({required this.barcode, super.key});
   final String barcode;
@@ -180,7 +183,11 @@ class _ProductStockUpdatePageState
                           : l10n.commonUpdating
                     : uncertain
                     ? l10n.stockCheckCurrent
-                    : l10n.commonSaveChanges,
+                    : switch (view?.operation ?? StockOperation.update) {
+                        StockOperation.update => l10n.stockActionUpdate,
+                        StockOperation.add => l10n.stockActionAdd,
+                        StockOperation.remove => l10n.stockActionRemove,
+                      },
               ),
             ),
           ),
@@ -256,6 +263,17 @@ class _ProductStockUpdatePageState
                                   ),
                           ),
                           const Divider(color: Color(0xFFDADCE0), height: 24),
+                          StockOperationSelector(
+                            selected: value.operation,
+                            onChanged: ref
+                                .read(provider.notifier)
+                                .changeOperation,
+                            enabled:
+                                value.permitted &&
+                                !value.busy &&
+                                value.phase == StockUpdatePhase.editing,
+                          ),
+                          const Divider(color: Color(0xFFDADCE0), height: 24),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -271,8 +289,11 @@ class _ProductStockUpdatePageState
                                   value.permitted &&
                                   !value.busy &&
                                   value.phase == StockUpdatePhase.editing,
+                              operation: value.operation,
                               unit: current.unit,
                               error: value.fieldError,
+                              current: current.stock,
+                              preview: value.previewStock,
                             ),
                           ),
                           if (!value.permitted)

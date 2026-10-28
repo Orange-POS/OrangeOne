@@ -704,6 +704,233 @@ void main() {
       });
     }
   });
+
+  group('stock movements', () {
+    const move = 'POST /products/10/stock-movements';
+    Map<String, dynamic> moved(
+      String operation,
+      String quantity, {
+      required String result,
+      String previous = '48',
+      int location = 8,
+    }) => {
+      'product': v2Product(quantity: result, version: '4'),
+      'movement': {
+        'id': 41,
+        'operation': operation,
+        'quantity': quantity,
+        'previous_quantity': previous,
+        'new_quantity': result,
+        'difference': '0',
+        'location_id': location,
+        'move_id': 78,
+        'applied_at': '2026-10-27T08:00:00Z',
+      },
+    };
+
+    for (final (operation, name, result) in [
+      (StockOperation.add, 'add', '58'),
+      (StockOperation.remove, 'remove', '38'),
+    ]) {
+      test('$name sends the quantity, the version and a key', () async {
+        server.on(
+          move,
+          (_) => FakeReply(
+            201,
+            successEnvelope(moved(name, '10', result: result)),
+          ),
+        );
+        final product = await loaded();
+        final applied = await repo.adjustStock(
+          product,
+          StockCount.parse('10', maxDecimals: 2),
+          operation: operation,
+        );
+        // The backend result is shown, not a client-side calculation.
+        expect(applied.product.stock, double.parse(result));
+        expect(applied.newQuantity, double.parse(result));
+        expect(applied.previousQuantity, 48);
+        expect(applied.operation, operation);
+        final request = server.called(move).single;
+        expect(requestBody(request), {
+          'operation': name,
+          'quantity': '10',
+          'location_id': 8,
+        });
+        expect(request.headers['If-Match'], '"3"');
+        expect(request.headers['Idempotency-Key'], matches(_uuid));
+        expect(server.called('POST /products/10/stock-adjustments'), isEmpty);
+      });
+    }
+
+    test('the server result wins over the client preview', () async {
+      // Stock changed meanwhile on the server: 48 + 10 is not 62.
+      server.on(
+        move,
+        (_) => FakeReply(
+          201,
+          successEnvelope(moved('add', '10', previous: '52', result: '62')),
+        ),
+      );
+      final applied = await repo.adjustStock(
+        await loaded(),
+        StockCount.parse('10'),
+        operation: StockOperation.add,
+      );
+      expect(applied.newQuantity, 62);
+      expect(applied.previousQuantity, 52);
+    });
+
+    test('a version conflict is typed and never retried', () async {
+      server.on(move, (_) => FakeReply(412, errorEnvelope('VERSION_CONFLICT')));
+      await expectLater(
+        repo.adjustStock(
+          await loaded(),
+          StockCount.parse('1'),
+          operation: StockOperation.remove,
+        ),
+        _kind(FailureKind.conflict),
+      );
+      expect(server.called(move), hasLength(1));
+    });
+
+    test('permission and business rules stay typed', () async {
+      final product = await loaded();
+      server.on(
+        move,
+        (_) => FakeReply(403, errorEnvelope('PERMISSION_DENIED')),
+      );
+      await expectLater(
+        repo.adjustStock(
+          product,
+          StockCount.parse('1'),
+          operation: StockOperation.add,
+        ),
+        _kind(FailureKind.forbidden),
+      );
+      server.on(
+        move,
+        (_) => FakeReply(422, errorEnvelope('BUSINESS_RULE_VIOLATION')),
+      );
+      await expectLater(
+        repo.adjustStock(
+          product,
+          StockCount.parse('1'),
+          operation: StockOperation.remove,
+        ),
+        _kind(FailureKind.validation),
+      );
+      expect(signOuts, 0);
+    });
+
+    test(
+      'an uncertain write reuses its key; another quantity does not',
+      () async {
+        final product = await loaded();
+        server.on(
+          move,
+          (r) => throw DioException(
+            requestOptions: r,
+            type: DioExceptionType.connectionError,
+          ),
+        );
+        await expectLater(
+          repo.adjustStock(
+            product,
+            StockCount.parse('5'),
+            operation: StockOperation.add,
+          ),
+          _kind(FailureKind.network),
+        );
+        server.on(
+          move,
+          (r) =>
+              FakeReply(201, successEnvelope(moved('add', '5', result: '53'))),
+        );
+        await repo.adjustStock(
+          product,
+          StockCount.parse('5'),
+          operation: StockOperation.add,
+        );
+        server.on(
+          move,
+          (r) =>
+              FakeReply(201, successEnvelope(moved('add', '6', result: '54'))),
+        );
+        await repo.adjustStock(
+          product,
+          StockCount.parse('6'),
+          operation: StockOperation.add,
+        );
+        // Add and Remove of the same quantity are different intents too.
+        final keys = [
+          for (final r in server.called(move)) r.headers['Idempotency-Key'],
+        ];
+        expect(keys[1], keys[0]);
+        expect(keys[2], isNot(keys[0]));
+      },
+    );
+
+    test('non-adjustable stock is never sent', () async {
+      server.on(
+        scan,
+        (_) => FakeReply(
+          200,
+          successEnvelope({
+            ...v2Product(),
+            'stock': {
+              'tracked': true,
+              'quantity': '48',
+              'uom': {'id': 1, 'name': 'Units', 'rounding': '1'},
+              'location_id': 8,
+              'adjustable': false,
+            },
+          }),
+        ),
+      );
+      await expectLater(
+        repo.adjustStock(
+          await loaded(),
+          StockCount.parse('5'),
+          operation: StockOperation.add,
+        ),
+        _kind(FailureKind.validation),
+      );
+      expect(server.called(move), isEmpty);
+    });
+
+    for (final (label, data) in [
+      ('other operation', moved('remove', '10', result: '38')),
+      ('other quantity', moved('add', '11', result: '59')),
+      ('other location', moved('add', '10', result: '58', location: 9)),
+      ('inconsistent result', moved('add', '10', result: '60')),
+      ('negative result', moved('add', '10', previous: '-20', result: '-10')),
+      (
+        'count answer',
+        {
+          'product': v2Product(quantity: '58', version: '4'),
+          'adjustment': {
+            'id': 1,
+            'previous_quantity': '48',
+            'new_quantity': '58',
+          },
+        },
+      ),
+      ('product only', v2Product(quantity: '58')),
+    ]) {
+      test('a mismatched acknowledgement is never success ($label)', () async {
+        server.on(move, (_) => FakeReply(201, successEnvelope(data)));
+        await expectLater(
+          repo.adjustStock(
+            await loaded(),
+            StockCount.parse('10'),
+            operation: StockOperation.add,
+          ),
+          _kind(FailureKind.protocol),
+        );
+      });
+    }
+  });
 }
 
 final _uuid = RegExp(

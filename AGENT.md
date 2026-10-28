@@ -132,3 +132,9 @@ Product Details (`productSuccessProvider`), category select/create
 (`POST /categories`), default tax from `default_tax_ids`, optional price/stock
 (empty stock = Not Set). No backend product name in UI text; "Powered By" only on
 Login Home. See docs/product-edit.md and docs/product-creation.md.
+
+Update Stock has an Update (absolute count, `stock-adjustments`), Add and Remove
+(`stock-movements`, `operation: add|remove`) selector with per-mode label, helper
+and action button, and a live preview that is never authoritative (the backend
+reply is). Add/Remove need a quantity above zero; Remove cannot exceed the stock.
+See docs/product-stock-update.md.

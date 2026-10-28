@@ -87,7 +87,10 @@ void main() {
             l10n.stockTitle,
             l10n.stockCountedLabel,
             l10n.stockCurrentLabel,
-            l10n.commonSaveChanges,
+            l10n.stockActionUpdate,
+            l10n.stockOperationUpdate,
+            l10n.stockOperationAdd,
+            l10n.stockOperationRemove,
           ],
         ),
       ];
