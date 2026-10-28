@@ -124,8 +124,8 @@ void main() {
     // Success returns to Product Details with the success toast.
     expect(find.text('details 0010101010'), findsOneWidget);
     final success = pendingSuccess(tester)!;
-    expect(success.title, 'Name & Tax Updated Successfully');
-    expect(success.message, contains('Aachi 100g'));
+    expect(success.title, 'Product name and tax updated successfully');
+    expect(success.message, 'New name: Aachi 100g · Tax: VAT (15%)');
     expect(tester.takeException(), isNull);
   });
   testWidgets('tax sheet dismissal does not remove current assignments', (
@@ -233,7 +233,8 @@ void main() {
     await tester.pumpAndSettle();
     await saveAndConfirm(tester);
     expect(repo.writtenCategory?.id, 5);
-    expect(pendingSuccess(tester)?.title, 'Name & Tax Updated Successfully');
+    expect(pendingSuccess(tester)?.title, 'Category updated successfully');
+    expect(pendingSuccess(tester)?.message, 'Category: Drinks');
   });
 
   testWidgets('a category added in the picker is selected for the product', (

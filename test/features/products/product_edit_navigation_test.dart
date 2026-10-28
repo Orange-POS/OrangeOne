@@ -74,7 +74,7 @@ void main() {
       expect(find.text('Aachi 100g'), findsWidgets);
       final toast = find.byKey(const Key('product-success-toast'));
       expect(toast, findsOneWidget);
-      expect(find.text('Name & Tax Updated Successfully'), findsOneWidget);
+      expect(find.text('Product name updated successfully'), findsOneWidget);
       expect(
         tester.getBottomLeft(toast).dy,
         lessThanOrEqualTo(

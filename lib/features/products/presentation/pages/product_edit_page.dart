@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/features/products/presentation/product_success_text.dart';
 import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
@@ -168,15 +169,14 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
     final l10n = context.l10n;
     final product = view.details.product;
     if (product == null) return;
+    // Only the fields that were actually changed and saved are announced.
+    final text = editSuccessText(l10n, product, view.savedFields);
     ref
         .read(productSuccessProvider.notifier)
         .show(
           barcode: widget.barcode,
-          title: l10n.editSuccessTitle,
-          message: l10n.editSuccessMessage(
-            product.name,
-            localizedTaxText(l10n, product),
-          ),
+          title: text.title,
+          message: text.message,
         );
     _leave(true);
   }

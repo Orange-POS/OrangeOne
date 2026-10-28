@@ -13,6 +13,9 @@ import 'package:orange_one/features/products/presentation/providers/product_deta
 
 enum ProductEditPhase { editing, saving, checking, saved, uncertain }
 
+/// A product field the edit screen can change.
+enum ProductEditField { name, tax, category }
+
 class ProductEditState {
   const new({
     required this.details,
@@ -27,9 +30,14 @@ class ProductEditState {
     this.nameError,
     this.message,
     this.phase = ProductEditPhase.editing,
+    this.savedFields = const {},
   });
   final ProductDetailsState details;
   final String name;
+
+  /// The fields that were changed and confirmed saved ([phase] saved); the
+  /// success toast mentions only these.
+  final Set<ProductEditField> savedFields;
   final List<ProductTax> taxes;
   final List<ProductCategory> categories;
 
@@ -54,10 +62,14 @@ class ProductEditState {
       canEdit && details.access.updateTaxes && taxMessage == null;
   bool get canSelectCategory =>
       canEdit && details.access.updateCategory && categoryMessage == null;
-  bool get changed =>
-      name.trim() != details.product?.name ||
-      selectedTaxIds != null ||
-      selectedCategory != null;
+
+  /// The fields the draft changes compared with the product.
+  Set<ProductEditField> get changedFields => {
+    if (name.trim() != details.product?.name) ProductEditField.name,
+    if (selectedTaxIds != null) ProductEditField.tax,
+    if (selectedCategory != null) ProductEditField.category,
+  };
+  bool get changed => changedFields.isNotEmpty;
   bool get canSubmit =>
       canEdit &&
       (selectedTaxIds == null || canSelectTax) &&
@@ -426,6 +438,8 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
           taxes: taxes,
           categories: categories,
           phase: ProductEditPhase.saved,
+          // Only what was changed and confirmed by the backend reply above.
+          savedFields: current.changedFields,
         ),
       );
       ref.invalidate(productDetailsControllerProvider(barcode));

@@ -475,18 +475,38 @@
       }
     }
   },
-  "editSuccessTitle": "Name & Tax Updated Successfully",
-  "@editSuccessTitle": {
-    "description": "Success toast title after editing"
-  },
-  "editSuccessMessage": "New name: {name} · Tax: {tax}",
-  "@editSuccessMessage": {
-    "description": "Success toast text after editing",
+  "editSuccessTitle": "{fields, select, name{Product name updated successfully} tax{Tax updated successfully} category{Category updated successfully} nameTax{Product name and tax updated successfully} nameCategory{Product name and category updated successfully} taxCategory{Tax and category updated successfully} nameTaxCategory{Product name, tax and category updated successfully} other{Product updated successfully}}",
+  "editSuccessName": "New name: {name}",
+  "@editSuccessName": {
+    "description": "Success toast text after editing: the new product name",
     "placeholders": {
       "name": {
         "type": "String"
-      },
+      }
+    }
+  },
+  "editSuccessTax": "Tax: {tax}",
+  "@editSuccessTax": {
+    "description": "Success toast text after editing: the tax",
+    "placeholders": {
       "tax": {
+        "type": "String"
+      }
+    }
+  },
+  "editSuccessCategory": "Category: {category}",
+  "@editSuccessCategory": {
+    "description": "Success toast text after editing: the category",
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "@editSuccessTitle": {
+    "description": "Success toast title after editing; fields lists only the fields that were changed and saved (name, tax, category and their combinations)",
+    "placeholders": {
+      "fields": {
         "type": "String"
       }
     }

@@ -110,8 +110,19 @@ All four screens follow one flow and one set of components:
   Product Details (`pop`, or `pushReplacement` after creation) and the success
   toast (`ProductSuccessToast`, the existing success notice design, fed by
   `productSuccessProvider`) appears above the Open Scanner button for a few
-  seconds. On failure the form stays with its entries and shows the error.
-  Duplicate submissions stay blocked and the busy button stays orange.
+  seconds. On failure the form stays with its entries, shows the error and
+  never announces success. Duplicate submissions stay blocked and the busy
+  button stays orange.
+- **Success texts.** A success names only what was changed *and* confirmed by
+  the backend reply. Edit Name & Tax records the changed fields in
+  `ProductEditState.savedFields` (`ProductEditField` name/tax/category) and
+  `editSuccessText` (`product_success_text.dart`) builds the localized title
+  and text from them: *Product name updated successfully* (text `New name: X`),
+  *Tax updated successfully*, *Category updated successfully*, or the
+  combination such as *Product name and tax updated successfully*. Unchanged
+  fields are never mentioned. Price, Stock and Creation announce the value they
+  set (new price, previous and new stock, the created product). Tests:
+  `test/features/products/product_notifications_test.dart`.
 - **Categories.** The category picker offers every category and, with the
   `category_create` permission, an add row (`POST /categories`, idempotent).
   A created category is added to the list and selected for the current form.
