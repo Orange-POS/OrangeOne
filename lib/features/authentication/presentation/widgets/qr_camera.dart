@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:orange_one/l10n/camera_messages.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/widgets/code_camera.dart';
 
 typedef QrCameraBuilder = Widget Function(
@@ -22,12 +24,15 @@ class QrCamera extends StatelessWidget {
   final ValueChanged<String> onStatus;
 
   @override
-  Widget build(BuildContext context) => CodeCamera(
-    onCode: onCode,
-    onStatus: onStatus,
-    formats: const [BarcodeFormat.qrCode],
-    instructions:
-        'Allow camera access to scan the QR code on your POS machine.',
-    readyMessage: 'Camera on · Looking for QR code…',
-  );
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return CodeCamera(
+      onCode: onCode,
+      onStatus: onStatus,
+      formats: const [BarcodeFormat.qrCode],
+      instructions: l10n.cameraAllowInstructions,
+      readyMessage: l10n.cameraReady,
+      messages: l10n.cameraMessages,
+    );
+  }
 }

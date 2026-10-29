@@ -7,58 +7,37 @@ It does not implement inventory actions or product-barcode scanning. `/home` is 
 minimal signed-in destination with sign-out, not a completed inventory dashboard.
 The earlier initialization page remains at `/diagnostics/initialization`.
 
-## Confirmed backend sources
+## Backend contract (Mobile API v2)
 
-The implementation follows the supplied `mupi_mobile_auth/controllers/mobile_auth.py`,
-`models/mobile_auth_challenge.py`, `models/mobile_auth_token.py`, their contract
-tests, and the POS QR popup. The backend files are reference sources and were not
-changed. Their Odoo runtime tests require an Odoo installation and were not run
-by the Flutter test suite.
+Login and sessions follow the OrangeONE Mobile API v2 (`openapi.yaml` of the
+`mupi_mobile_auth` addon, Orange-POS/odoo_addons PR #192); see
+[Mobile API v2 integration](mobile-api-v2.md). The legacy JSON-RPC challenge and
+token-check routes are no longer used.
 
-1. An authenticated POS user creates a challenge through the POS application.
-   The mobile app does **not** call the `auth="user"` challenge-creation route.
-2. The POS QR is a JSON object containing `challenge`, `nonce`, `pos_session_id`,
-   `pos_config_id`, `backend_url`, `rest_endpoint_url` and UTC `expires_at`.
-   The source generates challenge/nonce with `secrets.token_urlsafe(32)` (43 URL-safe
-   characters each). It has no version field. Explicit unknown versions are rejected.
-3. The client rejects empty/oversized (>8192 characters), malformed, expired,
-   unsupported server addresses or mismatched-endpoint QR payloads before IO.
-   IDs must be positive integers; timestamps must be real, timezone-qualified dates.
-4. POST `/mupi/mobile/auth/challenge/validate` uses the following JSON-RPC envelope:
-
-   ```json
-   {
-     "jsonrpc": "2.0",
-     "method": "call",
-     "params": {
-       "challenge": "<POS challenge>",
-       "nonce": "<POS nonce>",
-       "pos_session_id": 106,
-       "pos_config_id": 1,
-       "device_name": "OrangeONE mobile"
-     },
-     "id": 1
-   }
-   ```
-
-   The endpoint path is fixed in the data layer. A scanned URL is never used as
-   an arbitrary request destination. The request ID increments per client, and
-   response IDs must match. HTTP failures, JSON-RPC `error`, and `result.ok=false`
-   are handled separately. Response payloads/headers are not logged.
-5. Successful results require `access_token`, `token_type="Bearer"`, `expires_at`,
-   `token_id`, `user_id`, `pos_session_id`, `pos_config_id`, `company_id`.
-   `employee_id` can be absent, null or false. Required fields/types are checked;
-   returned POS identifiers must match the scanned challenge. Transport models map
-   snake_case fields to a domain `AuthSession` without exposing JSON in widgets.
-6. Backend token timestamps use Odoo's naive UTC `YYYY-MM-DD HH:mm:ss`; the mapper
-   interprets them as UTC. It also accepts timezone-qualified ISO timestamps for
-   locally serialized sessions. The source issues tokens for eight hours and
-   validates the POS session, revocation state and token record on each token check.
+1. An authenticated POS user creates a challenge in the Odoo POS UI
+   (`POST /auth/qr-challenges`, web session). The app never calls that route.
+2. The POS QR is a JSON object with `v: 2`, `type`, `challenge_id`, `nonce`,
+   `pos_config_id`, `api_base` and UTC `expires_at`. Payloads without `v` that
+   look like the old format are reported as outdated QR codes; other versions or
+   types are rejected.
+3. The client rejects empty/oversized (>8192 characters), malformed, expired or
+   untrusted `api_base` payloads before any request. IDs must be positive
+   integers; timestamps must be real, timezone-qualified dates.
+4. `POST {api_base}/auth/qr-exchange` sends `challenge_id`, `nonce`,
+   `pos_config_id` and the device (random install id, platform, app version).
+   The QR is single use and the server consumes it.
+5. The grant contains an opaque access token (`oa_…`, about 15 minutes), a
+   rotating refresh token (`or_…`), the session family expiry and the user,
+   company, POS config and session identifiers. The returned POS config must
+   match the scanned QR. Models map snake_case fields to the domain `AuthSession`.
+6. `POST /auth/token/refresh` rotates the refresh token (single flight, refreshed
+   30 seconds before expiry or once after `TOKEN_EXPIRED`); a different identity
+   in the rotated grant ends the session. `POST /auth/logout` revokes the token
+   family.
 
 The server remains authoritative for QR expiry, nonce validity, single-use
-consumption, token signatures, revocation and permissions. The app does not verify
-JWT signatures or embed an Odoo signing secret. The provided sample QR was expired;
-it was not saved in source/configuration or used for a live authentication call.
+consumption, token validity, revocation and permissions. QR payloads, tokens and
+session identifiers are never logged or stored outside secure storage.
 
 ## Configuration and origin trust
 
@@ -97,16 +76,15 @@ Info plists permit arbitrary loads because QR origins are selected at runtime;
 this ATS exception needs justification during App Store submission. HTTPS
 certificate validation remains enabled.
 
-The supplied modules declare version 19 while using `type="json"` routes. The
-client follows those supplied routes and JSON-RPC shapes; confirm the deployed
-Odoo version/module compatibility and database routing with a real server. The
-app does not invent a database-selection field or substitute generic Odoo APIs.
+All requests use the session's `api_base`; the app does not invent a database
+selection field or substitute generic Odoo APIs.
 
 ## Secure storage and lifetime
 
 `SecretStore` is an injectable core abstraction. Its platform implementation uses
 `flutter_secure_storage`, with flavor-separated keys of the form
-`orangeone.<flavor>.session.v1`. The token and required session metadata are stored
+`orangeone.<flavor>.session.v2` (a leftover v1 record is deleted on restore) and
+`orangeone.<flavor>.install_id`. Tokens and required session metadata are stored
 as one secure record only after backend success and schema validation. Normal
 preferences, files and logs contain no authentication secrets. Session/challenge
 `toString()` implementations are redacted.
@@ -117,7 +95,8 @@ entitlement is configured for all nine Runner flavor/build configurations; signe
 iOS device validation still requires Apple signing assets.
 
 On a full application restart, the repository reads secure storage and validates
-an existing token once through POST `/mupi/mobile/auth/token/check`. Validation has
+an existing session once through `GET /auth/session` (refreshing the access token
+first when needed). Validation has
 a 15-second deadline. Invalid, rejected, unreachable or timed-out validation
 deletes the secure record and returns to fresh QR login after successful cleanup.
 The pending request is cancelled at the deadline; late responses cannot restore
@@ -129,8 +108,8 @@ pending; writes/deletes stay ordered so a late deletion cannot erase a new login
 
 A successful QR login stays in secure storage across process restarts until local
 logout or backend expiry/rejection. Ordinary background /
-foreground transitions do not revalidate or poll. The server's eight-hour token
-expiry still applies; the app cannot extend backend token validity.
+foreground transitions do not revalidate or poll. The server's session family
+expiry still applies; refresh rotation cannot extend it.
 
 Task 13 permits read-only cached access during a network outage inside an already
 verified, unexpired session. Transient product network/timeout failures no longer
@@ -140,8 +119,9 @@ session rejection, expiry and logout still reset session-dependent state. No
 periodic ping or write replay is introduced. See [Offline reads](offline-data.md).
 
 Home exposes a visible **Logout** action. Expiry and logout hide protected UI and
-clear local secure storage. Logout is local because the supplied controller has no
-remote revocation route. A new session requires a fresh POS QR code.
+clear local secure storage. Logout clears local state first and then calls
+`POST /auth/logout` (best effort) to revoke the token family. A new session
+requires a fresh POS QR code.
 
 Login is guarded against concurrent scans in both the scanner/controller and
 repository. Sign-out cancels a pending login; generation checks ignore stale
@@ -161,6 +141,12 @@ accessible actions. No product/barcode screen from the reference was implemented
 Figma returned both initial screens/screenshots before the Starter-plan MCP call
 limit prevented further inspection. The authenticated home design was not supplied
 or independently inspected, so it intentionally remains minimal.
+
+The login screen has a language selector (six languages, remembered across
+restarts) and the QR scanner only runs on Wi-Fi: see
+[localization](localization.md). Without Wi-Fi the camera is not started and the
+screen asks the user to connect to the POS machine's Wi-Fi network; the app
+cannot verify which network that is.
 
 The native scanner is QR-only, uses the rear camera and stops after accepting a
 code. It is stopped/disposed on route removal and paused in the background.
@@ -223,7 +209,7 @@ Those require a physical device and a fresh POS-generated QR challenge.
 See [Task 04 verification](task04-validation.md) for executed checks and remaining
 platform/deployment verification.
 
-References: [Odoo JSON-RPC controller behavior](https://www.odoo.com/documentation/18.0/developer/reference/backend/http.html),
+References: [Mobile API v2 integration](mobile-api-v2.md),
 [mobile_scanner](https://pub.dev/packages/mobile_scanner),
 [secure storage platform setup](https://pub.dev/packages/flutter_secure_storage),
 [Apple local-network ATS behavior](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowslocalnetworking).

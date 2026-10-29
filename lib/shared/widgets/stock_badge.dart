@@ -1,4 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:orange_one/shared/widgets/info_badge.dart';
+
+/// Texts of a [StockBadge]. The defaults are English; localized screens pass
+/// translated values.
+class StockBadgeLabels {
+  const new({
+    this.inStock = 'In stock',
+    this.outOfStock = 'Out of stock',
+    this.unavailable = 'Stock unavailable',
+  });
+  final String inStock;
+  final String outOfStock;
+  final String unavailable;
+}
+
+/// "In stock · 48 Units", "Out of stock · 0" or "Stock unavailable"; never an
+/// invented quantity.
+String stockText(
+  double? quantity,
+  String unit, [
+  StockBadgeLabels labels = const StockBadgeLabels(),
+]) {
+  final stock = quantity;
+  if (stock == null || !stock.isFinite) return labels.unavailable;
+  final amount = stock.toStringAsFixed(stock == stock.roundToDouble() ? 0 : 2);
+  return '${stock > 0 ? labels.inStock : labels.outOfStock} · $amount'
+      '${unit.isEmpty ? '' : ' $unit'}';
+}
 
 /// Consistent stock information for product-name cards across features.
 class StockBadge extends StatelessWidget {
@@ -7,39 +35,19 @@ class StockBadge extends StatelessWidget {
     this.unit = '',
     this.onLightSurface = false,
     this.compact = false,
+    this.labels = const StockBadgeLabels(),
     super.key,
   });
+  final StockBadgeLabels labels;
   final double? quantity;
   final String unit;
   final bool onLightSurface;
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
-    final stock = quantity;
-    final known = stock != null && stock.isFinite;
-    final amount = known
-        ? stock.toStringAsFixed(stock == stock.roundToDouble() ? 0 : 2)
-        : '';
-    final text = known
-        ? '${stock > 0 ? 'In stock' : 'Out of stock'} · $amount'
-              '${unit.isEmpty ? '' : ' $unit'}'
-        : 'Stock unavailable';
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: onLightSurface ? .06 : .16),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: compact ? 12 : null,
-          height: compact ? 16 / 12 : null,
-          fontWeight: compact ? FontWeight.w500 : null,
-          color: onLightSurface ? const Color(0xFF5F6368) : Colors.white,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => InfoBadge(
+    text: stockText(quantity, unit, labels),
+    onLightSurface: onLightSurface,
+    compact: compact,
+  );
 }

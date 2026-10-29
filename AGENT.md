@@ -20,7 +20,7 @@ shared environmentLoaderProvider callback dependency. Root scope remains in
 bootstrap. Follow docs/state-management.md for provider conventions and tests;
 configuration loading is local only, with explicit retry and safe error UI.
 
-Task 04 adds the authentication feature, shared core Dio/JSON-RPC/SecretStore,
+Task 04 adds the authentication feature, shared core Dio/SecretStore (now the Mobile API v2 client),
 session-aware navigation and QR camera UI. Read docs/authentication.md before
 changing auth: QR origins are validated dynamically (including ports), sessions retain their own origin, HTTP/HTTPS are supported in all flavors per user requirement,
 and consumed challenges must never be replayed automatically. SessionController
@@ -67,7 +67,7 @@ convention unless the user or supplied design explicitly requests otherwise.
   layouts, enlarged text, and the rendered glass surface on a neutral backing.
 
 Reference implementation:
-`lib/features/products/presentation/widgets/product_action_bar.dart`.
+`lib/features/products/presentation/widgets/product_action_surface.dart`.
 
 Task 07 adds the dedicated protected Products price-update page. Read
 `docs/product-price-update.md` before changing pricing: CHF is fixed; validate
@@ -98,3 +98,43 @@ with `flutter test tool/generate_brand_background_test.dart` after theme changes
 The OS-controlled Android 12 splash permits a solid endpoint only; following
 native/Flutter backgrounds use the shared gradient. See docs/brand-gradient.md.
 
+Localization and login: the app supports English, Dutch, French, Italian,
+Turkish and Tamil via the Very Good CLI l10n setup (`lib/l10n/arb`, generated
+code is git-ignored). Add texts to all six ARB files and read them with
+`context.l10n`; `test/l10n` fails when a language misses a message. The login
+screen has the white `LanguageSelector` pill under the subtitle; the choice is
+kept by `localeControllerProvider` (stored under `orangeone.locale` through
+`SecretStore`, restored at startup, device language or English otherwise).
+The QR scanner screen runs the camera only while `wifiConnectionProvider`
+reports Wi-Fi; otherwise it shows "Please connect to the same Wi-Fi network as
+the POS machine to scan the QR code." and starts again automatically when Wi-Fi
+returns. Wi-Fi only reads the device's network, never claim it verifies that
+the POS machine is on the same network. Widget tests that open the scanner must
+override Wi-Fi (`test/support/wifi_fakes.dart`). Login, the QR scanner,
+Barcode Home and the Barcode scanner screen are localized so far; see
+docs/localization.md.
+
+Recent scans: the barcode scanner's "Last scanned" card shows the latest found
+product (name, category, barcode, stock, CHF price); the stored history of five
+is unchanged. They are
+stored in the session's EncryptedReadCache (`recordRecent`/`readRecents`, the
+`\u0000recent` row), survive restarts, are deleted with the session and are
+kept across product writes. Recording happens in `ProductLookupController.scan`
+through `recentScansControllerProvider`; tapping an entry calls the same
+`scan`. The "Powered By" footer is gone from Barcode Home. `App` keeps
+`readCacheProvider` listened to so logout purges the cache immediately. See
+docs/home-scanner.md and docs/offline-data.md.
+
+Editing screens (Edit Name & Tax, Price, Stock, Creation): shared Product Details
+name card with Category/Stock/Tax badges (no Tax badge on Details, no card on
+Creation), cloud in the navigation bar, Save Changes -> confirmation -> toast on
+Product Details (`productSuccessProvider`), category select/create
+(`POST /categories`), default tax from `default_tax_ids`, optional price/stock
+(empty stock = Not Set). No backend product name in UI text; "Powered By" only on
+Login Home. See docs/product-edit.md and docs/product-creation.md.
+
+Update Stock has an Update (absolute count, `stock-adjustments`), Add and Remove
+(`stock-movements`, `operation: add|remove`) selector with per-mode label, helper
+and action button, and a live preview that is never authoritative (the backend
+reply is). Add/Remove need a quantity above zero; Remove cannot exceed the stock.
+See docs/product-stock-update.md.

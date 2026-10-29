@@ -1,5 +1,9 @@
 # Task 03 verification — 2026-10-15
 
+> Historical record. The JSON-RPC routes it describes were replaced by the
+> Mobile API v2; see [Mobile API v2 integration](mobile-api-v2.md).
+
+
 ## Acceptance criteria
 
 | Criterion | Implementation/evidence |

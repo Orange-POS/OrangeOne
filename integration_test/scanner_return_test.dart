@@ -66,9 +66,13 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('No Tax'));
         await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('create-product-category')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Spices'));
+        await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Create Product'));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.tap(find.text('Confirm'));
         await tester.pumpAndSettle();
         expect(find.text('Created product'), findsOneWidget);
         expect(find.byType(MobileScanner, skipOffstage: false), findsNothing);
@@ -76,7 +80,7 @@ void main() {
         if (systemBack) {
           container.read(routerProvider).pop();
         } else {
-          await tester.tap(find.byTooltip('Back to scanner'));
+          await tester.tap(find.byTooltip('Open Scanner'));
         }
         await tester.pumpAndSettle();
         final restarted = await runningCamera(tester);

@@ -1,4 +1,5 @@
 require_relative '../tool/ci/testflight_groups'
+require_relative '../tool/ci/testflight_build_number'
 default_platform(:ios)
 ROOT = File.expand_path('..', __dir__)
 
@@ -18,7 +19,105 @@ def require_main
     ENV['GITHUB_REF'] == 'refs/heads/main' && ENV['GITHUB_EVENT_NAME'] == 'workflow_dispatch'
 end
 
+# DEV/STG delivery: branch -> [flavor, tester group]. Production is not listed.
+CHANNELS = {
+  'refs/heads/develop' => %w[development dev],
+  'refs/heads/staging' => %w[staging staging]
+}.freeze
+
+# Production is reachable only from a published GitHub Release of a version tag.
+RELEASE_REF = %r{\Arefs/tags/v\d+\.\d+\.\d+\z}.freeze
+
+def channel_group
+  ref = ENV['GITHUB_REF'].to_s
+  if ref.match?(RELEASE_REF)
+    UI.user_error!('Production delivery runs only for a published GitHub Release') unless
+      ENV['GITHUB_EVENT_NAME'] == 'release'
+    flavor, group = %w[production production]
+  else
+    flavor, group = CHANNELS.fetch(ref) do
+      UI.user_error!('TestFlight delivery is limited to the develop and staging branches and release tags')
+    end
+    UI.user_error!('TestFlight delivery runs only for a push or a manual dispatch') unless
+      %w[push workflow_dispatch].include?(ENV['GITHUB_EVENT_NAME'])
+  end
+  UI.user_error!('The flavor does not match the branch') unless ENV['CHANNEL_FLAVOR'] == flavor
+  UI.user_error!('The tester group does not match the branch') unless ENV['TARGET_GROUP'] == group
+  UI.user_error!('Signing always uses the production identity') unless
+    ENV.fetch('RELEASE_FLAVOR', 'production') == 'production'
+  group
+end
+
+# The binary is already uploaded when Apple still needs export compliance or
+# review. That is a pending distribution, not a failed build: keep the upload,
+# say which exact version/build to resume, and never upload it again.
+def distribute_or_report(distribution, version:, number:, group:)
+  distribution.distribute(version: version, number: number)
+  true
+rescue OrangeoneTestflight::Pending => error
+  text = "Build #{version} (#{number}) is uploaded but not yet in the #{group} group: #{error.message} "          "Resume without rebuilding or uploading: run the iOS workflow operation distribute_existing "          "with version #{version}, build #{number} and target group #{group}."
+  UI.important(text)
+  puts "::warning title=TestFlight distribution pending::#{text}"
+  summary = ENV.fetch('GITHUB_STEP_SUMMARY', '')
+  File.write(summary, "### TestFlight distribution pending
+#{text}
+", mode: 'a') unless summary.empty?
+  false
+end
+
 platform :ios do
+  desc 'Allocate the next build number from App Store Connect (read-only) for a DEV/STG push'
+  lane :allocate_build do
+    target = channel_group
+    connect_key
+    OrangeoneTestflight.new.prepare_channel(target)
+    number = OrangeoneBuildNumber.new.allocate(floor: Integer(ENV.fetch('BUILD_NUMBER_FLOOR')))
+    output = ENV.fetch('GITHUB_OUTPUT', '')
+    File.write(output, "build_number=#{number}
+", mode: 'a') unless output.empty?
+    UI.success("Allocated build number #{number}.")
+    number
+  rescue OrangeoneTestflight::Error, OrangeoneBuildNumber::Error => error
+    UI.user_error!(error.message)
+  end
+
+  desc 'Sign the DEV/STG archive and, unless dry run, upload it to its one tester group'
+  lane :testflight_channel do
+    target = channel_group
+    dry_run = ENV.fetch('DRY_RUN', 'true') != 'false'
+    UI.user_error!('Real uploads stay disabled until TESTFLIGHT_CD_ENABLED is true') unless
+      dry_run || ENV['TESTFLIGHT_CD_ENABLED'] == 'true'
+    version = ENV.fetch('RELEASE_VERSION')
+    number = ENV.fetch('RELEASE_BUILD_NUMBER')
+    key = connect_key
+    distribution = OrangeoneTestflight.new.prepare_channel(target)
+    OrangeoneBuildNumber.new.assert_unused(number: number, floor: Integer(ENV.fetch('BUILD_NUMBER_FLOOR')))
+    sh('python3', File.join(ROOT, 'tool/ci/export_ipa.py'))
+    candidates = Dir[File.join(ROOT, 'build/ios/ipa', '*.ipa')]
+    UI.user_error!("Expected one exported IPA; found #{candidates.length} candidate(s)") unless candidates.length == 1
+    if dry_run
+      UI.success('Dry run: the signed export was verified; nothing was uploaded or assigned.')
+    else
+      upload_to_testflight(
+        api_key: key,
+        app_identifier: OrangeoneTestflight::BUNDLE_ID,
+        ipa: candidates.first,
+        app_version: version,
+        build_number: number,
+        skip_submission: true,
+        distribute_external: false,
+        submit_beta_review: false,
+        notify_external_testers: false,
+        skip_waiting_for_build_processing: true
+      )
+      if distribute_or_report(distribution, version: version, number: number, group: target)
+        UI.success('The exact build was assigned to its channel tester group only.')
+      end
+    end
+  rescue OrangeoneTestflight::Error, OrangeoneBuildNumber::Error => error
+    UI.user_error!(error.message)
+  end
+
   desc 'Upload production and assign the exact build to one approved TestFlight group'
   lane :beta do
     require_main
@@ -46,8 +145,10 @@ platform :ios do
       notify_external_testers: false,
       skip_waiting_for_build_processing: true
     )
-    distribution.distribute(version: ENV.fetch('RELEASE_VERSION'), number: ENV.fetch('RELEASE_BUILD_NUMBER'))
-    UI.success('Exact production build assignment confirmed for the selected TestFlight group.')
+    if distribute_or_report(distribution, version: ENV.fetch('RELEASE_VERSION'),
+                            number: ENV.fetch('RELEASE_BUILD_NUMBER'), group: target)
+      UI.success('Exact production build assignment confirmed for the selected TestFlight group.')
+    end
   rescue OrangeoneTestflight::Error => error
     UI.user_error!(error.message)
   end

@@ -14,6 +14,7 @@ import 'package:orange_one/features/products/presentation/pages/product_creation
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
+import 'package:orange_one/features/products/presentation/pages/product_stock_update_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
@@ -102,6 +103,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'productPrice',
             path: 'products/price',
             builder: (context, state) => ProductPriceUpdatePage(
+              barcode: state.uri.queryParameters['barcode'] ?? '',
+            ),
+          ),
+          GoRoute(
+            name: 'productStock',
+            path: 'products/stock',
+            builder: (context, state) => ProductStockUpdatePage(
               barcode: state.uri.queryParameters['barcode'] ?? '',
             ),
           ),

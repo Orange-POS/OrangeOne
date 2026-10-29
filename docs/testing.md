@@ -31,7 +31,7 @@ structure. Test failure cases as well as the successful path.
 | Boundary | Required checks | Existing examples |
 | --- | --- | --- |
 | Domain | Accepted boundaries, normalization, invalid values rejected before repository calls, correct delegation, typed failures and no unintended retries | Authentication and Home `domain/use_cases/`; Products `domain/use_cases/manage_product_details_test.dart`, `product_creation_test.dart`, `price_update_controller_test.dart`, `product_edit_controller_test.dart` |
-| Repository | JSON-RPC success/protocol/application errors; optional fields; permission and transport failures; correct request mapping | `features/home/data/product_repository_test.dart`, `features/authentication/data/odoo_auth_repository_test.dart`, Products repository tests, `core/network/json_rpc_client_test.dart` |
+| Repository | Mobile API v2 envelopes and error codes; optional fields; permission and transport failures; If-Match/idempotency headers; correct request mapping | `features/home/data/product_repository_test.dart`, `features/authentication/data/odoo_auth_repository_test.dart`, Products repository tests, `core/network/mobile_api_client_test.dart` |
 | Riverpod | Loading/data/error transitions, provider overrides, duplicate submission, cancellation and disposal | `features/home/presentation/product_lookup_controller_test.dart`, session and Products controller tests |
 | Widgets | Loading, populated/empty, safe errors, retry, validation, permissions, disabled/busy controls and successful updates | `features/products/product_details_test.dart`, `price_update_page_test.dart`, `product_edit_page_test.dart`, initialization page tests |
 | Navigation | Auth restoration/redirect, protected routes and scanner return after edits/creation | `app_test.dart`, Products navigation and scanner return tests |
@@ -86,7 +86,8 @@ committing. Keep the existing format-on-save settings and staged-format hook.
 ## CI
 
 `.github/workflows/flutter_tests.yml` preserves PR #9's format, analyze, offline
-unit/widget and coverage gates on pushes, PRs, main merge queues and manual runs.
+unit/widget and coverage gates on pushes to `main`/`develop`/`staging`, PRs, their
+merge queues and manual runs (never both a push and a PR run for one commit).
 It also executes `python3 -m unittest discover -s tool/ci -p 'test_*.py'`,
 `ruby -c fastlane/Fastfile` and `ruby tool/ci/test_fastlane.rb`.
 The deployment tests use synthetic profiles/archives and mocked subprocesses and
@@ -94,8 +95,28 @@ Fastlane actions; they never sign, upload, contact Apple or access credentials.
 
 Keep the independent native flavor builds and license workflow required statuses.
 Only the legacy quality status is replaced by **Format, analyze and test**.
-GitHub branch protection/environment settings require owner configuration.
+`ios-release.yaml`, `android-release.yaml`, `release_tags.py` and `android_apk.py` are covered by `tool/ci/test_release_pipeline.py`; pending export compliance is covered in `test_fastlane.rb`. `ios-testflight.yaml` (DEV/STG delivery) is covered by `tool/ci/test_testflight_cd.py`, `test_testflight_build_number.rb` and the channel lane tests in `test_fastlane.rb`. The workflows are linted with actionlint, and `tool/ci/test_workflows.py` and
+`test_versioning.py` guard triggers, secrets, signing protections and the app
+version (see "Stage 1 CI foundation" in [Deployment](deployment.md)).
+Environment protection rules (reviewers) still require owner configuration.
 See [Deployment](deployment.md) for manual protected release controls.
+
+## Real-backend validation
+
+CI never calls a live Odoo. Before a release or after backend changes, validate
+against the local development Odoo (Docker `dev-odoo-1`, addons of
+Orange-POS/odoo_addons PR #192):
+
+1. A local, git-ignored Playwright harness in `tool/e2e`: `public` contract checks without
+   login, then `npm run login` (you sign in) and the `pos` journey, which uses a
+   real POS QR challenge and one dedicated `OOE2E-…` product per run.
+2. Flutter integration tests on a device (fake repositories, no live data):
+   `flutter test integration_test --flavor development --dart-define=TEST_FLAVOR=development -d DEVICE_ID`.
+3. Manual device journey with the real backend: scan the POS QR, look up and
+   search products, create/edit/price/count a dedicated test product, toggle
+   Wi-Fi for offline read-only and recovery, restart (session restore), log out.
+
+Never run these checks against staging or production data.
 
 ## Adding a feature or fixing a regression
 

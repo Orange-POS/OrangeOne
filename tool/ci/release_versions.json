@@ -1,0 +1,17 @@
+{
+  "_comment": "Versions and build numbers already used in App Store Connect (one app, shared by the Dev, Staging and Production tester groups). pubspec.yaml must stay above them; test_versioning.py enforces it. Add an entry whenever a build is uploaded. Source of the entries: ios.yaml workflow_dispatch runs of 2026-10-20..26. The ledger can lag behind App Store Connect; a later stage reads the real latest build number from the App Store Connect API.",
+  "published": [
+    {"version": "1.0.2", "build": 8, "evidence": "run 39989013268: binary uploaded, export compliance pending"},
+    {"version": "1.0.3", "build": 9, "evidence": "run 40275771969: uploaded and assigned"},
+    {"version": "1.0.6", "build": 33, "evidence": "run 39941118617: binary uploaded, export compliance pending"},
+    {"version": "1.0.9", "build": 10, "evidence": "run 39980315945: binary uploaded, export compliance pending"}
+  ],
+  "reserved": [
+    {"version": "1.0.0", "build": 25, "evidence": "dispatched 2026-10-20/21, upload not confirmed"},
+    {"version": "1.0.2", "build": 25, "evidence": "dispatched 2026-10-22, upload not confirmed"},
+    {"version": "1.0.2", "build": 30, "evidence": "dispatched 2026-10-23, upload not confirmed"},
+    {"version": "1.0.5", "build": 31, "evidence": "dispatched 2026-10-23, upload not confirmed"},
+    {"version": "1.0.7", "build": 34, "evidence": "dispatched 2026-10-23, upload not confirmed"},
+    {"version": "2.0.0", "build": 1, "evidence": "dispatched 2026-10-20, upload not confirmed"}
+  ]
+}

@@ -61,6 +61,58 @@ void main() {
       expect(config.validateOrigin('http://192.168.1.3:8080').port, 8080);
     });
   }
+  group('Mobile API v2 base', () {
+    const config = ApiConfiguration(
+      baseUrl: 'http://192.168.1.3:8069',
+      environment: AppEnvironment.production,
+    );
+
+    test('derives the fallback base from the configured origin', () {
+      expect(
+        config.trustedApiBase,
+        Uri.parse('http://192.168.1.3:8069/api/orangeone/mobile/v1'),
+      );
+    });
+
+    for (final entry in {
+      'https://pos.example/api/orangeone/mobile/v1':
+          'https://pos.example/api/orangeone/mobile/v1',
+      'https://pos.example:8443/api/orangeone/mobile/v1/':
+          'https://pos.example:8443/api/orangeone/mobile/v1',
+      'http://192.168.1.2/odoo/api/orangeone/mobile/v1':
+          'http://192.168.1.2/odoo/api/orangeone/mobile/v1',
+    }.entries) {
+      test('accepts the QR api_base ${entry.key}', () {
+        expect(config.validateApiBase(entry.key), Uri.parse(entry.value));
+      });
+    }
+
+    for (final value in [
+      '',
+      'https://pos.example',
+      'https://pos.example/api/orangeone/mobile/v2',
+      'https://pos.example/api/orangeone/mobile/v1/extra',
+      'https://pos.example/a//api/orangeone/mobile/v1',
+      'ftp://pos.example/api/orangeone/mobile/v1',
+      'https://user:pass@pos.example/api/orangeone/mobile/v1',
+      'https://pos.example/api/orangeone/mobile/v1?db=untrusted',
+      'https://pos.example/api/orangeone/mobile/v1#fragment',
+    ]) {
+      test('rejects the api_base "$value"', () {
+        expect(
+          () => config.validateApiBase(value),
+          throwsA(
+            isA<AppFailure>().having(
+              (e) => e.kind,
+              'kind',
+              FailureKind.unsupportedQr,
+            ),
+          ),
+        );
+      });
+    }
+  });
+
   for (final value in [
     '',
     'ftp://pos.example',

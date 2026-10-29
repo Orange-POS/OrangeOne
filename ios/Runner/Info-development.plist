@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Same owner-approved export compliance declaration as Info.plist: the development
+         flavor is uploaded to TestFlight under the same app. See docs/deployment.md. -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>NSCameraUsageDescription</key>
     <string>Scan POS login QR codes and product barcodes in OrangeONE.</string>
     <key>NSLocalNetworkUsageDescription</key>

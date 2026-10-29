@@ -10,6 +10,7 @@ import 'package:orange_one/features/authentication/presentation/providers/auth_p
 import 'package:orange_one/features/authentication/presentation/widgets/qr_camera.dart';
 
 import 'support/auth_fakes.dart';
+import 'support/wifi_fakes.dart';
 
 void main() {
   for (final top in [0.0, 24.0, 59.0]) {
@@ -170,6 +171,7 @@ void main() {
               child: const Text('Simulate QR scan'),
             ),
           ),
+          wifiConnected,
         ],
       );
       await tester.pumpWidget(

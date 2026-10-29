@@ -17,8 +17,9 @@ class ReadCacheDatabase extends GeneratedDatabase {
     }),
   );
 
+  /// 2: Mobile API v2 product snapshots (`EncryptedReadCache.schema`).
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => const [];
   @override
@@ -31,5 +32,10 @@ class ReadCacheDatabase extends GeneratedDatabase {
         PRIMARY KEY(owner, code)
       )
       '''),
+    // v1 snapshots use the v1 API shape and key; they expire within a day
+    // and cannot be verified, so they are discarded rather than converted.
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) await customStatement('DELETE FROM product_reads');
+    },
   );
 }

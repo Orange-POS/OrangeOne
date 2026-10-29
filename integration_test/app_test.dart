@@ -8,6 +8,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:orange_one/app/app.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
+import 'package:orange_one/core/storage/secret_store.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
 import 'package:orange_one/features/authentication/presentation/pages/splash_page.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
@@ -19,6 +20,7 @@ import 'package:orange_one/features/products/presentation/providers/product_deta
 import '../test/support/auth_fakes.dart';
 import '../test/support/product_details_fakes.dart';
 import '../test/support/product_fakes.dart';
+import '../test/support/wifi_fakes.dart';
 
 class StartupAuthRepository extends FakeAuthRepository {
   final startup = Completer<AuthSession?>();
@@ -41,6 +43,9 @@ void main() {
   );
   testWidgets('$flavor application starts', (tester) async {
     expect(appFlavor, flavor, reason: 'Native and Dart flavors must match.');
+    // The tests expect English text whatever the phone's language is.
+    tester.platformDispatcher.localesTestValue = const [Locale('en')];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
     final environment = AppEnvironment.values.byName(flavor)
       ..validateNativeFlavor(appFlavor);
     final repository = StartupAuthRepository();
@@ -67,6 +72,10 @@ void main() {
               child: const Text('Test QR scan'),
             ),
           ),
+          // The QR scanner is only enabled on Wi-Fi.
+          wifiConnected,
+          // Isolate the run from the phone's saved language.
+          secretStoreProvider.overrideWithValue(MemorySecretStore()),
         ],
         child: const App(),
       ),
@@ -88,17 +97,19 @@ void main() {
     await tester.tap(find.text('Test product scan'));
     await tester.pumpAndSettle();
     expect(find.text(fixtureProduct.name), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Update Price'));
+    // The redesigned details screen opens the price page from the pencil.
+    await tester.ensureVisible(find.byTooltip('Update price'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Update price'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('new-price-input')), '125.25');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Update Price'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm update'));
+    await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
+    // Success returns to details with the toast above Open Scanner.
     expect(find.textContaining('Price Updated Successfully'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-    await tester.pumpAndSettle();
     expect(find.text('CHF 125.25'), findsOneWidget);
     await tester.tap(find.byTooltip('Edit product name'));
     await tester.pumpAndSettle();
@@ -109,11 +120,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Save Changes'));
     await tester.pumpAndSettle();
-    expect(find.text('Name & Tax Updated Successfully'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+    await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
-    expect(find.text('Aachi Fish Fry Masala 100g'), findsOneWidget);
-    await tester.tap(find.byTooltip('Back to scanner'));
+    expect(find.text('Name & Tax Updated Successfully'), findsOneWidget);
+    expect(find.text('Aachi Fish Fry Masala 100g'), findsWidgets);
+    await tester.tap(find.byTooltip('Open Scanner'));
     await tester.pumpAndSettle();
     products.product = null;
     scanBarcode = '999000';
@@ -130,17 +141,21 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('No Tax'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('create-product-category')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Spices'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Create Product'));
     await tester.pumpAndSettle();
-    expect(find.text('New Product Created'), findsOneWidget);
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Product Created Successfully'), findsOneWidget);
     expect(details.creates, 1);
     expect(details.submittedProduct?.barcode, '999000');
     expect(details.submittedProduct?.taxIds, isEmpty);
-    await tester.tap(find.widgetWithText(FilledButton, 'Done'));
-    await tester.pumpAndSettle();
-    expect(find.text('New mobile product'), findsOneWidget);
+    expect(find.text('New mobile product'), findsWidgets);
     expect(find.text('CHF 12.50'), findsOneWidget);
-    await tester.tap(find.byTooltip('Back to scanner'));
+    await tester.tap(find.byTooltip('Open Scanner'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Back to home'));
     await tester.pumpAndSettle();

@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/price_update_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_change_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
@@ -11,6 +13,8 @@ import 'package:orange_one/features/products/presentation/widgets/product_action
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class ProductPriceUpdatePage extends ConsumerStatefulWidget {
@@ -67,7 +71,20 @@ class _ProductPriceUpdatePageState
 
   String _priceLabel(double price) => 'CHF ${price.toStringAsFixed(2)}';
 
-  String _successMessage(double price) => 'New price: ${_priceLabel(price)}';
+  /// A saved price returns to Product Details with the success toast.
+  void _finish(PriceUpdateState value) {
+    final l10n = context.l10n;
+    final product = value.details.product;
+    if (product == null) return;
+    ref
+        .read(productSuccessProvider.notifier)
+        .show(
+          barcode: widget.barcode,
+          title: l10n.priceSuccessTitle,
+          message: l10n.priceSuccessMessage(product.price.toStringAsFixed(2)),
+        );
+    _leave(true);
+  }
 
   Future<void> _refresh() async {
     final provider = priceUpdateControllerProvider(widget.barcode);
@@ -76,6 +93,7 @@ class _ProductPriceUpdatePageState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     ref.watch(readCacheChangesProvider);
     final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = priceUpdateControllerProvider(widget.barcode);
@@ -87,6 +105,10 @@ class _ProductPriceUpdatePageState
     final uncertain = view?.phase == PriceUpdatePhase.uncertain;
     ref.listen(provider, (previous, next) {
       final value = next.value;
+      if (value?.phase == PriceUpdatePhase.saved &&
+          previous?.value?.phase != PriceUpdatePhase.saved) {
+        _finish(value!);
+      }
       if (!next.isLoading &&
           !next.hasError &&
           value != null &&
@@ -102,17 +124,9 @@ class _ProductPriceUpdatePageState
       canPop: !busy,
       child: ProductScaffold(
         appBar: ProductNavbar(
-          title: 'Update Price',
+          title: l10n.priceTitle,
           onBack: busy ? null : () => _leave(saved),
-          onEdit:
-              product != null &&
-                  view!.details.access.updatePrice &&
-                  !busy &&
-                  !saved &&
-                  !uncertain
-              ? _focus.requestFocus
-              : null,
-          editTooltip: 'Edit new price',
+          trailing: ProductSyncNavButton(barcode: widget.barcode),
         ),
         bottomNavigationBar: ProductActionSurface(
           child: SizedBox(
@@ -143,13 +157,11 @@ class _ProductPriceUpdatePageState
               child: Text(
                 busy
                     ? view?.phase == PriceUpdatePhase.checking
-                          ? 'Checking…'
-                          : 'Updating…'
-                    : saved
-                    ? 'Done'
+                          ? l10n.commonChecking
+                          : l10n.commonUpdating
                     : uncertain
-                    ? 'Check current price'
-                    : 'Update Price',
+                    ? l10n.priceCheckCurrent
+                    : l10n.commonSaveChanges,
               ),
             ),
           ),
@@ -161,7 +173,14 @@ class _ProductPriceUpdatePageState
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               if (product != null)
-                SliverToBoxAdapter(child: ProductNameCard(product: product)),
+                SliverToBoxAdapter(
+                  child: ProductNameCard(
+                    product: product,
+                    detailsLayout: true,
+                    showActions: false,
+                    taxText: localizedTaxText(l10n, product),
+                  ),
+                ),
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Container(
@@ -173,9 +192,9 @@ class _ProductPriceUpdatePageState
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   child: async.when(
-                    loading: () => const Center(
+                    loading: () => Center(
                       child: CircularProgressIndicator(
-                        semanticsLabel: 'Loading current price',
+                        semanticsLabel: l10n.priceLoading,
                       ),
                     ),
                     error: (error, stack) => Column(
@@ -185,27 +204,22 @@ class _ProductPriceUpdatePageState
                               ? error.message
                               : error is FormatException
                               ? error.message
-                              : 'Unable to load the current product price.',
+                              : l10n.priceLoadFailed,
                         ),
                         if (error is! FormatException)
                           TextButton(
                             onPressed: _refresh,
-                            child: const Text('Try again'),
+                            child: Text(l10n.commonTryAgain),
                           ),
                       ],
                     ),
                     data: (value) => value.details.product == null
-                        ? const Text('Product not found')
+                        ? Text(l10n.productNotFound)
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               PriceContextRow(
-                                label: 'Barcode',
-                                value: value.details.product!.barcode,
-                                barcode: true,
-                              ),
-                              PriceContextRow(
-                                label: 'Current Price',
+                                label: l10n.priceCurrentLabel,
                                 value: _priceLabel(
                                   value.details.product!.price,
                                 ),
@@ -233,18 +247,8 @@ class _ProductPriceUpdatePageState
                                 ),
                               ),
                               if (!value.details.access.updatePrice)
-                                const PriceUpdateNotice(
-                                  message:
-                                      'You do not have permission '
-                                      'to update this price.',
-                                ),
-                              if (value.phase == PriceUpdatePhase.saved)
                                 PriceUpdateNotice(
-                                  success: true,
-                                  title: 'Price Updated Successfully',
-                                  message: _successMessage(
-                                    value.details.product!.price,
-                                  ),
+                                  message: l10n.priceNoPermission,
                                 ),
                               if (value.message != null)
                                 PriceUpdateNotice(message: value.message!),

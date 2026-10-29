@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orange_one/features/products/domain/use_cases/update_product_price.dart';
+import 'package:orange_one/l10n/l10n.dart';
 
 class PriceChangeDialog extends StatefulWidget {
   const new({required this.confirmation, super.key});
@@ -17,24 +18,27 @@ class _PriceChangeDialogState extends State<PriceChangeDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Confirm price update'),
-    content: Text(
-      '${widget.confirmation.product.name}\n\n'
-      'Current price: '
-      'CHF ${widget.confirmation.product.price.toStringAsFixed(2)}\n'
-      'New price: CHF ${widget.confirmation.price.formatted}\n\n'
-      'Save this product price to Odoo?',
-    ),
-    actions: [
-      TextButton(
-        onPressed: _answered ? null : () => _answer(false),
-        child: const Text('Cancel'),
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.priceConfirmTitle),
+      content: Text(
+        l10n.priceConfirmMessage(
+          widget.confirmation.product.name,
+          widget.confirmation.product.price.toStringAsFixed(2),
+          widget.confirmation.price.formatted,
+        ),
       ),
-      FilledButton(
-        onPressed: _answered ? null : () => _answer(true),
-        child: const Text('Confirm update'),
-      ),
-    ],
-  );
+      actions: [
+        TextButton(
+          onPressed: _answered ? null : () => _answer(false),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: _answered ? null : () => _answer(true),
+          child: Text(l10n.commonConfirm),
+        ),
+      ],
+    );
+  }
 }

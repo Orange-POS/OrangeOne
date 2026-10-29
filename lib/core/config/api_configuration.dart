@@ -11,6 +11,9 @@ class ApiConfiguration {
     this.responseTimeout = const Duration(seconds: 20),
   });
 
+  /// Path of the OrangeONE Mobile API v2 below the Odoo origin.
+  static const mobileApiPath = '/api/orangeone/mobile/v1';
+
   final String baseUrl;
   final AppEnvironment environment;
   final Duration connectTimeout;
@@ -35,11 +38,37 @@ class ApiConfiguration {
         (uri.scheme != 'https' && uri.scheme != 'http')) {
       throw const AppFailure(
         FailureKind.unsupportedQr,
-        'This Odoo server address is unsupported. Use HTTP or HTTPS '
+        'This server address is unsupported. Use HTTP or HTTPS '
         'with a valid server address and port.',
       );
     }
     return uri.replace(path: '');
+  }
+
+  /// Mobile API v2 base URL derived from the build-time fallback origin.
+  Uri get trustedApiBase => trustedOrigin.replace(path: mobileApiPath);
+
+  /// Validates a Mobile API v2 base URL, such as a POS QR `api_base`.
+  ///
+  /// The origin follows [validateOrigin]. Its path must end with
+  /// [mobileApiPath], optionally below a plain prefix such as `/odoo`.
+  Uri validateApiBase(String value) {
+    const unsupported = AppFailure(
+      FailureKind.unsupportedQr,
+      'This server address is unsupported. Use HTTP or HTTPS '
+      'with a valid server address and port.',
+    );
+    final uri = Uri.tryParse(value);
+    if (uri == null) throw unsupported;
+    final path = uri.path.endsWith('/')
+        ? uri.path.substring(0, uri.path.length - 1)
+        : uri.path;
+    if (!path.endsWith(mobileApiPath)) throw unsupported;
+    final prefix = path.substring(0, path.length - mobileApiPath.length);
+    if (!RegExp(r'^(/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)*$').hasMatch(prefix)) {
+      throw unsupported;
+    }
+    return validateOrigin(uri.replace(path: '').toString()).replace(path: path);
   }
 }
 

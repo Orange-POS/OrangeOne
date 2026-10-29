@@ -71,8 +71,10 @@ class ProductDetailsController extends AsyncNotifier<ProductDetailsState> {
       final useCase = ManageProductDetails(
         ref.read(productDetailsRepositoryProvider),
       );
-      if (name != null) await useCase.rename(product.id, name);
-      if (price != null) await useCase.reprice(product.id, price);
+      // Each write is guarded by the version it was based on.
+      var latest = product;
+      if (name != null) latest = await useCase.rename(latest, name);
+      if (price != null) await useCase.reprice(latest, price);
       if (!ref.mounted || generation != _generation) return;
       // A confirmed write is never retried. Re-read authoritative details.
       state = const AsyncLoading();

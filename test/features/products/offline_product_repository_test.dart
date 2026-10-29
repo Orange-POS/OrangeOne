@@ -1,17 +1,19 @@
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:orange_one/core/config/api_configuration.dart';
-import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/core/network/json_rpc_client.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/features/home/data/data_sources/product_remote_data_source.dart';
 import 'package:orange_one/features/home/data/repositories/odoo_product_repository.dart';
-import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
+import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
+import 'package:orange_one/features/products/domain/entities/chf_price.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 
+import '../../support/auth_fakes.dart';
+import '../../support/mobile_api_fakes.dart';
+import '../../support/product_api_fakes.dart';
 import '../../support/product_fakes.dart';
 
 void main() {
@@ -23,9 +25,7 @@ void main() {
         database,
         sessionSecret: 'fixture-token',
       );
-      final dio = Dio();
       addTearDown(() async {
-        dio.close(force: true);
         await cache.close();
         await database.close();
       });
@@ -33,54 +33,40 @@ void main() {
       var revoked = false;
       var requests = 0;
       var signOuts = 0;
-      dio.interceptors.add(
-        InterceptorsWrapper(
-          onRequest: (request, handler) {
-            requests++;
-            if (offline) {
-              handler.reject(
-                DioException(
-                  requestOptions: request,
-                  type: DioExceptionType.connectionError,
+      final server = FakeMobileApiServer();
+      FakeReply read(RequestOptions request) {
+        requests++;
+        if (offline) {
+          throw DioException(
+            requestOptions: request,
+            type: DioExceptionType.connectionError,
+          );
+        }
+        return revoked
+            ? FakeReply(401, errorEnvelope('TOKEN_REVOKED'))
+            : FakeReply(
+                200,
+                successEnvelope(
+                  v2Product(
+                    permissions: productPermissions({
+                      'product_update_name': false,
+                    }),
+                  ),
                 ),
               );
-              return;
-            }
-            handler.resolve(
-              Response(
-                requestOptions: request,
-                data: {
-                  'jsonrpc': '2.0',
-                  'id': (request.data as Map)['id'],
-                  'result': revoked
-                      ? {'ok': false, 'error': 'Token is not active.'}
-                      : request.path.endsWith('/token/check')
-                      ? {
-                          'ok': true,
-                          'scopes':
-                              'product:read product:name_update '
-                              'product:price_update',
-                        }
-                      : {'ok': true, 'product': productJson()},
-                },
-              ),
-            );
-          },
-        ),
-      );
+      }
+
+      server
+        ..on('GET /products/by-barcode/0010101010', read)
+        ..on('GET /products/10', read)
+        // Writes must never be sent offline.
+        ..on('PUT /products/10/price', (r) {
+          requests++;
+          return fail('Unexpected offline write.');
+        });
+      final api = fakeProductApi(server);
       final repository = OdooProductDetailsRepository(
-        ProductDetailsRemoteDataSource(
-          JsonRpcClient(
-            dio,
-            const ApiConfiguration(
-              baseUrl: 'https://unused.test',
-              environment: AppEnvironment.development,
-            ),
-          ),
-          origin: Uri.parse('https://pos.test'),
-          token: 'fixture-token',
-          cancelToken: CancelToken(),
-        ),
+        ProductCatalogRemoteDataSource(api, cancelToken: CancelToken()),
         cache: cache,
         onSessionRejected: () async {
           signOuts++;
@@ -88,25 +74,17 @@ void main() {
       );
       final fresh = await repository.load(fixtureProduct.barcode);
       expect(fresh.access.updatePrice, isTrue);
+      expect(fresh.access.editName, isFalse);
+      expect(fresh.product?.version, '3');
       offline = true;
       final cached = await repository.load(fixtureProduct.barcode);
       expect(cached.product?.name, fixtureProduct.name);
       expect(cached.access.updatePrice, isFalse);
-      expect(cached.access.editName, isFalse);
+      expect(cached.access.adjustStock, isFalse);
+      expect(cached.product?.version, isNull);
       expect(signOuts, 0);
       final lookup = OdooProductRepository(
-        ProductRemoteDataSource(
-          JsonRpcClient(
-            dio,
-            const ApiConfiguration(
-              baseUrl: 'https://unused.test',
-              environment: AppEnvironment.development,
-            ),
-          ),
-          origin: Uri.parse('https://pos.test'),
-          accessToken: 'fixture-token',
-          cancelToken: CancelToken(),
-        ),
+        ProductRemoteDataSource(api, cancelToken: CancelToken()),
         cache: cache,
         onSessionRejected: () async {
           signOuts++;
@@ -118,7 +96,11 @@ void main() {
         fixtureProduct.name,
       );
       await expectLater(
-        repository.updatePrice(10, 99),
+        repository.updatePrice(fresh.product!, ChfPrice.parse('99')),
+        throwsA(isA<AppFailure>()),
+      );
+      await expectLater(
+        repository.adjustStock(fresh.product!, StockCount.parse('5')),
         throwsA(isA<AppFailure>()),
       );
       await repository.load(fixtureProduct.barcode);

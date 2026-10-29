@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
+import 'package:orange_one/features/home/presentation/providers/recent_scans_providers.dart';
 import 'package:orange_one/features/home/presentation/widgets/product_camera.dart';
 import 'package:orange_one/features/home/presentation/widgets/product_result_panel.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/scan_frame.dart';
 
@@ -22,7 +24,8 @@ class ProductScannerPage extends ConsumerStatefulWidget {
 class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
   final _scroll = ScrollController();
   var _cameraGeneration = 0;
-  String _status = 'Opening camera…';
+  // Null until the camera reports; the localized default is shown meanwhile.
+  String? _status;
   bool _navigating = false;
   bool _routeCurrent = true;
   bool _resuming = false;
@@ -60,7 +63,7 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
     ref.read(productLookupControllerProvider.notifier).scanAgain();
     setState(() {
       _cameraGeneration++;
-      _status = 'Opening camera…';
+      _status = null;
     });
     if (_scroll.hasClients) _scroll.jumpTo(0);
   }
@@ -73,7 +76,9 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final state = ref.watch(productLookupControllerProvider);
+    final recents = ref.watch(recentScansControllerProvider).value ?? const [];
     ref.listen(productLookupControllerProvider, (previous, next) {
       if (!next.isLoading && !next.hasError && next.value != null) {
         unawaited(_openResult(next.value!));
@@ -111,7 +116,7 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                       child: Row(
                         children: [
                           IconButton(
-                            tooltip: 'Back to home',
+                            tooltip: l10n.scannerBackTooltip,
                             onPressed: () => context.canPop()
                                 ? context.pop(false)
                                 : context.goNamed('home'),
@@ -131,11 +136,11 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                               ),
                             ),
                           ),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Scan Barcode',
+                              l10n.scannerTitle,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -196,10 +201,10 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
                               state.isLoading
-                                  ? 'Looking up product…'
+                                  ? l10n.scannerLookingUp
                                   : scanning
-                                  ? _status
-                                  : 'Scan paused · Review the result below',
+                                  ? _status ?? l10n.scanOpeningCamera
+                                  : l10n.scannerPaused,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 color: Colors.white,
@@ -214,6 +219,9 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                     const Spacer(),
                     ProductResultPanel(
                       state: state,
+                      recents: recents,
+                      onOpenRecent: (barcode) =>
+                          unawaited(controller.scan(barcode)),
                       onScanAgain: _scanAgain,
                       onRetry: () => unawaited(controller.retry()),
                       onAddProduct: (barcode) => unawaited(

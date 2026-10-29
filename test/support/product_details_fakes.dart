@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
+import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
 
 const detailsFixture = ProductDetails(
@@ -12,10 +14,15 @@ const detailsFixture = ProductDetails(
   price: 100,
   stock: 48,
   unit: 'Units',
+  currency: 'CHF',
+  category: ProductCategory(id: 4, name: 'Spices'),
+  version: '3',
+  stockAdjustable: true,
+  stockLocationId: 8,
+  quantityDecimals: 2,
 );
 
 class FakeDetailsRepository implements ProductDetailsRepository {
-  bool supportsCreateOnly = true;
   NewProduct? submittedProduct;
   int creates = 0;
   Completer<ProductCreationContext>? pendingCreation;
@@ -35,7 +42,8 @@ class FakeDetailsRepository implements ProductDetailsRepository {
         access,
       ),
       taxes: taxes,
-      supportsCreateOnly: supportsCreateOnly,
+      defaultTaxIds: defaultTaxIds,
+      categories: categories,
     );
   }
 
@@ -55,6 +63,7 @@ class FakeDetailsRepository implements ProductDetailsRepository {
       stock: 0,
       unit: 'Units',
       taxIds: draft.taxIds,
+      version: '1',
       taxes: taxes
           .where((tax) => draft.taxIds.contains(tax.id))
           .map((tax) => tax.label)
@@ -64,12 +73,29 @@ class FakeDetailsRepository implements ProductDetailsRepository {
 
   ProductDetails? product = detailsFixture;
   ProductAccess access = const ProductAccess(
+    createProduct: true,
     editName: true,
     updatePrice: true,
     readReferences: true,
+    updateTaxes: true,
+    updateCategory: true,
+    createCategory: true,
+    adjustStock: true,
   );
   List<ProductTax> taxes = const [ProductTax(id: 1, label: 'VAT (15%)')];
+  List<ProductCategory> categories = const [
+    ProductCategory(id: 4, name: 'Spices'),
+    ProductCategory(id: 5, name: 'Drinks'),
+  ];
+  List<int> defaultTaxIds = const [];
+  int categoryCreates = 0;
+  Object? categoryError;
   List<int>? writtenTaxIds;
+  CategoryChange? writtenCategory;
+  String? writtenName;
+
+  /// Versions sent with updates (If-Match), in order.
+  final writtenVersions = <String?>[];
   Object? referencesError;
   @override
   Future<List<ProductTax>> loadTaxes() async {
@@ -80,13 +106,39 @@ class FakeDetailsRepository implements ProductDetailsRepository {
   }
 
   @override
+  Future<ProductCategory> createCategory(String name) async {
+    categoryCreates++;
+    if (categoryError != null) {
+      Error.throwWithStackTrace(categoryError!, StackTrace.current);
+    }
+    final created = ProductCategory(id: 100 + categoryCreates, name: name);
+    categories = [...categories, created];
+    return created;
+  }
+
+  @override
+  Future<List<ProductCategory>> loadCategories() async {
+    if (referencesError != null) {
+      Error.throwWithStackTrace(referencesError!, StackTrace.current);
+    }
+    return categories;
+  }
+
+  static String _next(String? version) =>
+      '${(int.tryParse(version ?? '') ?? 0) + 1}';
+
+  @override
   Future<ProductDetails> updateInformation(
-    int id,
-    String name, {
+    ProductDetails current, {
+    String? name,
     List<int>? taxIds,
+    CategoryChange? category,
   }) async {
     writes++;
+    writtenName = name;
     writtenTaxIds = taxIds;
+    writtenCategory = category;
+    writtenVersions.add(current.version);
     if (writeError != null) {
       Error.throwWithStackTrace(writeError!, StackTrace.current);
     }
@@ -94,7 +146,7 @@ class FakeDetailsRepository implements ProductDetailsRepository {
     final previous = product!;
     return product = ProductDetails(
       id: previous.id,
-      name: name,
+      name: name ?? previous.name,
       barcode: previous.barcode,
       price: previous.price,
       stock: previous.stock,
@@ -107,6 +159,11 @@ class FakeDetailsRepository implements ProductDetailsRepository {
                 .map((tax) => tax.label)
                 .toList(),
       taxIds: taxIds ?? previous.taxIds,
+      currency: previous.currency,
+      category: category == null
+          ? previous.category
+          : categories.where((c) => c.id == category.id).firstOrNull,
+      version: _next(previous.version),
     );
   }
 
@@ -124,14 +181,82 @@ class FakeDetailsRepository implements ProductDetailsRepository {
     return ProductDetailsState(product, access);
   }
 
+  ProductPage page = const ProductPage([], null);
+  final searches = <({String? query, int? categoryId, String? cursor})>[];
   @override
-  Future<void> updateName(int id, String name) async {
+  Future<ProductPage> searchProducts({
+    String? query,
+    int? categoryId,
+    String? cursor,
+    int limit = 25,
+  }) async {
+    searches.add((query: query, categoryId: categoryId, cursor: cursor));
+    if (error != null) Error.throwWithStackTrace(error!, StackTrace.current);
+    return page;
+  }
+
+  StockCount? writtenCount;
+  StockOperation? writtenOperation;
+  @override
+  Future<StockAdjustment> adjustStock(
+    ProductDetails current,
+    StockCount count, {
+    StockOperation operation = StockOperation.update,
+  }) async {
     writes++;
+    writtenCount = count;
+    writtenOperation = operation;
+    final applied = operation.resultFor(current.stock ?? 0, count.quantity);
+    writtenVersions.add(current.version);
+    if (writeError != null) {
+      Error.throwWithStackTrace(writeError!, StackTrace.current);
+    }
+    if (pendingWrite != null) {
+      final written = await pendingWrite!.future;
+      return StockAdjustment(
+        product: written,
+        previousQuantity: current.stock ?? 0,
+        newQuantity: applied,
+        operation: operation,
+      );
+    }
+    final previous = product!;
+    product = ProductDetails(
+      id: previous.id,
+      name: previous.name,
+      barcode: previous.barcode,
+      price: previous.price,
+      stock: applied,
+      unit: previous.unit,
+      reference: previous.reference,
+      taxes: previous.taxes,
+      taxIds: previous.taxIds,
+      currency: previous.currency,
+      category: previous.category,
+      version: _next(previous.version),
+      stockAdjustable: previous.stockAdjustable,
+      stockLocationId: previous.stockLocationId,
+      quantityDecimals: previous.quantityDecimals,
+    );
+    return StockAdjustment(
+      product: product!,
+      previousQuantity: previous.stock ?? 0,
+      newQuantity: applied,
+      operation: operation,
+    );
   }
 
   @override
-  Future<ProductDetails> updatePrice(int id, double price) async {
+  Future<ProductDetails> updateName(ProductDetails current, String name) =>
+      updateInformation(current, name: name);
+
+  @override
+  Future<ProductDetails> updatePrice(
+    ProductDetails current,
+    ChfPrice price,
+  ) async {
     writes++;
+    writtenVersions.add(current.version);
     if (writeError != null) {
       Error.throwWithStackTrace(writeError!, StackTrace.current);
     }
@@ -141,12 +266,15 @@ class FakeDetailsRepository implements ProductDetailsRepository {
       id: previous.id,
       name: previous.name,
       barcode: previous.barcode,
-      price: price,
+      price: price.asDouble,
       stock: previous.stock,
       unit: previous.unit,
       reference: previous.reference,
       taxes: previous.taxes,
       taxIds: previous.taxIds,
+      currency: previous.currency,
+      category: previous.category,
+      version: _next(previous.version),
     );
   }
 }

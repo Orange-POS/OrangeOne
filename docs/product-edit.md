@@ -11,19 +11,22 @@ badge. Save Changes is disabled until a valid change exists, displays Updating
 during submission, and becomes Done only after a valid backend acknowledgement.
 The tax selection sheet uses company sale taxes and offers explicit No Tax.
 
-## Confirmed contract
+## Contract (Mobile API v2)
 
-- `products/find` supplies the current name and tax labels/identities.
-- `auth/token/check` provides `product:name_update` for both editable fields.
-- `products/references` requires `reference:read`, returning active sale taxes
-  for the POS company. Default tax IDs apply to creation, not an existing edit.
-- `products/update` accepts `product_id`, trimmed `name`, and optional `tax_ids`.
-  Omitting tax_ids preserves existing taxes; an empty array explicitly clears
-  them. The response must contain a valid matching product before showing success.
+- Details come from the product read (`GET /products/by-barcode/{barcode}` or
+  `GET /products/{id}`), including `version`, taxes, category and permissions.
+- `product_update_name` enables the name, `product_update_taxes` the tax picker
+  and `product_update_category` the category picker.
+- `GET /taxes` lists the session company's sale taxes; `GET /categories` lists
+  categories (first page of 100).
+- `PATCH /products/{id}` sends only changed fields (`name`, `tax_ids`,
+  `category_id`) with `If-Match` and an `Idempotency-Key`. `tax_ids: []`
+  removes all taxes; `category_id: null` removes the category. The response must
+  return the matching product before success is shown.
 
-Tax IDs and backend payloads stay in the domain/data boundary. Widgets use the
-controller and never call the API. No name/price/stock fields beyond name and tax
-are submitted. Names must contain 1–200 characters and no control characters.
+Tax and category IDs stay in the domain/data boundary. Widgets use the
+controller and never call the API. Names must contain 1–128 characters and no
+control characters.
 
 ## Safety and edge cases
 
@@ -35,9 +38,9 @@ workflow specifies. Dismissing the sheet leaves the draft unchanged.
 
 Before saving, the controller rechecks product identity, permission and current
 name/tax information, and revalidates selected IDs against fresh company tax
-references. A changed server snapshot requires review. This is not an atomic
-version check: the supplied endpoint has no expected-version contract, so a
-concurrent write between preflight and save remains a backend limitation.
+references. A changed server snapshot requires review. The write carries the
+freshly read `version`; a concurrent change after the preflight returns `412`,
+which reloads current data and keeps the draft.
 
 Concurrent saves and edits while saving are blocked. Recoverable failures keep
 the draft. An unconfirmed write locks further writes until a safe read checks the
@@ -84,3 +87,47 @@ tax data is unavailable, an explicitly empty list is confirmed unassigned, and
 populated taxes display their names. This display distinction does not invent
 backend assignments or permissions. Regression tests cover all five mapper and
 widget cases and mutation/conflict/permission/reference outcomes.
+
+## Shared editing experience (Edit Name & Tax, Price, Stock, Creation)
+
+All four screens follow one flow and one set of components:
+
+- **Header.** The pencil action in the navigation bar is replaced by the cloud
+  sync icon (`ProductSyncNavButton`, as on Product Details). The cloud is no
+  longer part of the product name card.
+- **Name card (glass hero).** Product Details, Edit, Price and Stock share one
+  hero card (`ProductNameCard(detailsLayout: true, taxText: …)`): a glass pane
+  (blur, 10% tint, thin white edge, soft shadow; the scaffold's colors show
+  through) with the Category pill, name (pencil on Details only), reference,
+  Stock pill (pencil on Details only), a **Tax row** and the **Barcode** row.
+  Edit, Price and Stock pass `showActions: false`. The separate
+  Tax card of Edit Name & Tax was removed. Creation has no card (the product
+  does not exist yet). Tax percentages are shown once (`15%`, not `15% (15%)`;
+  `ProductReferenceModel.taxLabel`).
+- **Save flow.** *Save Changes* opens the confirmation popup
+  (`ProductConfirmDialog`, `PriceChangeDialog`, `StockCountDialog` share one
+  design). Nothing is sent before **Confirm**. On success the form returns to
+  Product Details (`pop`, or `pushReplacement` after creation) and the success
+  toast (`ProductSuccessToast`, the existing success notice design, fed by
+  `productSuccessProvider`) appears above the Open Scanner button for a few
+  seconds. On failure the form stays with its entries, shows the error and
+  never announces success. Duplicate submissions stay blocked and the busy
+  button stays orange.
+- **Success texts.** A success names only what was changed *and* confirmed by
+  the backend reply. Edit Name & Tax records the changed fields in
+  `ProductEditState.savedFields` (`ProductEditField` name/tax/category) and
+  `editSuccessText` (`product_success_text.dart`) builds the localized title
+  and text from them: *Product name updated successfully* (text `New name: X`),
+  *Tax updated successfully*, *Category updated successfully*, or the
+  combination such as *Product name and tax updated successfully*. Unchanged
+  fields are never mentioned. Price, Stock and Creation announce the value they
+  set (new price, previous and new stock, the created product). Tests:
+  `test/features/products/product_notifications_test.dart`.
+- **Categories.** The category picker offers every category and, with the
+  `category_create` permission, an add row (`POST /categories`, idempotent).
+  A created category is added to the list and selected for the current form.
+- **Language.** All texts are localized in the six languages. Server-provided
+  and some controller messages (for example uncertain-outcome hints) stay
+  English. The app never names the backend product in its texts; a test
+  (`test/app/no_vendor_names_test.dart`) guards this and that "Powered By" is
+  shown on the Login Home screen only.

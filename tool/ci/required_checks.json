@@ -1,0 +1,13 @@
+{
+  "_comment": "Status contexts the branch rulesets of main, develop and staging require. The TestFlight delivery waits for exactly these on the pushed commit before it may sign or upload. Keep in sync with the rulesets.",
+  "contexts": [
+    "Format, analyze and test",
+    "android (development)",
+    "android (staging)",
+    "android (production)",
+    "ios (development)",
+    "ios (staging)",
+    "ios (production)",
+    "license_check / build"
+  ]
+}

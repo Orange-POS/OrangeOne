@@ -158,7 +158,10 @@ class PriceUpdateController extends AsyncNotifier<PriceUpdateState> {
         return;
       }
       writeStarted = true;
-      final updated = await UpdateProductPrice(repository)(confirmation);
+      // The freshly verified version guards the write (If-Match).
+      final updated = await UpdateProductPrice(repository)(
+        PriceChangeConfirmation(product: product, price: confirmation.price),
+      );
       if (!ref.mounted || generation != _generation) return;
       if (updated.id != product.id ||
           updated.barcode != barcode ||
@@ -175,12 +178,29 @@ class PriceUpdateController extends AsyncNotifier<PriceUpdateState> {
       ref.invalidate(productDetailsControllerProvider(barcode));
     } on Exception catch (error) {
       if (!ref.mounted || generation != _generation) return;
+      if (error is AppFailure && error.kind == FailureKind.conflict) {
+        // Nothing was written: show the latest server price, keep the draft.
+        try {
+          final latest = await ManageProductDetails(repository).load(barcode);
+          if (!ref.mounted || generation != _generation) return;
+          state = AsyncData(
+            _editing(latest, current.draft, message: error.message),
+          );
+          ref.invalidate(productDetailsControllerProvider(barcode));
+          return;
+        } on Exception {
+          if (!ref.mounted || generation != _generation) return;
+        }
+      }
       final denied =
           error is AppFailure &&
           {
             FailureKind.forbidden,
             FailureKind.validation,
             FailureKind.unauthenticated,
+            FailureKind.conflict,
+            FailureKind.notFound,
+            FailureKind.rateLimited,
           }.contains(error.kind);
       if (writeStarted && !denied) {
         state = AsyncData(

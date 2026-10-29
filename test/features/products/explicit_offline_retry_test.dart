@@ -3,17 +3,14 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:orange_one/core/config/api_configuration.dart';
-import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/core/network/json_rpc_client.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/home/data/data_sources/product_remote_data_source.dart';
 import 'package:orange_one/features/home/data/repositories/odoo_product_repository.dart';
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
-import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
+import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/presentation/pages/product_creation_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
@@ -22,13 +19,23 @@ import 'package:orange_one/features/products/presentation/providers/price_update
 import 'package:orange_one/features/products/presentation/providers/product_creation_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
+import 'package:orange_one/l10n/l10n.dart';
 
+import '../../support/auth_fakes.dart';
+import '../../support/mobile_api_fakes.dart';
+import '../../support/product_api_fakes.dart';
 import '../../support/product_fakes.dart';
+
+const _api = '/api/orangeone/mobile/v1';
+const _byBarcode = '$_api/products/by-barcode/0010101010';
+const _session = '$_api/auth/session';
+const _taxes = '$_api/taxes';
+const _categories = '$_api/categories';
+const _create = '$_api/products';
 
 void main() {
   late ReadCacheDatabase database;
   late EncryptedReadCache cache;
-  late Dio dio;
   WidgetTester? widgetTester;
   late ProviderContainer container;
   late OdooProductRepository lookup;
@@ -37,7 +44,7 @@ void main() {
   late bool available;
   late bool rejected;
   late bool failSave;
-  late String scopes;
+  late Map<String, bool> permissions;
   late int signOuts;
   Map<String, dynamic>? found;
   const code = '0010101010';
@@ -46,83 +53,71 @@ void main() {
     widgetTester = null;
     database = ReadCacheDatabase(NativeDatabase.memory());
     cache = EncryptedReadCache(database, sessionSecret: 'test-session');
-    dio = Dio();
     available = true;
     rejected = false;
     failSave = false;
     signOuts = 0;
-    scopes = 'product:name_update product:price_update reference:read';
+    permissions = productPermissions();
     found = null;
     paths = [];
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (request, handler) {
-          paths.add(request.uri.path);
-          if (!available ||
-              (failSave && request.path.endsWith('/products/save'))) {
-            handler.reject(
-              DioException(
-                requestOptions: request,
-                type: DioExceptionType.connectionError,
-              ),
-            );
-            return;
-          }
-          final path = request.path;
-          // Reject unexpected routes: these tests must never perform a write.
-          if (!path.endsWith('/token/check') &&
-              !path.endsWith('/products/find') &&
-              !path.endsWith('/products/references')) {
-            fail('Unexpected write or other endpoint: $path');
-          }
-          final result = rejected
-              ? {'ok': false, 'error': 'Token is not active.'}
-              : path.endsWith('/token/check')
-              ? {'ok': true, 'scopes': scopes}
-              : path.endsWith('/products/references')
-              ? {'ok': true, 'taxes': <Object?>[]}
-              : {'ok': true, 'product': found};
-          handler.resolve(
-            Response(
-              requestOptions: request,
-              data: {
-                'jsonrpc': '2.0',
-                'id': (request.data as Map)['id'],
-                'result': result,
-              },
-            ),
-          );
-        },
-      ),
-    );
-    final client = JsonRpcClient(
-      dio,
-      const ApiConfiguration(
-        baseUrl: 'https://unused.test',
-        environment: AppEnvironment.development,
-      ),
-    );
+    FakeReply read(RequestOptions request) {
+      paths.add(request.uri.path);
+      if (!available) {
+        throw DioException(
+          requestOptions: request,
+          type: DioExceptionType.connectionError,
+        );
+      }
+      if (rejected) return FakeReply(401, errorEnvelope('TOKEN_REVOKED'));
+      if (request.uri.path == _session) {
+        return FakeReply(200, successEnvelope(sessionData(permissions)));
+      }
+      if (request.uri.path == _taxes) {
+        return FakeReply(
+          200,
+          successEnvelope({'taxes': <Object>[], 'default_tax_ids': <int>[]}),
+        );
+      }
+      if (request.uri.path == _categories) {
+        return const FakeReply(200, {
+          'data': <Object>[
+            {'id': 4, 'name': 'Spices'},
+          ],
+          'meta': {'next_cursor': null},
+        });
+      }
+      return found == null
+          ? FakeReply(404, errorEnvelope('PRODUCT_NOT_FOUND'))
+          : FakeReply(200, successEnvelope(found));
+    }
+
+    final server = FakeMobileApiServer()
+      ..on('GET /products/by-barcode/$code', read)
+      ..on('GET /products/10', read)
+      ..on('GET /auth/session', read)
+      ..on('GET /taxes', read)
+      ..on('GET /categories', read)
+      ..on('POST /products', (request) {
+        paths.add(request.uri.path);
+        // These tests must never complete a write.
+        if (!failSave) fail('Unexpected write: ${request.uri.path}');
+        throw DioException(
+          requestOptions: request,
+          type: DioExceptionType.connectionError,
+        );
+      });
+    final api = fakeProductApi(server);
     Future<void> onRejected() async {
       signOuts++;
     }
 
     lookup = OdooProductRepository(
-      ProductRemoteDataSource(
-        client,
-        origin: Uri.parse('https://pos.test'),
-        accessToken: 'test-session',
-        cancelToken: CancelToken(),
-      ),
+      ProductRemoteDataSource(api, cancelToken: CancelToken()),
       cache: cache,
       onSessionRejected: onRejected,
     );
     details = OdooProductDetailsRepository(
-      ProductDetailsRemoteDataSource(
-        client,
-        origin: Uri.parse('https://pos.test'),
-        token: 'test-session',
-        cancelToken: CancelToken(),
-      ),
+      ProductCatalogRemoteDataSource(api, cancelToken: CancelToken()),
       cache: cache,
       onSessionRejected: onRejected,
     );
@@ -136,7 +131,6 @@ void main() {
     addTearDown(() async {
       Future<void> cleanup() async {
         container.dispose();
-        dio.close(force: true);
         await cache.close();
         await database.close();
       }
@@ -159,7 +153,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       available = false;
-      found = screen == 'creation' ? null : productJson();
+      found = screen == 'creation' ? null : v2Product();
       final page = switch (screen) {
         'creation' => const ProductCreationPage(barcode: code),
         'edit' => const ProductEditPage(barcode: code),
@@ -189,13 +183,17 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(home: page),
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: page,
+          ),
         ),
       );
       await tester.pumpAndSettle();
       expect(find.text('Try again'), findsOneWidget);
       expect(cache.offline, isTrue);
-      expect(paths, ['/mupi/mobile/auth/token/check']);
+      expect(paths, [_byBarcode]);
 
       // Ordinary reads stay local; a failed tap makes just one probe.
       await tester.runAsync(() async {
@@ -221,9 +219,10 @@ void main() {
       expect(cache.offline, isFalse);
       expect(cache.status(code).phase, ReadSyncPhase.online);
       expect(paths.skip(before), [
-        '/mupi/mobile/auth/token/check',
-        '/mupi/mobile/api/products/find',
-        if (screen != 'price') '/mupi/mobile/api/products/references',
+        _byBarcode,
+        if (screen == 'creation') _session,
+        if (screen != 'price') _taxes,
+        if (screen != 'price') _categories,
       ]);
       switch (screen) {
         case 'creation':
@@ -281,7 +280,7 @@ void main() {
     expect(paths.length, 2);
 
     available = true; // Same interface: no connectionChanged notification.
-    found = productJson()..['name'] = 'Fresh server product';
+    found = v2Product(name: 'Fresh server product');
     await controller.retry();
     expect(paths.length, 3);
     expect(
@@ -302,7 +301,7 @@ void main() {
     container.listen(provider, (_, _) {});
     await container.read(provider.future);
     final controller = container.read(provider.notifier)
-      ..edit(name: 'Draft name', price: '12.50', taxIds: []);
+      ..edit(name: 'Draft name', price: '12.50', taxIds: [], categoryId: 4);
     paths.clear();
     available = false;
     await controller.check();
@@ -311,7 +310,7 @@ void main() {
       container.read(provider).requireValue.phase,
       ProductCreationPhase.uncertain,
     );
-    expect(paths, ['/mupi/mobile/auth/token/check']);
+    expect(paths, [_byBarcode]);
 
     await controller.check();
     expect(paths.length, 2);
@@ -324,11 +323,7 @@ void main() {
 
     available = true;
     await controller.check();
-    expect(paths.skip(2), [
-      '/mupi/mobile/auth/token/check',
-      '/mupi/mobile/api/products/find',
-      '/mupi/mobile/api/products/references',
-    ]);
+    expect(paths.skip(2), [_byBarcode, _session, _taxes, _categories]);
     final state = container.read(provider).requireValue;
     expect(state.phase, ProductCreationPhase.editing);
     expect(state.canSubmit, isTrue);
@@ -346,21 +341,18 @@ void main() {
       container.listen(provider, (_, _) {});
       await container.read(provider.future);
       final controller = container.read(provider.notifier)
-        ..edit(name: 'Preserved', price: '10', taxIds: []);
+        ..edit(name: 'Preserved', price: '10', taxIds: [], categoryId: 4);
       available = false;
       await controller.check();
       available = true;
-      found = productJson();
+      found = v2Product();
       paths.clear();
       await controller.check();
       final state = container.read(provider).requireValue;
       expect(state.context.details.product?.id, fixtureProduct.id);
       expect(state.canSubmit, isFalse);
       expect(state.name, 'Preserved');
-      expect(paths, [
-        '/mupi/mobile/auth/token/check',
-        '/mupi/mobile/api/products/find',
-      ]);
+      expect(paths, [_byBarcode]);
     },
   );
 
@@ -371,7 +363,12 @@ void main() {
       container.listen(provider, (_, _) {});
       await container.read(provider.future);
       final controller = container.read(provider.notifier)
-        ..edit(name: 'Uncertain draft', price: '12.50', taxIds: []);
+        ..edit(
+          name: 'Uncertain draft',
+          price: '12.50',
+          taxIds: [],
+          categoryId: 4,
+        );
       failSave = true;
       await controller.save();
       expect(
@@ -379,17 +376,14 @@ void main() {
         ProductCreationPhase.uncertain,
       );
       expect(cache.offline, isTrue);
-      expect(paths.where((path) => path.endsWith('/products/save')).length, 1);
+      expect(paths.where((path) => path == _create).length, 1);
       final before = paths.length;
       // Simulate a lost acknowledgement: the product now exists on the server.
-      found = productJson();
+      found = v2Product();
       failSave = false;
       await controller.check();
-      expect(paths.skip(before), [
-        '/mupi/mobile/auth/token/check',
-        '/mupi/mobile/api/products/find',
-      ]);
-      expect(paths.where((path) => path.endsWith('/products/save')).length, 1);
+      expect(paths.skip(before), [_byBarcode]);
+      expect(paths.where((path) => path == _create).length, 1);
       final state = container.read(provider).requireValue;
       expect(state.context.details.product?.id, fixtureProduct.id);
       expect(state.name, 'Uncertain draft');
@@ -405,15 +399,17 @@ void main() {
       throwsA(isA<AppFailure>()),
     );
     available = true;
-    scopes = 'product:read';
+    permissions = productPermissions({
+      for (final key in productPermissions().keys) key: key == 'product_read',
+    });
     final result = await details.prepareCreation(code, refresh: true);
     expect(result.canCreate, isFalse);
     expect(cache.offline, isFalse);
-    expect(paths.where((path) => path.endsWith('/references')), isEmpty);
+    expect(paths.where((path) => path == _taxes), isEmpty);
   });
 
   test('explicit retry never falls back on authentication rejection', () async {
-    found = productJson();
+    found = v2Product();
     await lookup.findByBarcode(code);
     available = false;
     await lookup.findByBarcode(code);

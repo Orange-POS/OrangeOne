@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/app/router/app_router.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/l10n/l10n.dart';
+import 'package:orange_one/l10n/locale_controller.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class App extends ConsumerWidget {
@@ -10,6 +12,9 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keep the session cache alive so that logout closes it, and deletes its
+    // snapshots and recent scans, at once instead of at the next read.
+    ref.listen(readCacheProvider, (previous, next) {});
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'OrangeONE',
@@ -28,6 +33,8 @@ class App extends ConsumerWidget {
       ),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      // The user's saved language; null follows the device language.
+      locale: ref.watch(localeControllerProvider),
       routerConfig: ref.watch(routerProvider),
     );
   }

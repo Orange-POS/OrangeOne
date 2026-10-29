@@ -68,9 +68,17 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('No Tax'));
         await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('create-product-category')),
+        );
+        await tester.tap(find.byKey(const Key('create-product-category')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Spices'));
+        await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, 'Create Product'));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        // Confirm creates the product and opens its details.
+        await tester.tap(find.text('Confirm'));
         await tester.pumpAndSettle();
         expect(find.text('Created product'), findsOneWidget);
         expect(
@@ -81,7 +89,7 @@ void main() {
         if (systemBack) {
           container.read(routerProvider).pop();
         } else {
-          await tester.tap(find.byTooltip('Back to scanner'));
+          await tester.tap(find.byTooltip('Open Scanner'));
         }
         await tester.pumpAndSettle();
         expect(find.text('Scan test barcode'), findsOneWidget);

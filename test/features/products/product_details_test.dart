@@ -10,6 +10,7 @@ import 'package:orange_one/features/products/domain/entities/product_details.dar
 import 'package:orange_one/features/products/domain/use_cases/manage_product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/l10n/l10n.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/product_details_fakes.dart';
@@ -87,12 +88,15 @@ void main() {
   test('validates writes before repository invocation', () async {
     final repo = FakeDetailsRepository();
     final useCase = ManageProductDetails(repo);
-    expect(() => useCase.rename(10, ' '), throwsFormatException);
+    expect(() => useCase.rename(detailsFixture, ' '), throwsFormatException);
     for (final value in ['NaN', 'Infinity', '-1', 'abc']) {
-      expect(() => useCase.reprice(10, value), throwsFormatException);
+      expect(
+        () => useCase.reprice(detailsFixture, value),
+        throwsFormatException,
+      );
     }
     expect(repo.writes, 0);
-    await useCase.reprice(10, '12.50');
+    await useCase.reprice(detailsFixture, '12.50');
     expect(repo.writes, 1);
   });
 
@@ -101,6 +105,8 @@ void main() {
       ProviderScope(
         overrides: [productDetailsRepositoryProvider.overrideWithValue(repo)],
         child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ProductDetailsPage(barcode: '0010101010'),
         ),
       ),
@@ -136,7 +142,7 @@ void main() {
     for (final tooltip in [
       'Update price',
       'Edit product name',
-      'Add stock (coming soon)',
+      'Update stock',
     ]) {
       final action = find.byWidgetPredicate(
         (widget) => widget is IconButton && widget.tooltip == tooltip,

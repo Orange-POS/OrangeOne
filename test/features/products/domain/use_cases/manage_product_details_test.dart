@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
 import 'package:orange_one/features/products/domain/use_cases/manage_product_details.dart';
@@ -10,7 +11,17 @@ import '../../../../support/product_details_fakes.dart';
 class MockProductDetailsRepository extends Mock
     implements ProductDetailsRepository;
 
+ProductDetails _withId(int id) => ProductDetails(
+  id: id,
+  name: detailsFixture.name,
+  barcode: detailsFixture.barcode,
+  price: detailsFixture.price,
+  stock: detailsFixture.stock,
+  version: detailsFixture.version,
+);
+
 void main() {
+  setUpAll(() => registerFallbackValue(ChfPrice.parse('0')));
   late MockProductDetailsRepository repository;
   late ManageProductDetails manage;
 
@@ -45,49 +56,61 @@ void main() {
   });
 
   test('rename trims names before writing', () async {
-    when(() => repository.updateName(10, 'Updated product'))
-        .thenAnswer((_) async {});
+    when(() => repository.updateName(detailsFixture, 'Updated product'))
+        .thenAnswer((_) async => detailsFixture);
 
-    await manage.rename(10, ' Updated product ');
+    await manage.rename(detailsFixture, ' Updated product ');
 
-    verify(() => repository.updateName(10, 'Updated product')).called(1);
+    verify(() => repository.updateName(detailsFixture, 'Updated product'))
+        .called(1);
     verifyNoMoreInteractions(repository);
   });
 
   test('invalid identity or name never writes', () {
-    expect(() => manage.rename(0, 'Product'), throwsFormatException);
-    for (final name in ['', '  ', List.filled(201, 'a').join()]) {
-      expect(() => manage.rename(10, name), throwsFormatException);
+    expect(() => manage.rename(_withId(0), 'Product'), throwsFormatException);
+    for (final name in ['', '  ', List.filled(129, 'a').join()]) {
+      expect(() => manage.rename(detailsFixture, name), throwsFormatException);
     }
     verifyZeroInteractions(repository);
   });
 
-  test('reprice converts comma decimals into the repository amount', () async {
-    when(() => repository.updatePrice(10, 12.05))
+  test('reprice converts comma decimals into the exact amount', () async {
+    when(() => repository.updatePrice(detailsFixture, any()))
         .thenAnswer((_) async => detailsFixture);
 
-    await manage.reprice(10, '12,05');
+    await manage.reprice(detailsFixture, '12,05');
 
-    verify(() => repository.updatePrice(10, 12.05)).called(1);
+    final price =
+        verify(() => repository.updatePrice(detailsFixture, captureAny()))
+                .captured
+                .single
+            as ChfPrice;
+    expect(price.formatted, '12.05');
     verifyNoMoreInteractions(repository);
   });
 
   test('invalid price or identity never writes', () {
-    expect(() => manage.reprice(0, '1'), throwsFormatException);
+    expect(() => manage.reprice(_withId(0), '1'), throwsFormatException);
     for (final price in ['-1', 'NaN', '1.001', 'CHF 1', '']) {
-      expect(() => manage.reprice(10, price), throwsFormatException);
+      expect(
+        () => manage.reprice(detailsFixture, price),
+        throwsFormatException,
+      );
     }
     verifyZeroInteractions(repository);
   });
 
   test('asynchronous repository failures propagate without retry', () async {
     const failure = AppFailure(FailureKind.forbidden, 'Not permitted.');
-    when(() => repository.updateName(10, 'Product'))
+    when(() => repository.updateName(detailsFixture, 'Product'))
         .thenAnswer((_) async => throw failure);
 
-    await expectLater(manage.rename(10, 'Product'), throwsA(same(failure)));
+    await expectLater(
+      manage.rename(detailsFixture, 'Product'),
+      throwsA(same(failure)),
+    );
 
-    verify(() => repository.updateName(10, 'Product')).called(1);
+    verify(() => repository.updateName(detailsFixture, 'Product')).called(1);
     verifyNoMoreInteractions(repository);
   });
 }

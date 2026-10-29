@@ -16,27 +16,40 @@ loads authoritative data itself, supports direct navigation, refresh and safe
 loading/empty/failure states. All routes remain protected by session restoration
 and logout checks. Add product remains a prefilled draft without saving.
 
-## Confirmed server operations
+## Header, actions and localization
 
-The existing central Dio/JSON-RPC client, timeouts and secure session are reused.
-The app binds the details repository to the current session origin, bearer token
-and a disposal cancellation token. HTTP and HTTPS dynamic POS origins remain
-supported in all flavors. No authentication data is logged.
+- The top bar has no back arrow; the title stays centered. A round **Open
+  Scanner** button (floating, bottom right) returns to the scanner with the
+  previous navigation (`pop`, or `goNamed('productScanner')`). System back still
+  works. The "Powered by OrangeONE" footer was removed.
+- The name card shows a Category badge to the left of the Stock badge with the
+  same design (`InfoBadge`); a product without a category shows "No Category".
+  Long category names are truncated; the badges wrap on narrow screens.
+- Every text of the screen (title, labels, tooltips, states, tax text, sync
+  indicator) follows the selected language of the six supported; see
+  [localization](localization.md).
 
-- `auth/token/check`: map the server's whitespace-separated `scopes` string.
-  Missing scopes deny management actions by default.
-- `api/products/find`: exact barcode; map id/name/barcode/price/stock quantity,
-  optional reference/unit and taxes. Percent taxes display their percent; fixed,
-  grouped and division taxes retain their server names instead of inventing a
-  combined effective percentage.
-- `api/products/name/update`: `{product_id, name}`, requires
-  `product:name_update`.
-- `api/products/price/update`: `{product_id, price}`, requires
-  `product:price_update`.
+## Server operations (Mobile API v2)
 
-Paths above are prefixed `/mupi/mobile/`. Backend controller/model source is the
-contract authority. The server enforces permissions again on every write.
-The form validates trimmed names (1–200 characters) and finite nonnegative prices.
+The authenticated Mobile API v2 client, timeouts and secure session are reused
+([integration](mobile-api-v2.md)). The details repository is bound to the
+session `api_base`, a per-request access token and a disposal cancellation token.
+No authentication data is logged.
+
+- `GET /products/by-barcode/{barcode}` on first load, then
+  `GET /products/{id}` with `If-None-Match`: `304` keeps the previous details
+  and permissions; a removed or re-barcoded product falls back to the barcode
+  lookup. The JSON `version` and the ETag are kept separately.
+- Mapped data: name, description, barcode, reference, decimal price and
+  currency, taxes (percent taxes show their percent; other types keep their
+  names), category, POS-location stock and unit, and `Product.permissions`.
+- Name/tax/category edits use `PATCH /products/{id}`, price `PUT
+  /products/{id}/price` and stock counts `POST /products/{id}/stock-adjustments`,
+  each with `If-Match` (JSON version) and an `Idempotency-Key`.
+
+The server enforces permissions again on every write and rejects stale versions
+with `412 VERSION_CONFLICT`, which reloads the details without retrying.
+The form validates trimmed names (1–128 characters) and finite nonnegative prices.
 The explicit Confirm update action performs one write, prevents duplicate
 submission, then re-reads details and permissions. Writes are never automatically
 retried. After an uncertain network outcome, refresh before submitting again.
@@ -65,7 +78,7 @@ for discount persistence, actual scheduling and stock adjustments.
 
 ## Verification
 
-Focused tests cover mapping and malformed responses, missing products, scopes,
+Focused tests cover mapping and malformed responses, missing products, permissions,
 origin and write payloads, session rejection versus authorization failure,
 input validation, controller refresh, loading/empty/error widgets, confirmation,
 automatic scanner navigation and returning to scan. Camera/network dependencies
@@ -88,4 +101,11 @@ place buttons side by side. CHF is displayed as requested; pull-to-refresh repla
 the redundant refresh buttons. Hero and discount card shadows follow the supplied
 SVG. These fixed-header/sticky-action conventions are recorded in AGENTS.md.
 
+## Success toast
 
+After Edit Name & Tax, Price, Stock or Creation succeeds, this screen shows the
+success toast above the Open Scanner button (`ProductSuccessToast`, the shared
+success notice design, about five seconds). The hero is the shared glass card
+with the Tax row (see [product edit](product-edit.md)).
+
+The Tax appears only in the hero (not as a separate row below Price). The glass shadow is drawn outside the card only, so the theme colors are not darkened.

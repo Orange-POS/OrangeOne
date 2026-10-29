@@ -6,10 +6,11 @@ class ProductNavbar extends StatelessWidget implements PreferredSizeWidget {
   const new({
     required this.title,
     required this.onBack,
-    required this.onEdit,
-    required this.editTooltip,
+    this.onEdit,
+    this.editTooltip = '',
     this.trailing,
     this.backTooltip = 'Back',
+    this.showBack = true,
     super.key,
   });
   final String title;
@@ -18,6 +19,10 @@ class ProductNavbar extends StatelessWidget implements PreferredSizeWidget {
   final String editTooltip;
   final Widget? trailing;
   final String backTooltip;
+
+  /// Screens that offer another way back hide the arrow; the title stays
+  /// centered.
+  final bool showBack;
   @override
   Size get preferredSize => const Size.fromHeight(80);
   @override
@@ -28,20 +33,23 @@ class ProductNavbar extends StatelessWidget implements PreferredSizeWidget {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          IconButton(
-            tooltip: backTooltip,
-            onPressed: onBack,
-            style: _buttonStyle,
-            icon: SvgPicture.asset(
-              'assets/icons/arrow_left.svg',
-              width: 24,
-              height: 24,
-              colorFilter: const ColorFilter.mode(
-                Colors.white,
-                BlendMode.srcIn,
+          if (showBack)
+            IconButton(
+              tooltip: backTooltip,
+              onPressed: onBack,
+              style: _buttonStyle,
+              icon: SvgPicture.asset(
+                'assets/icons/arrow_left.svg',
+                width: 24,
+                height: 24,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            const SizedBox(width: 48),
           Expanded(
             child: Text(
               title,

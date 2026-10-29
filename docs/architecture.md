@@ -12,7 +12,7 @@ The initialization diagnostic remains presentation-only, at
 `/diagnostics/initialization`. The authentication feature implements pages/widgets/
 providers, pure-Dart session/challenge entities and repository/use-case contracts,
 and data-layer QR/response mapping, remote IO and repository implementation.
-Shared Dio/JSON-RPC, secure storage and failures live in core; branding lives in
+Shared Dio, the Mobile API v2 client, secure storage and failures live in core; branding lives in
 shared/theme. The app starts at `/login`, nests its QR scanner, and guards `/home`
 through the verified session state. Redirect policy is separate from route creation.
 Unknown routes show a safe fallback. Bootstrap validates that

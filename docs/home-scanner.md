@@ -5,7 +5,7 @@
 Home owns the authenticated scanner landing page, camera page and all barcode
 lookup actions. The supplied landing PNG/SVG defines the gradient, OrangeONE
 wordmark, white circle with the exported box-scan icon, “Tap to scan Barcode”,
-“Scan Your Product”, and footer. The barcode page follows the supplied scanner
+“Scan Your Product” (the “Powered By OrangeONE” footer was removed). The barcode page follows the supplied scanner
 PNG/CSS: orange header, open-corner frame, live camera status and compact last
 scanned card. The exported vector icon is `assets/icons/box_scan.svg`.
 
@@ -21,34 +21,53 @@ As explicitly requested, **Add product is a draft only**: the scanned barcode is
 read-only; name, price and optional reference can be entered. Drafts are held in
 the current page's form fields and discarded on leaving it. There is no save API,
 offline write queue, product update, stock adjustment or price mutation in this
-task. The supplied `products/save` route is an upsert and requires a separate
-creation task with duplicate/race rules, permissions and explicit confirmation.
+task. Product creation was added later in the Products feature
+(`POST /products`, see [product creation](product-creation.md)).
 
-## Confirmed API contract
+## Recent scans and localization
 
-Source: `mupi_mobile_pos_api/controllers/mobile_pos_api.py`, `find_product` and
-`_format_product`; token failures follow the supplied mobile authentication model.
+The scanner's bottom card ("Last scanned") shows the product the user scanned
+last while the scanner is idle: one card, which each new scan replaces. The Home
+screen itself has no card; the card is the existing one of the barcode screen.
 
-- POST `/mupi/mobile/api/products/find`, JSON-RPC 2.0, named params
-  `{"barcode":"<scanned string>"}`, matching request/response IDs.
-- Use the current secure session's origin and a per-request bearer token. Never
-  use the optional build-time fallback server for authenticated product requests.
-- Required scope: `product:read`.
-- Success: `{"ok":true,"product":{...}}`; no match:
-  `{"ok":true,"product":null}`. Missing `product` is a protocol error.
-- The server searches exact barcode, `available_in_pos=true`, and company shared
-  or matching the token's company, **with `limit=1`**. The app displays the record
-  selected by that backend rule. It cannot detect duplicates hidden by the server
-  and does not invent an ambiguity-selection API. Arrays/multiple-result response
-  shapes are rejected as protocol failures instead of selecting one locally.
-- Map positive integer ID, nonblank name, exact barcode and finite numeric price
-  and `stock_quantity`. Negative stock is valid. Optional UOM/reference safely
-  default to empty strings. Stock reflects the backend's `qty_available`, without
-  claiming a warehouse-specific or offline quantity.
-- Known token-invalid/expired/POS-closed results and HTTP/JSON-RPC authentication
-  failures clear the current session. Missing product permission is a distinct
-  forbidden failure and does not automatically log the user out. Unexpected
-  server errors use safe static messages; backend traces are never displayed.
+- A product is recorded when a lookup finds it (online or from the offline
+  cache); unknown barcodes, errors and invalid codes are not. A rescan moves it
+  to the top; the five latest are kept in the stored history (unchanged), but
+  only the newest is displayed.
+- The card shows the product name; a row of two badges with the same design as
+  the stock badge (`InfoBadge`): the Category (or "No Category") first, then
+  the Barcode; and below them the stock text on the left and the price as
+  `CHF 12.50` on the right. Storage holds those fields, the unit, the category
+  name and the product id that keeps the entry current; never the reference,
+  taxes, permissions or version.
+- Tapping the card runs the same lookup as a scan (`ProductLookupController.scan`
+  through the existing repository and API) and opens Product Details, or the
+  creation form if the product no longer exists.
+- Storage is the session's encrypted read cache (`EncryptedReadCache`,
+  `recentScansRepositoryOverride`), so the list survives restarts, belongs to one
+  session and is deleted with it; see [offline data](offline-data.md). History
+  failures never interrupt scanning.
+- Home and the scanner screen (texts, tooltips, camera status and permission
+  messages, stock badge labels) follow the selected language; see
+  [localization](localization.md).
+
+## API contract (Mobile API v2)
+
+See [Mobile API v2 integration](mobile-api-v2.md).
+
+- `GET {api_base}/products/by-barcode/{barcode}` with the session's bearer token
+  (refreshed on `TOKEN_EXPIRED`). The barcode must be 1–64 printable ASCII
+  characters and is path-encoded; invalid barcodes fail before any request.
+- `200` returns one `Product`; `404 PRODUCT_NOT_FOUND` means no POS product has
+  this barcode (the scanner offers creation). Other envelopes are protocol errors.
+- The server searches the session company's POS products; the app shows the
+  record it returns and does not select among duplicates locally.
+- Mapped fields: positive ID, nonblank name, exact barcode, decimal-string price
+  and currency, stock quantity of the POS location (null when untracked, shown
+  as unavailable; negative stock is valid), unit and reference.
+- `AUTH_REQUIRED`/`TOKEN_*` end the session. `PERMISSION_DENIED` or
+  `COMPANY_MISMATCH` are forbidden failures that keep the session. Server
+  messages are shown only when short; traces are never displayed.
 
 ## Architecture, state and cancellation
 
@@ -58,7 +77,7 @@ scanner, result panel, draft page and manual Riverpod providers. Home landing ca
 
 `app/providers/product_dependencies.dart` binds `productRepositoryProvider` at
 the existing root ProviderScope. It watches the current authenticated session,
-injects the shared JSON-RPC client, and cancels its Dio request when disposed.
+injects the authenticated Mobile API client, and cancels its Dio request when disposed.
 It only logs out the same session that made a rejected request. Home widgets import another feature's presentation or data implementation.
 
 `productLookupControllerProvider` / ProductLookupController is auto-disposed.

@@ -74,7 +74,7 @@ class _ProductEditDialogState extends State<ProductEditDialog> {
                 labelText: widget.numeric ? 'Price' : 'Product name',
               ),
             ),
-            const Text('Confirm saves this change to Odoo.'),
+            const Text('Confirm saves this change.'),
             if (_error != null)
               Text(
                 _error!,

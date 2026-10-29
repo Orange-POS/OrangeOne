@@ -13,6 +13,9 @@ import 'package:orange_one/features/products/presentation/providers/product_deta
 
 enum ProductEditPhase { editing, saving, checking, saved, uncertain }
 
+/// A product field the edit screen can change.
+enum ProductEditField { name, tax, category }
+
 class ProductEditState {
   const new({
     required this.details,
@@ -21,13 +24,26 @@ class ProductEditState {
     this.selectedTaxIds,
     this.taxMessage,
     this.taxSelectionError,
+    this.categories = const [],
+    this.selectedCategory,
+    this.categoryMessage,
     this.nameError,
     this.message,
     this.phase = ProductEditPhase.editing,
+    this.savedFields = const {},
   });
   final ProductDetailsState details;
   final String name;
+
+  /// The fields that were changed and confirmed saved ([phase] saved); the
+  /// success toast mentions only these.
+  final Set<ProductEditField> savedFields;
   final List<ProductTax> taxes;
+  final List<ProductCategory> categories;
+
+  /// Null keeps the current category.
+  final CategoryChange? selectedCategory;
+  final String? categoryMessage;
 
   /// Null preserves all existing taxes; [] explicitly removes them.
   final List<int>? selectedTaxIds;
@@ -43,12 +59,21 @@ class ProductEditState {
       details.access.editName &&
       phase == ProductEditPhase.editing;
   bool get canSelectTax =>
-      canEdit && details.access.readReferences && taxMessage == null;
-  bool get changed =>
-      name.trim() != details.product?.name || selectedTaxIds != null;
+      canEdit && details.access.updateTaxes && taxMessage == null;
+  bool get canSelectCategory =>
+      canEdit && details.access.updateCategory && categoryMessage == null;
+
+  /// The fields the draft changes compared with the product.
+  Set<ProductEditField> get changedFields => {
+    if (name.trim() != details.product?.name) ProductEditField.name,
+    if (selectedTaxIds != null) ProductEditField.tax,
+    if (selectedCategory != null) ProductEditField.category,
+  };
+  bool get changed => changedFields.isNotEmpty;
   bool get canSubmit =>
       canEdit &&
       (selectedTaxIds == null || canSelectTax) &&
+      (selectedCategory == null || canSelectCategory) &&
       taxSelectionError == null &&
       changed &&
       name.trim().isNotEmpty &&
@@ -66,6 +91,18 @@ class ProductEditState {
             .where((tax) => selectedTaxIds!.contains(tax.id))
             .map((tax) => tax.label)
             .join(', ');
+
+  String get categoryLabel {
+    final change = selectedCategory;
+    if (change == null) {
+      return details.product?.category?.name ?? 'No category';
+    }
+    if (change.id == null) return 'No category';
+    for (final category in categories) {
+      if (category.id == change.id) return category.name;
+    }
+    return 'Selected category unavailable';
+  }
 }
 
 final AsyncNotifierProviderFamily<
@@ -100,34 +137,41 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
     ProductDetailsState details,
     String name, {
     List<int>? selectedTaxIds,
+    CategoryChange? selectedCategory,
     String? message,
   }) async {
     if (!ref.mounted) throw cancelledOperation;
-    var taxes = <ProductTax>[];
-    String? taxMessage;
-    if (details.product != null &&
-        details.access.editName &&
-        details.access.readReferences) {
-      try {
-        taxes = await ref.read(productDetailsRepositoryProvider).loadTaxes();
-      } on AppFailure catch (error) {
-        if (error.kind == FailureKind.unauthenticated) rethrow;
-        taxMessage =
-            'Tax options are unavailable. Existing taxes are preserved.';
-      } on Exception {
-        taxMessage =
-            'Tax options are unavailable. Existing taxes are preserved.';
-      }
-    } else {
-      taxMessage =
-          'Tax selection requires reference access. '
-          'Existing taxes are preserved.';
-    }
+    final repository = ref.read(productDetailsRepositoryProvider);
+    final editable = details.product != null && details.access.editName;
+    // Load both option lists together; Future.wait observes every error.
+    final options = await Future.wait([
+      _options(
+        editable && details.access.updateTaxes ? repository.loadTaxes : null,
+      ),
+      _options(
+        editable && details.access.updateCategory
+            ? repository.loadCategories
+            : null,
+      ),
+    ]);
+    final taxes = (options[0] ?? const []).cast<ProductTax>();
+    var taxMessage = !editable || !details.access.updateTaxes
+        ? 'Tax selection requires reference access. '
+              'Existing taxes are preserved.'
+        : options[0] == null
+        ? 'Tax options are unavailable. Existing taxes are preserved.'
+        : null;
     if (selectedTaxIds != null && taxMessage != null) {
       taxMessage =
           'Tax changes are unavailable. Your selection is retained. '
           'Restore access and refresh before saving.';
     }
+    final categories = (options[1] ?? const []).cast<ProductCategory>();
+    final categoryMessage =
+        editable && details.access.updateCategory && options[1] == null
+        ? 'Category options are unavailable. '
+              'The current category is preserved.'
+        : null;
     return ProductEditState(
       details: details,
       name: name,
@@ -135,9 +179,28 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
       taxMessage: taxMessage,
       taxSelectionError: _taxError(selectedTaxIds, taxes),
       selectedTaxIds: selectedTaxIds,
+      categories: categories,
+      categoryMessage: categoryMessage,
+      selectedCategory: selectedCategory,
       message: message,
       nameError: _nameError(name),
     );
+  }
+
+  /// Picker options, or null when they could not be loaded. Session
+  /// rejection still propagates; [load] is null when not permitted.
+  static Future<List<Object>?> _options(
+    Future<List<Object>> Function()? load,
+  ) async {
+    if (load == null) return const [];
+    try {
+      return await load();
+    } on AppFailure catch (error) {
+      if (error.kind == FailureKind.unauthenticated) rethrow;
+      return null;
+    } on Exception {
+      return null;
+    }
   }
 
   String? _taxError(List<int>? ids, List<ProductTax> taxes) =>
@@ -168,6 +231,9 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
     selectedTaxIds: selectedTaxIds ?? value.selectedTaxIds,
     taxMessage: value.taxMessage,
     taxSelectionError: value.taxSelectionError,
+    categories: value.categories,
+    selectedCategory: value.selectedCategory,
+    categoryMessage: value.categoryMessage,
     nameError: _nameError(name ?? value.name),
     phase: phase,
     message: message,
@@ -200,9 +266,76 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
         taxes: current.taxes,
         selectedTaxIds: unchanged ? null : List.unmodifiable(ids),
         taxMessage: current.taxMessage,
+        categories: current.categories,
+        selectedCategory: current.selectedCategory,
+        categoryMessage: current.categoryMessage,
         nameError: current.nameError,
       ),
     );
+  }
+
+  /// A null [id] removes the category.
+  void selectCategory(int? id) {
+    final current = state.value;
+    if (state.isLoading ||
+        current == null ||
+        !current.canSelectCategory ||
+        (id != null && !current.categories.any((c) => c.id == id))) {
+      return;
+    }
+    final unchanged = current.details.product?.category?.id == id;
+    state = AsyncData(
+      ProductEditState(
+        details: current.details,
+        name: current.name,
+        taxes: current.taxes,
+        selectedTaxIds: current.selectedTaxIds,
+        taxMessage: current.taxMessage,
+        taxSelectionError: current.taxSelectionError,
+        categories: current.categories,
+        selectedCategory: unchanged ? null : CategoryChange(id),
+        categoryMessage: current.categoryMessage,
+        nameError: current.nameError,
+      ),
+    );
+  }
+
+  /// Creates a category (`POST /categories`) and selects it for this
+  /// product. Failures are rethrown for the picker to show.
+  Future<ProductCategory> createCategory(String name) async {
+    final current = state.value;
+    if (state.isLoading ||
+        current == null ||
+        !current.canSelectCategory ||
+        !current.details.access.createCategory) {
+      throw const FormatException('Category creation is not available.');
+    }
+    final created = await ref
+        .read(productDetailsRepositoryProvider)
+        .createCategory(name);
+    if (!ref.mounted) return created;
+    final latest = state.value ?? current;
+    state = AsyncData(
+      ProductEditState(
+        details: latest.details,
+        name: latest.name,
+        taxes: latest.taxes,
+        selectedTaxIds: latest.selectedTaxIds,
+        taxMessage: latest.taxMessage,
+        taxSelectionError: latest.taxSelectionError,
+        categories: List.unmodifiable([
+          ...latest.categories.where((c) => c.id != created.id),
+          created,
+        ]),
+        selectedCategory: latest.selectedCategory,
+        categoryMessage: latest.categoryMessage,
+        nameError: latest.nameError,
+        message: latest.message,
+        phase: latest.phase,
+      ),
+    );
+    selectCategory(created.id);
+    return created;
   }
 
   Future<void> save() async {
@@ -218,11 +351,13 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
       final product = fresh.product;
       if (product == null ||
           !fresh.access.editName ||
-          (current.selectedTaxIds != null && !fresh.access.readReferences)) {
+          (current.selectedTaxIds != null && !fresh.access.updateTaxes) ||
+          (current.selectedCategory != null && !fresh.access.updateCategory)) {
         final next = await _loadReferences(
           fresh,
           current.name,
           selectedTaxIds: current.selectedTaxIds,
+          selectedCategory: current.selectedCategory,
           message: 'This product or edit permission is no longer available.',
         );
         if (ref.mounted && generation == _generation) state = AsyncData(next);
@@ -231,11 +366,14 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
       final previous = current.details.product!;
       if (product.id != previous.id ||
           product.name != previous.name ||
-          (current.selectedTaxIds != null && !_sameTaxes(product, previous))) {
+          (current.selectedTaxIds != null && !_sameTaxes(product, previous)) ||
+          (current.selectedCategory != null &&
+              product.category?.id != previous.category?.id)) {
         final next = await _loadReferences(
           fresh,
           current.name,
           selectedTaxIds: current.selectedTaxIds,
+          selectedCategory: current.selectedCategory,
           message: 'Product information changed. Review it before saving.',
         );
         if (ref.mounted && generation == _generation) state = AsyncData(next);
@@ -244,9 +382,14 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
       final taxes = current.selectedTaxIds == null
           ? current.taxes
           : await repository.loadTaxes();
+      final categories = current.selectedCategory?.id == null
+          ? current.categories
+          : await repository.loadCategories();
       if (!ref.mounted || generation != _generation) return;
       final taxError = _taxError(current.selectedTaxIds, taxes);
-      if (taxError != null) {
+      final categoryId = current.selectedCategory?.id;
+      if (taxError != null ||
+          (categoryId != null && !categories.any((c) => c.id == categoryId))) {
         state = AsyncData(
           ProductEditState(
             details: fresh,
@@ -254,6 +397,13 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
             taxes: taxes,
             selectedTaxIds: current.selectedTaxIds,
             taxSelectionError: taxError,
+            categories: categories,
+            selectedCategory: current.selectedCategory,
+            categoryMessage: current.categoryMessage,
+            message: taxError == null
+                ? 'Your selected category is unavailable. '
+                      'Select an available category before saving.'
+                : null,
           ),
         );
         return;
@@ -264,6 +414,8 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
         current.name,
         taxIds: current.selectedTaxIds,
         allowedTaxes: taxes,
+        category: current.selectedCategory,
+        allowedCategories: categories,
       );
       if (!ref.mounted || generation != _generation) return;
       final selected = current.selectedTaxIds?.toSet();
@@ -274,7 +426,9 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
           (selected != null &&
               (returned == null ||
                   selected.length != returned.length ||
-                  !selected.containsAll(returned)))) {
+                  !selected.containsAll(returned))) ||
+          (current.selectedCategory != null &&
+              updated.category?.id != current.selectedCategory!.id)) {
         throw invalidResponse;
       }
       state = AsyncData(
@@ -282,12 +436,35 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
           details: ProductDetailsState(updated, fresh.access),
           name: updated.name,
           taxes: taxes,
+          categories: categories,
           phase: ProductEditPhase.saved,
+          // Only what was changed and confirmed by the backend reply above.
+          savedFields: current.changedFields,
         ),
       );
       ref.invalidate(productDetailsControllerProvider(barcode));
     } on Exception catch (error) {
       if (!ref.mounted || generation != _generation) return;
+      if (error is AppFailure && error.kind == FailureKind.conflict) {
+        // Nothing was written: show the latest server data, keep the draft.
+        try {
+          final latest = await ManageProductDetails(repository).load(barcode);
+          final next = await _loadReferences(
+            latest,
+            current.name,
+            selectedTaxIds: current.selectedTaxIds,
+            selectedCategory: current.selectedCategory,
+            message: error.message,
+          );
+          if (ref.mounted && generation == _generation) {
+            state = AsyncData(next);
+            ref.invalidate(productDetailsControllerProvider(barcode));
+          }
+          return;
+        } on Exception {
+          if (!ref.mounted || generation != _generation) return;
+        }
+      }
       final rejected =
           error is FormatException ||
           (error is AppFailure &&
@@ -295,6 +472,9 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
                 FailureKind.forbidden,
                 FailureKind.validation,
                 FailureKind.unauthenticated,
+                FailureKind.conflict,
+                FailureKind.notFound,
+                FailureKind.rateLimited,
               }.contains(error.kind));
       state = AsyncData(
         _copy(
@@ -354,6 +534,7 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
         details,
         current.name,
         selectedTaxIds: current.selectedTaxIds,
+        selectedCategory: current.selectedCategory,
         message: 'Current information refreshed. Review before saving.',
       );
       if (!ref.mounted || generation != _generation) return;

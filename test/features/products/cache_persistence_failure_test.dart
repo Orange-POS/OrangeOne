@@ -1,24 +1,25 @@
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:orange_one/core/config/api_configuration.dart';
-import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/core/network/json_rpc_client.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
-import 'package:orange_one/features/products/data/data_sources/product_details_remote_data_source.dart';
+import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
+import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 
+import '../../support/auth_fakes.dart';
+import '../../support/mobile_api_fakes.dart';
+import '../../support/product_api_fakes.dart';
+import '../../support/product_details_fakes.dart';
 import '../../support/product_fakes.dart';
 
 void main() {
   late ReadCacheDatabase database;
   late EncryptedReadCache cache;
-  late Dio dio;
   late OdooProductDetailsRepository repository;
   late bool available;
-  late String scopes;
+  late Map<String, bool> permissions;
   late List<String> requests;
   Map<String, dynamic>? found;
   const code = '0010101010';
@@ -26,54 +27,38 @@ void main() {
   setUp(() {
     database = ReadCacheDatabase(NativeDatabase.memory());
     cache = EncryptedReadCache(database, sessionSecret: 'synthetic-session');
-    dio = Dio();
     available = true;
-    found = productJson();
-    scopes = 'product:name_update product:price_update reference:read';
+    found = v2Product();
+    permissions = productPermissions();
     requests = [];
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (request, handler) {
-          requests.add(request.uri.path);
-          if (!available) {
-            handler.reject(
-              DioException(
-                requestOptions: request,
-                type: DioExceptionType.connectionError,
-              ),
+    FakeReply read(RequestOptions request) {
+      requests.add(request.uri.path);
+      if (!available) {
+        throw DioException(
+          requestOptions: request,
+          type: DioExceptionType.connectionError,
+        );
+      }
+      if (request.uri.path.endsWith('/auth/session')) {
+        return FakeReply(200, successEnvelope(sessionData(permissions)));
+      }
+      return found == null
+          ? FakeReply(404, errorEnvelope('PRODUCT_NOT_FOUND'))
+          : FakeReply(
+              200,
+              successEnvelope({...found!, 'permissions': permissions}),
             );
-            return;
-          }
-          if (!request.uri.path.endsWith('/token/check') &&
-              !request.uri.path.endsWith('/products/find')) {
-            fail('A mutation must not reach the transport in this test.');
-          }
-          handler.resolve(
-            Response(
-              requestOptions: request,
-              data: {
-                'jsonrpc': '2.0',
-                'id': (request.data as Map)['id'],
-                'result': request.uri.path.endsWith('/token/check')
-                    ? {'ok': true, 'scopes': scopes}
-                    : {'ok': true, 'product': found},
-              },
-            ),
-          );
-        },
-      ),
-    );
+    }
+
+    final server = FakeMobileApiServer()
+      ..on('GET /products/by-barcode/$code', read)
+      ..on('GET /products/10', read)
+      ..on('GET /auth/session', read)
+      // No mutation may reach the transport in this test.
+      ..on('PUT /products/10/price', (_) => fail('Unexpected write.'));
     repository = OdooProductDetailsRepository(
-      ProductDetailsRemoteDataSource(
-        JsonRpcClient(
-          dio,
-          const ApiConfiguration(
-            baseUrl: 'https://unused.test',
-            environment: AppEnvironment.development,
-          ),
-        ),
-        origin: Uri.parse('https://pos.test'),
-        token: 'synthetic-session',
+      ProductCatalogRemoteDataSource(
+        fakeProductApi(server),
         cancelToken: CancelToken(),
       ),
       cache: cache,
@@ -84,7 +69,6 @@ void main() {
       await database.customStatement('DROP TRIGGER IF EXISTS fail_delete');
       await cache.close();
       await database.close();
-      dio.close(force: true);
     });
   });
 
@@ -108,7 +92,7 @@ void main() {
           cache.retryRead();
         }
         await failSql('INSERT');
-        found = productJson()..['name'] = 'Fresh result';
+        found = v2Product(name: 'Fresh result');
         final fresh = await repository.load(code);
         expect(fresh.product?.name, 'Fresh result');
         expect(fresh.access.updatePrice, isTrue);
@@ -159,7 +143,7 @@ void main() {
       await repository.load(code);
       await failSql('INSERT');
       await failSql('DELETE');
-      found = productJson()..['name'] = 'Fresh but not cached';
+      found = v2Product(name: 'Fresh but not cached');
       final fresh = await repository.load(code);
       expect(fresh.product?.name, 'Fresh but not cached');
       expect(fresh.access.updatePrice, isTrue);
@@ -199,7 +183,7 @@ void main() {
       expect(await cache.read(code), isNull);
       final before = requests.length;
       await expectLater(
-        repository.updatePrice(10, 12),
+        repository.updatePrice(detailsFixture, ChfPrice.parse('12')),
         throwsA(
           isA<AppFailure>().having(
             (failure) => failure.kind,
@@ -219,14 +203,16 @@ void main() {
   );
 
   test(
-    'fresh connectivity does not grant permissions absent from scopes',
+    'fresh connectivity does not grant permissions the server withholds',
     () async {
       await repository.load(code);
       cache
         ..connectionChanged(connected: false)
         ..retryRead();
       await failSql('INSERT');
-      scopes = 'product:read';
+      permissions = productPermissions({
+        for (final key in productPermissions().keys) key: key == 'product_read',
+      });
       final fresh = await repository.load(code);
       expect(cache.offline, isFalse);
       expect(fresh.access.updatePrice, isFalse);

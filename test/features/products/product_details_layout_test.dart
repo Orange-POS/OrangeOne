@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 import '../../support/product_details_fakes.dart';
@@ -23,6 +24,8 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: MediaQuery(
             data: MediaQueryData(size: size, padding: EdgeInsets.only(top: 34)),
             child: RepaintBoundary(
@@ -51,7 +54,7 @@ void main() {
       final expectedBytes = (await expected.toByteData())!;
       // Sample unoccupied navigation and card-padding pixels. Independent
       // card/header shaders or colored card fills break this visual contract.
-      for (final point in [const Offset(200, 20), const Offset(24, 124)]) {
+      for (final point in [const Offset(200, 20), const Offset(8, 124)]) {
         final offset = (point.dy.toInt() * 390 + point.dx.toInt()) * 4;
         for (var channel = 0; channel < 4; channel++) {
           expect(
@@ -84,6 +87,8 @@ void main() {
             ),
           ],
           child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context)
                   .copyWith(textScaler: const TextScaler.linear(1.6)),
@@ -98,17 +103,23 @@ void main() {
       expect(find.text('Update Price'), findsNothing);
       expect(find.text('Update Stock'), findsNothing);
       final stock = find.byWidgetPredicate(
-        (widget) =>
-            widget is IconButton && widget.tooltip == 'Add stock (coming soon)',
+        (widget) => widget is IconButton && widget.tooltip == 'Update stock',
       );
-      expect(tester.widget<IconButton>(stock).onPressed, isNull);
+      // Permitted and adjustable by default in the fake repository.
+      expect(tester.widget<IconButton>(stock).onPressed, isNotNull);
       expect(find.byKey(const Key('product-hero-barcode')), findsOneWidget);
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byTooltip('Update price'),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.ensureVisible(find.byTooltip('Update price'));
+      await tester.pumpAndSettle();
       expect(find.byTooltip('Update price').hitTestable(), findsOneWidget);
       expect(tester.getTopLeft(find.text('Product')), headerPosition);
-      expect(find.byTooltip('Back to scanner').hitTestable(), findsOneWidget);
+      expect(find.byTooltip('Open Scanner').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

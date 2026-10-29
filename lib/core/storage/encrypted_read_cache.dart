@@ -16,11 +16,43 @@ typedef ProductReadResult = ({
   bool serverVerified,
 });
 
-/// Session-scoped read cache. Tokens and permissions are never persisted.
+/// Change-feed position stored per session (`GET /products/changes`).
+typedef CacheSyncState = ({String since});
+
+/// Session-scoped read cache (schema 2: Mobile API v2 product reads).
+/// Tokens, permissions, versions and pending writes are never persisted.
 class EncryptedReadCache {
   new(this.database, {required String sessionSecret, DateTime Function()? now})
     : _identity = sessionSecret,
       _now = now ?? DateTime.now;
+
+  /// Encrypted envelope schema; other envelopes are discarded as misses.
+  static const schema = 2;
+
+  /// Approved display fields of a v2 product read record. Write-only data
+  /// (`version`, `permissions`, adjustability, locations) is never stored.
+  static const _fields = [
+    'id',
+    'name',
+    'barcode',
+    'price',
+    'currency',
+    'stock_quantity',
+    'stock_tracked',
+    'uom',
+    'default_code',
+    'description',
+    'updated_at',
+  ];
+
+  /// Reserved code input for the sync position; barcodes are printable.
+  static const _syncCode = '\u0000sync';
+
+  /// Reserved code input for the recently scanned products of the session.
+  static const _recentCode = '\u0000recent';
+
+  /// Most recently scanned products that are kept.
+  static const recentScanLimit = 5;
 
   final ReadCacheDatabase database;
   final String _identity;
@@ -69,7 +101,7 @@ class EncryptedReadCache {
       );
 
   Future<SecretKey> get key => _key ??= Sha256()
-      .hash(utf8.encode('orangeone.product-cache.v1:$_identity'))
+      .hash(utf8.encode('orangeone.product-cache.v$schema:$_identity'))
       .then((hash) => SecretKey(hash.bytes));
   Future<String> get owner => _owner ??= _hash(_identity);
   Future<String> _hash(String value) async =>
@@ -135,57 +167,12 @@ class EncryptedReadCache {
       if (_closed || revision != _revision) throw cancelledOperation;
       final time = _now().toUtc();
       // Only approved display fields; never cache capability or auth responses.
-      final approved = product == null
-          ? null
-          : <String, dynamic>{
-              for (final field in [
-                'id',
-                'name',
-                'barcode',
-                'price',
-                'stock_quantity',
-                'uom',
-                'default_code',
-              ])
-                if (product.containsKey(field)) field: product[field],
-            };
-      if (approved != null && product?['taxes'] is List) {
-        approved['taxes'] = (product!['taxes'] as List)
-            .whereType<Map<String, dynamic>>()
-            .map(
-              (tax) => {
-                for (final field in ['id', 'name', 'amount', 'amount_type'])
-                  if (tax.containsKey(field)) field: tax[field],
-              },
-            )
-            .toList();
-      }
+      final approved = product == null ? null : _approved(product);
       try {
         if (approved == null) {
           await _remove(barcode, revision: revision);
         } else {
-          final box = await _cipher.encrypt(
-            utf8.encode(
-              jsonEncode({'product': approved, 'at': time.toIso8601String()}),
-            ),
-            secretKey: await key,
-            aad: utf8.encode(barcode),
-          );
-          // Finish async preparation before the generation check at dispatch.
-          final identity = await owner;
-          final code = await _hash(barcode);
-          final payload = base64Encode(box.concatenation());
-          await _persist(() async {
-            if (_closed || revision != _revision) throw cancelledOperation;
-            await database.customStatement(
-              'INSERT OR REPLACE INTO product_reads VALUES (?, ?, ?)',
-              [identity, code, payload],
-            );
-            await database.customStatement(
-              'DELETE FROM product_reads WHERE rowid NOT IN '
-              '(SELECT rowid FROM product_reads ORDER BY rowid DESC LIMIT 500)',
-            );
-          });
+          await _store(barcode, approved, time, revision: revision);
         }
       } on Exception {
         // A cache failure must not hide a valid server response.
@@ -240,39 +227,43 @@ class EncryptedReadCache {
     });
   }
 
-  Future<void> _purge() async {
+  Future<void> _purge({bool keepRecents = false}) async {
     final identity = await owner;
+    final recent = await _hash(_recentCode);
     await _persist(
-      () => database.customStatement(
-        'DELETE FROM product_reads WHERE owner = ?',
-        [identity],
-      ),
+      () => keepRecents
+          ? database.customStatement(
+              'DELETE FROM product_reads WHERE owner = ? AND code != ?',
+              [identity, recent],
+            )
+          : database.customStatement(
+              'DELETE FROM product_reads WHERE owner = ?',
+              [identity],
+            ),
     );
   }
 
   Future<Map<String, dynamic>?> read(String barcode) async {
     if (_closed || _unavailable.contains(barcode)) return null;
     try {
+      final code = await _hash(barcode);
       final row = await database
           .customSelect(
             'SELECT payload FROM product_reads WHERE owner = ? AND code = ?',
-            variables: [Variable(await owner), Variable(await _hash(barcode))],
+            variables: [Variable(await owner), Variable(code)],
           )
           .getSingleOrNull();
       if (row == null) return null;
-      final decoded = await _cipher.decrypt(
-        SecretBox.fromConcatenation(
-          base64Decode(row.read<String>('payload')),
-          nonceLength: 12,
-          macLength: 16,
-        ),
-        secretKey: await key,
-        aad: utf8.encode(barcode),
-      );
-      final value = jsonDecode(utf8.decode(decoded));
-      if (value is! Map<String, dynamic> ||
-          value['at'] is! String ||
-          value['product'] is! Map<String, dynamic>) {
+      final value = await _open(row.read<String>('payload'), code);
+      if (value == null) {
+        // An older schema: never an error, just not available offline.
+        await _remove(barcode, revision: _revision);
+        return null;
+      }
+      final product = value['product'];
+      if (value['at'] is! String ||
+          product is! Map<String, dynamic> ||
+          product['barcode'] != barcode) {
         throw const FormatException('Invalid cached product.');
       }
       if (_closed || _unavailable.contains(barcode)) return null;
@@ -281,7 +272,7 @@ class EncryptedReadCache {
         return null;
       }
       _set(barcode, ReadSyncPhase.offline, time);
-      return value['product'] as Map<String, dynamic>;
+      return product;
     } on Object {
       _set(barcode, ReadSyncPhase.failed);
       throw const AppFailure(
@@ -290,6 +281,395 @@ class EncryptedReadCache {
         'Reconnect and refresh.',
       );
     }
+  }
+
+  /// Encrypts [body] for one row. The row code is authenticated (AAD), so a
+  /// payload cannot be moved to another barcode or owner.
+  Future<String> _seal(String code, Map<String, dynamic> body) async {
+    final box = await _cipher.encrypt(
+      utf8.encode(jsonEncode({'v': schema, ...body})),
+      secretKey: await key,
+      aad: utf8.encode('v$schema|$code'),
+    );
+    return base64Encode(box.concatenation());
+  }
+
+  /// Decrypts a row; null for another schema. Malformed or tampered rows
+  /// throw and are reported as storage failures by callers.
+  Future<Map<String, dynamic>?> _open(String payload, String code) async {
+    final decoded = await _cipher.decrypt(
+      SecretBox.fromConcatenation(
+        base64Decode(payload),
+        nonceLength: 12,
+        macLength: 16,
+      ),
+      secretKey: await key,
+      aad: utf8.encode('v$schema|$code'),
+    );
+    final value = jsonDecode(utf8.decode(decoded));
+    if (value is! Map<String, dynamic>) {
+      throw const FormatException('Invalid cache envelope.');
+    }
+    return value['v'] == schema ? value : null;
+  }
+
+  static Map<String, dynamic> _approved(Map<String, dynamic> product) {
+    final approved = <String, dynamic>{
+      for (final field in _fields)
+        if (product.containsKey(field)) field: product[field],
+    };
+    final category = product['category'];
+    if (category is Map<String, dynamic>) {
+      approved['category'] = {
+        for (final field in ['id', 'name'])
+          if (category.containsKey(field)) field: category[field],
+      };
+    }
+    if (product['taxes'] is List) {
+      approved['taxes'] = (product['taxes'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (tax) => {
+              for (final field in ['id', 'name', 'amount', 'amount_type'])
+                if (tax.containsKey(field)) field: tax[field],
+            },
+          )
+          .toList();
+    }
+    return approved;
+  }
+
+  /// Persists an approved snapshot unless a mutation or logout intervened.
+  Future<void> _store(
+    String barcode,
+    Map<String, dynamic> approved,
+    DateTime time, {
+    required int revision,
+  }) async {
+    // Finish async preparation before the generation check at dispatch.
+    final identity = await owner;
+    final code = await _hash(barcode);
+    final payload = await _seal(code, {
+      'product': approved,
+      'at': time.toIso8601String(),
+    });
+    await _persist(() async {
+      if (_closed || revision != _revision) throw cancelledOperation;
+      await database.customStatement(
+        'INSERT OR REPLACE INTO product_reads VALUES (?, ?, ?)',
+        [identity, code, payload],
+      );
+      await database.customStatement(
+        'DELETE FROM product_reads WHERE rowid NOT IN '
+        '(SELECT rowid FROM product_reads ORDER BY rowid DESC LIMIT 500)',
+      );
+    });
+  }
+
+  /// Stores a product the server just confirmed (for example a write
+  /// acknowledgement). Failures keep the server result valid: the snapshot
+  /// is removed instead, so stale data is never served.
+  Future<void> put(String barcode, Map<String, dynamic> product) async {
+    if (_closed || _writing) return;
+    final revision = _revision;
+    final time = _now().toUtc();
+    try {
+      await _store(barcode, _approved(product), time, revision: revision);
+      _unavailable.remove(barcode);
+      _set(barcode, ReadSyncPhase.online, time);
+      await _syncRecents(changed: [product], removedIds: const []);
+    } on Exception {
+      if (_closed || revision != _revision) return;
+      _unavailable.add(barcode);
+      try {
+        await _remove(barcode, revision: revision);
+      } on Exception {
+        // The instance-local guard still blocks the stale snapshot.
+      }
+      _set(barcode, ReadSyncPhase.failed, time);
+    }
+  }
+
+  /// Change-feed position for this session: the stored `next_since`, or a
+  /// start a little before the oldest cached snapshot. Null when nothing is
+  /// cached, so there is nothing to synchronize.
+  Future<CacheSyncState?> syncState() async {
+    if (_closed) return null;
+    final rows = await _rows();
+    final sync = rows.remove(await _hash(_syncCode));
+    DateTime? oldest;
+    for (final value in rows.values) {
+      final at = value == null ? null : DateTime.tryParse('${value['at']}');
+      if (at != null && (oldest == null || at.isBefore(oldest))) oldest = at;
+    }
+    if (oldest == null) return null;
+    final since = sync?['since'];
+    if (since is String && since.isNotEmpty) return (since: since);
+    // Margin for device clock skew; the feed may then repeat products.
+    final start = oldest.toUtc().subtract(const Duration(minutes: 5));
+    // RFC 3339 in whole seconds, as the contract's examples use.
+    return (since: '${start.toIso8601String().split('.').first}Z');
+  }
+
+  /// Applies one verified page of `GET /products/changes`.
+  ///
+  /// Only products already cached in this session are refreshed: a changed
+  /// product replaces its snapshot unless the snapshot is newer
+  /// (`updated_at`), a new barcode drops the old entry, and removed ids are
+  /// deleted. The position is saved last, so an interrupted sync repeats the
+  /// page. Mutations or logout during the page cancel it.
+  Future<void> applyChanges({
+    required List<Map<String, dynamic>> changed,
+    required List<int> removedIds,
+    required String nextSince,
+  }) async {
+    if (_closed || _writing) throw cancelledOperation;
+    final revision = _revision;
+    final syncCode = await _hash(_syncCode);
+    final cached = <int, ({String code, Map<String, dynamic> product})>{};
+    for (final MapEntry(key: code, :value) in (await _rows()).entries) {
+      final product = value?['product'];
+      if (code == syncCode || product is! Map<String, dynamic>) continue;
+      if (product['id'] case final int id) {
+        cached[id] = (code: code, product: product);
+      }
+    }
+    final time = _now().toUtc();
+    final touched = <String>{};
+    for (final id in removedIds) {
+      final entry = cached.remove(id);
+      if (entry != null) await _removeCode(entry.code, revision: revision);
+    }
+    for (final product in changed) {
+      final entry = cached[product['id']];
+      if (entry == null) continue;
+      final barcode = product['barcode'];
+      final previous = entry.product['barcode'];
+      if (barcode != previous) {
+        await _removeCode(entry.code, revision: revision);
+        if (previous is String) _statuses.remove(previous);
+      }
+      if (barcode is! String) continue;
+      final known = DateTime.tryParse('${entry.product['updated_at']}');
+      final incoming = DateTime.tryParse('${product['updated_at']}');
+      if (barcode == previous &&
+          known != null &&
+          (incoming == null || incoming.isBefore(known))) {
+        continue; // Never let an older feed entry replace newer data.
+      }
+      await _store(barcode, _approved(product), time, revision: revision);
+      _unavailable.remove(barcode);
+      touched.add(barcode);
+    }
+    await _syncRecents(
+      changed: changed,
+      removedIds: removedIds,
+      revision: revision,
+    );
+    final identity = await owner;
+    final payload = await _seal(syncCode, {'since': nextSince});
+    await _persist(() async {
+      if (_closed || revision != _revision) throw cancelledOperation;
+      await database.customStatement(
+        'INSERT OR REPLACE INTO product_reads VALUES (?, ?, ?)',
+        [identity, syncCode, payload],
+      );
+    });
+    for (final barcode in touched) {
+      if (_statuses[barcode] case final status?) {
+        _statuses[barcode] = (phase: status.phase, verifiedAt: time);
+      }
+    }
+    if (!_closed) _events.add(++_changeSequence);
+  }
+
+  /// Drops every snapshot and the sync position of this session, for
+  /// example after an expired feed position or lost read permission.
+  Future<void> resetSync() async {
+    if (_closed) return;
+    // In-flight reads still store fresh, authorized server responses.
+    await _purge();
+    if (!_closed) _events.add(++_changeSequence);
+  }
+
+  /// Decrypted rows of this owner by code; null for discarded rows. Rows of
+  /// another schema or that fail authentication are deleted.
+  Future<Map<String, Map<String, dynamic>?>> _rows() async {
+    final identity = await owner;
+    final rows = await database
+        .customSelect(
+          'SELECT code, payload FROM product_reads WHERE owner = ?',
+          variables: [Variable(identity)],
+        )
+        .get();
+    final result = <String, Map<String, dynamic>?>{};
+    for (final row in rows) {
+      final code = row.read<String>('code');
+      Map<String, dynamic>? value;
+      try {
+        value = await _open(row.read<String>('payload'), code);
+      } on Object {
+        value = null;
+      }
+      if (value == null) {
+        await _removeCode(code, revision: _revision);
+      }
+      result[code] = value;
+    }
+    return result;
+  }
+
+  Future<void> _removeCode(String code, {required int revision}) async {
+    final identity = await owner;
+    await _persist(() async {
+      if (_closed || revision != _revision) throw cancelledOperation;
+      await database.customStatement(
+        'DELETE FROM product_reads WHERE owner = ? AND code = ?',
+        [identity, code],
+      );
+    });
+  }
+
+  /// Recently scanned products of this session, newest first, as display
+  /// records (`id`, `name`, `barcode`, `price`, `stock_quantity`, `uom`,
+  /// `category` name).
+  /// They are encrypted like snapshots, belong to this session only and are
+  /// deleted with it. Malformed or tampered data is a safe storage failure.
+  Future<List<Map<String, dynamic>>> readRecents() async {
+    if (_closed) return const [];
+    try {
+      final code = await _hash(_recentCode);
+      final row = await database
+          .customSelect(
+            'SELECT payload FROM product_reads WHERE owner = ? AND code = ?',
+            variables: [Variable(await owner), Variable(code)],
+          )
+          .getSingleOrNull();
+      if (row == null) return const [];
+      final value = await _open(row.read<String>('payload'), code);
+      final items = value?['items'];
+      return items is List ? _recentItems(items) : const [];
+    } on Object {
+      throw const AppFailure(
+        FailureKind.storage,
+        'Recent scans are unavailable on this device.',
+      );
+    }
+  }
+
+  /// Puts [product] (a product read record) first, replacing an earlier
+  /// entry of the same product, and keeps at most [recentScanLimit].
+  Future<void> recordRecent(Map<String, dynamic> product) async {
+    final item = _recentItem(product);
+    if (_closed || _writing || item == null) return;
+    await _changeRecents(
+      _revision,
+      (items) => [
+        item,
+        ...items.where(
+          (other) =>
+              other['id'] != item['id'] && other['barcode'] != item['barcode'],
+        ),
+      ].take(recentScanLimit).toList(),
+    );
+  }
+
+  /// Refreshes entries of [changed] products and drops [removedIds].
+  Future<void> _syncRecents({
+    required List<Map<String, dynamic>> changed,
+    required List<int> removedIds,
+    int? revision,
+  }) async {
+    try {
+      await _changeRecents(revision ?? _revision, (items) {
+        final updated = <Map<String, dynamic>>[];
+        for (final item in items) {
+          if (removedIds.contains(item['id'])) continue;
+          final record = changed
+              .where((c) => c['id'] == item['id'])
+              .firstOrNull;
+          final next = record == null ? item : _recentItem(record);
+          if (next != null &&
+              !updated.any((other) => other['barcode'] == next['barcode'])) {
+            updated.add(next);
+          }
+        }
+        return updated;
+      });
+    } on Exception {
+      // The recent list is best effort and never blocks a refresh.
+    }
+  }
+
+  Future<void> _changeRecents(
+    int revision,
+    List<Map<String, dynamic>> Function(List<Map<String, dynamic>> items)
+    change,
+  ) async {
+    final identity = await owner;
+    final code = await _hash(_recentCode);
+    await _persist(() async {
+      if (_closed || revision != _revision) throw cancelledOperation;
+      var current = <Map<String, dynamic>>[];
+      try {
+        current = await readRecents();
+      } on AppFailure {
+        // A damaged list is replaced by the next change.
+      }
+      final next = change(current);
+      if (jsonEncode(next) == jsonEncode(current)) return;
+      final payload = await _seal(code, {'items': next});
+      await database.customStatement(
+        'INSERT OR REPLACE INTO product_reads VALUES (?, ?, ?)',
+        [identity, code, payload],
+      );
+    });
+  }
+
+  static List<Map<String, dynamic>> _recentItems(List<Object?> raw) {
+    final items = <Map<String, dynamic>>[];
+    for (final value in raw) {
+      final item = value is Map<String, dynamic> ? _recentItem(value) : null;
+      if (item != null && items.length < recentScanLimit) items.add(item);
+    }
+    return items;
+  }
+
+  /// Only what the recent card shows, plus the id used to keep it current.
+  static Map<String, dynamic>? _recentItem(Map<String, dynamic> product) {
+    final id = product['id'];
+    final barcode = product['barcode'];
+    final name = product['name'];
+    final price = product['price'];
+    final stock = product['stock_quantity'];
+    final unit = product['uom'];
+    // A product record has `{id, name}`; a stored entry just the name.
+    final rawCategory = product['category'];
+    final category = rawCategory is Map<String, dynamic>
+        ? rawCategory['name']
+        : rawCategory;
+    if (id is! int ||
+        id <= 0 ||
+        barcode is! String ||
+        barcode.isEmpty ||
+        name is! String ||
+        name.trim().isEmpty ||
+        price is! num ||
+        !price.isFinite ||
+        (stock != null && (stock is! num || !stock.isFinite))) {
+      return null;
+    }
+    return {
+      'id': id,
+      'name': name,
+      'barcode': barcode,
+      'price': price.toDouble(),
+      'stock_quantity': (stock as num?)?.toDouble(),
+      'uom': unit is String ? unit : '',
+      'category': category is String && category.trim().isNotEmpty
+          ? category.trim()
+          : null,
+    };
   }
 
   Future<T> write<T>(Future<T> Function() operation) async {
@@ -304,8 +684,9 @@ class EncryptedReadCache {
     _revision++;
     try {
       // Invalidate before uncertain writes; never reuse pre-write data.
+      // The recent list holds display fields only and is refreshed by `put`.
       try {
-        await _purge();
+        await _purge(keepRecents: true);
       } on Exception {
         throw const AppFailure(
           FailureKind.storage,

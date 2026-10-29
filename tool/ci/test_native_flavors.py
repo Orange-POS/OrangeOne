@@ -34,6 +34,11 @@ class NativeFlavorTest(unittest.TestCase):
             if not match:
                 continue
             bundle = match.group(1)
+            if bundle == '"$(FLAVOR_BUNDLE_ID)"':
+                # Flavor configurations name their identifier in one overridable
+                # setting (the TestFlight archive overrides it); the default is
+                # still the flavor's own bundle ID.
+                bundle = re.search(r'FLAVOR_BUNDLE_ID = ([^;]+);', body).group(1)
             suffix = '.RunnerTests' if bundle.endswith('.RunnerTests') else (
                 '.dev' if configuration.endswith('development') else
                 '.stg' if configuration.endswith('staging') else '')

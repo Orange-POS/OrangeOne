@@ -15,8 +15,7 @@ abstract final class ProductModel {
         barcode != scannedBarcode ||
         price is! num ||
         !price.isFinite ||
-        stock is! num ||
-        !stock.isFinite) {
+        (stock != null && (stock is! num || !stock.isFinite))) {
       throw invalidResponse;
     }
     return Product(
@@ -24,10 +23,17 @@ abstract final class ProductModel {
       name: name,
       barcode: scannedBarcode,
       price: price.toDouble(),
-      stockQuantity: stock.toDouble(),
+      stockQuantity: (stock as num?)?.toDouble(),
       unit: _optionalText(json['uom']),
       reference: _optionalText(json['default_code']),
+      category: _categoryName(json['category']),
     );
+  }
+
+  /// `{id, name}` from a product record, or a plain name from the history.
+  static String? _categoryName(Object? value) {
+    final name = value is Map<String, dynamic> ? value['name'] : value;
+    return name is String && name.trim().isNotEmpty ? name.trim() : null;
   }
 
   static String _optionalText(Object? value) {

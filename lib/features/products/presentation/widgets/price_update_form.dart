@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class PriceUpdateForm extends StatelessWidget {
@@ -9,6 +10,8 @@ class PriceUpdateForm extends StatelessWidget {
     required this.enabled,
     this.error,
     this.alwaysShowCurrency = false,
+    this.label,
+    this.hint,
     super.key,
   });
   final TextEditingController controller;
@@ -17,11 +20,18 @@ class PriceUpdateForm extends StatelessWidget {
   final bool enabled;
   final String? error;
   final bool alwaysShowCurrency;
+
+  /// Defaults to the New Price texts.
+  final String? label;
+  final String? hint;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text('New Price', style: TextStyle(fontWeight: FontWeight.w500)),
+      Text(
+        label ?? context.l10n.priceNewLabel,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
       const SizedBox(height: 8),
       TextField(
         key: const Key('new-price-input'),
@@ -46,7 +56,7 @@ class PriceUpdateForm extends StatelessWidget {
           prefixIconConstraints: alwaysShowCurrency
               ? const BoxConstraints()
               : null,
-          hintText: 'Enter new price',
+          hintText: hint ?? context.l10n.priceNewHint,
           errorText: error,
           errorMaxLines: 3,
           filled: !enabled,

@@ -8,13 +8,16 @@ import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
+import 'package:orange_one/l10n/l10n.dart';
+import 'package:orange_one/shared/widgets/product_sync_indicator.dart';
 
 import '../support/product_details_fakes.dart';
 import '../support/product_fakes.dart';
 
 void main() {
   testWidgets(
-    'all product cards show offline/online icons with accessible freshness',
+    'the cloud in the navigation shows offline/online with accessible freshness',
     (tester) async {
       final db = ReadCacheDatabase(NativeDatabase.memory());
       final cache = EncryptedReadCache(db, sessionSecret: 'test-session');
@@ -30,12 +33,29 @@ void main() {
         ProviderScope(
           overrides: [readCacheProvider.overrideWithValue(cache)],
           child: const MaterialApp(
-            home: Scaffold(body: ProductNameCard(product: detailsFixture)),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Column(
+                children: [
+                  ProductSyncNavButton(barcode: '0010101010'),
+                  ProductNameCard(product: detailsFixture),
+                ],
+              ),
+            ),
           ),
         ),
       );
       await tester.pump();
-      expect(find.byIcon(Icons.cloud_done_outlined), findsOneWidget);
+      expect(find.byTooltip('Online: server verified'), findsOneWidget);
+      // The product name card itself no longer shows a cloud.
+      expect(
+        find.descendant(
+          of: find.byType(ProductNameCard),
+          matching: find.byType(ProductSyncIndicator),
+        ),
+        findsNothing,
+      );
       cache.connectionChanged(connected: false);
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.cloud_off_outlined), findsOneWidget);
@@ -68,6 +88,8 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ProductDetailsPage(barcode: '0010101010'),
         ),
       ),

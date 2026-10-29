@@ -3,14 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/features/products/presentation/product_success_text.dart';
+import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_category_sheet.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_confirm_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_edit_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_tax_sheet.dart';
+import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class ProductEditPage extends ConsumerStatefulWidget {
@@ -24,6 +31,7 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
   final _name = TextEditingController();
   final _focus = FocusNode();
   bool _selecting = false;
+  bool _confirming = false;
   @override
   void dispose() {
     _name.dispose();
@@ -71,8 +79,111 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
     }
   }
 
+  Future<void> _categories(ProductEditState value) async {
+    if (_selecting || !value.canSelectCategory) return;
+    _selecting = true;
+    _focus.unfocus();
+    try {
+      final selected = value.selectedCategory;
+      final choice = await showModalBottomSheet<ProductCategoryChoice>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        builder: (context) => ProductCategorySheet(
+          categories: value.categories,
+          selectedId: selected == null
+              ? value.details.product?.category?.id
+              : selected.id,
+          onCreate: value.details.access.createCategory
+              ? ref
+                    .read(
+                      productEditControllerProvider(widget.barcode).notifier,
+                    )
+                    .createCategory
+              : null,
+        ),
+      );
+      if (mounted && choice != null) {
+        ref
+            .read(productEditControllerProvider(widget.barcode).notifier)
+            .selectCategory(choice.id);
+      }
+    } finally {
+      _selecting = false;
+    }
+  }
+
+  String _taxText(AppLocalizations l10n, ProductEditState view) {
+    final ids = view.selectedTaxIds;
+    if (ids == null) return localizedTaxText(l10n, view.details.product!);
+    if (ids.isEmpty) return l10n.taxNoTax;
+    if (ids.any((id) => !view.taxes.any((tax) => tax.id == id))) {
+      return l10n.detailsTaxUnavailable;
+    }
+    return view.taxes
+        .where((tax) => ids.contains(tax.id))
+        .map((tax) => tax.label)
+        .join(', ');
+  }
+
+  String _categoryText(AppLocalizations l10n, ProductEditState view) {
+    final change = view.selectedCategory;
+    if (change == null) {
+      return view.details.product?.category?.name ?? l10n.categoryNone;
+    }
+    for (final category in view.categories) {
+      if (category.id == change.id) return category.name;
+    }
+    return change.id == null ? l10n.categoryNone : l10n.categoryUnavailable;
+  }
+
+  /// Nothing is saved before Confirm is selected.
+  Future<void> _confirm(ProductEditState view) async {
+    if (_confirming) return;
+    _confirming = true;
+    _focus.unfocus();
+    final l10n = context.l10n;
+    final provider = productEditControllerProvider(widget.barcode);
+    try {
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (context) => ProductConfirmDialog(
+          title: l10n.editConfirmTitle,
+          message: l10n.editConfirmMessage(
+            view.name.trim(),
+            _taxText(l10n, view),
+            _categoryText(l10n, view),
+          ),
+        ),
+      );
+      if (accepted == true && mounted) {
+        await ref.read(provider.notifier).save();
+      }
+    } finally {
+      _confirming = false;
+    }
+  }
+
+  /// A saved change returns to Product Details with the success toast.
+  void _finish(ProductEditState view) {
+    final l10n = context.l10n;
+    final product = view.details.product;
+    if (product == null) return;
+    // Only the fields that were actually changed and saved are announced.
+    final text = editSuccessText(l10n, product, view.savedFields);
+    ref
+        .read(productSuccessProvider.notifier)
+        .show(
+          barcode: widget.barcode,
+          title: text.title,
+          message: text.message,
+        );
+    _leave(true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     ref.watch(readCacheChangesProvider);
     final offline = ref.watch(readCacheProvider)?.offline ?? false;
     final provider = productEditControllerProvider(widget.barcode);
@@ -84,6 +195,10 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
     final uncertain = value?.phase == ProductEditPhase.uncertain;
     ref.listen(provider, (previous, next) {
       final current = next.value;
+      if (current?.phase == ProductEditPhase.saved &&
+          previous?.value?.phase != ProductEditPhase.saved) {
+        _finish(current!);
+      }
       if (!next.isLoading &&
           !next.hasError &&
           current != null &&
@@ -98,73 +213,46 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
       canPop: !busy,
       child: ProductScaffold(
         appBar: ProductNavbar(
-          title: 'Edit Name & Tax',
+          title: l10n.editTitle,
           onBack: busy ? null : () => _leave(saved),
-          onEdit: value?.canEdit == true ? _focus.requestFocus : null,
-          editTooltip: 'Edit product name',
+          trailing: ProductSyncNavButton(barcode: widget.barcode),
         ),
         bottomNavigationBar: ProductActionSurface(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    disabledBackgroundColor: busy ? OrangeTheme.action : null,
-                    disabledForegroundColor: busy ? Colors.white : null,
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onPressed: busy
-                      ? null
-                      : saved
-                      ? () => _leave(true)
-                      : uncertain
-                      ? _refresh
-                      : value?.canSubmit == true && !offline
-                      ? () async {
-                          _focus.unfocus();
-                          await ref.read(provider.notifier).save();
-                        }
-                      : null,
-                  child: Text(
-                    busy
-                        ? value?.phase == ProductEditPhase.checking
-                              ? 'Checking…'
-                              : 'Updating…'
-                        : saved
-                        ? 'Done'
-                        : uncertain
-                        ? 'Check current information'
-                        : 'Save Changes',
-                  ),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                disabledBackgroundColor: busy ? OrangeTheme.action : null,
+                disabledForegroundColor: busy ? Colors.white : null,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 12),
-              const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Powered By ',
-                      style: TextStyle(color: Color(0xFF5F6368)),
-                    ),
-                    TextSpan(
-                      text: 'OrangeONE',
-                      style: TextStyle(color: OrangeTheme.dark),
-                    ),
-                  ],
-                ),
-                style: TextStyle(fontSize: 12),
+              onPressed: busy
+                  ? null
+                  : saved
+                  ? () => _leave(true)
+                  : uncertain
+                  ? _refresh
+                  : value?.canSubmit == true && !offline
+                  ? () => _confirm(value!)
+                  : null,
+              child: Text(
+                busy
+                    ? value?.phase == ProductEditPhase.checking
+                          ? l10n.commonChecking
+                          : l10n.commonUpdating
+                    : uncertain
+                    ? l10n.editCheckCurrent
+                    : l10n.commonSaveChanges,
               ),
-            ],
+            ),
           ),
         ),
         body: RefreshIndicator(
@@ -174,7 +262,14 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               if (product != null)
-                SliverToBoxAdapter(child: ProductNameCard(product: product)),
+                SliverToBoxAdapter(
+                  child: ProductNameCard(
+                    product: product,
+                    detailsLayout: true,
+                    showActions: false,
+                    taxText: localizedTaxText(l10n, product),
+                  ),
+                ),
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Container(
@@ -188,9 +283,9 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                   child: async.when(
                     skipLoadingOnRefresh: false,
                     skipLoadingOnReload: false,
-                    loading: () => const Center(
+                    loading: () => Center(
                       child: CircularProgressIndicator(
-                        semanticsLabel: 'Loading product information',
+                        semanticsLabel: l10n.editLoading,
                       ),
                     ),
                     error: (error, stack) => Column(
@@ -200,47 +295,20 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                               ? error.message
                               : error is FormatException
                               ? error.message
-                              : 'Unable to load product information.',
+                              : l10n.editLoadFailed,
                         ),
                         if (error is! FormatException)
                           TextButton(
                             onPressed: _refresh,
-                            child: const Text('Try again'),
+                            child: Text(l10n.commonTryAgain),
                           ),
                       ],
                     ),
                     data: (view) => view.details.product == null
-                        ? const Text('Product not found')
+                        ? Text(l10n.productNotFound)
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: const Color(0xFFDADCE0),
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      Icons.percent,
-                                      color: OrangeTheme.scannerAccent,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    const Expanded(child: Text('TAX')),
-                                    Expanded(
-                                      child: Text(
-                                        view.currentTaxLabel,
-                                        textAlign: TextAlign.right,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
                               if (view.taxSelectionError != null)
                                 Text(
                                   view.taxSelectionError!,
@@ -254,26 +322,24 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                                     .changeName,
                                 enabled: view.canEdit,
                                 error: view.nameError,
-                                taxLabel: view.taxLabel,
+                                taxLabel: _taxText(l10n, view),
                                 onSelectTax: view.canSelectTax
                                     ? () => _taxes(view)
                                     : null,
+                                categoryLabel: _categoryText(l10n, view),
+                                onSelectCategory: view.canSelectCategory
+                                    ? () => _categories(view)
+                                    : null,
                               ),
                               if (!view.details.access.editName)
-                                const PriceUpdateNotice(
-                                  message:
-                                      'You do not have permission '
-                                      'to edit this product.',
+                                PriceUpdateNotice(
+                                  message: l10n.editNoPermission,
                                 ),
                               if (view.taxMessage != null && !saved)
                                 PriceUpdateNotice(message: view.taxMessage!),
-                              if (saved)
+                              if (view.categoryMessage != null && !saved)
                                 PriceUpdateNotice(
-                                  success: true,
-                                  title: 'Name & Tax Updated Successfully',
-                                  message:
-                                      'New name: ${view.details.product!.name}'
-                                      ' · Tax: ${view.taxLabel}',
+                                  message: view.categoryMessage!,
                                 ),
                               if (view.message != null)
                                 PriceUpdateNotice(message: view.message!),

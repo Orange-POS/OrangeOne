@@ -1,5 +1,933 @@
 {
   "@@locale": "en",
   "appTitle": "OrangeONE",
-  "@appTitle": { "description": "Application name" }
+  "@appTitle": {
+    "description": "Application name"
+  },
+  "loginScanTitle": "Tap to scan QR",
+  "@loginScanTitle": {
+    "description": "Headline of the login screen's scan button"
+  },
+  "loginSubtitle": "Sign in with your POS machine",
+  "@loginSubtitle": {
+    "description": "Subtitle under the scan headline"
+  },
+  "loginScanSemantics": "Scan POS QR code to sign in",
+  "@loginScanSemantics": {
+    "description": "Screen-reader label of the circular scan button"
+  },
+  "loginSessionExpired": "Your session expired. Scan a new POS QR code.",
+  "@loginSessionExpired": {
+    "description": "Shown on the login screen after a session ended"
+  },
+  "loginRestoringSemantics": "Restoring session",
+  "@loginRestoringSemantics": {
+    "description": "Screen-reader label of the session restore spinner"
+  },
+  "loginRestoreFailed": "Unable to restore your session. Try again.",
+  "@loginRestoreFailed": {
+    "description": "Fallback when a saved session cannot be restored"
+  },
+  "loginRetryRestore": "Retry session check",
+  "@loginRetryRestore": {
+    "description": "Button that repeats the saved-session check"
+  },
+  "poweredBy": "Powered By OrangeONE",
+  "@poweredBy": {
+    "description": "Footer brand line"
+  },
+  "languageSelectorLabel": "Language",
+  "@languageSelectorLabel": {
+    "description": "Screen-reader name of the language selector"
+  },
+  "languageSelectorTooltip": "Change language",
+  "@languageSelectorTooltip": {
+    "description": "Tooltip of the language selector"
+  },
+  "languageSelectorSemantics": "Language: {language}",
+  "@languageSelectorSemantics": {
+    "description": "Screen-reader label with the current language name",
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "scanTitle": "Scan QR Code",
+  "@scanTitle": {
+    "description": "QR scanner screen title"
+  },
+  "scanBackTooltip": "Back to login",
+  "@scanBackTooltip": {
+    "description": "Tooltip of the scanner back button"
+  },
+  "scanHeading": "Scan to sign in",
+  "@scanHeading": {
+    "description": "Scanner heading"
+  },
+  "scanInstruction": "Point your camera at the QR code on the POS machine.",
+  "@scanInstruction": {
+    "description": "Scanner instruction while Wi-Fi is connected"
+  },
+  "scanSigningIn": "Signing in securely…",
+  "@scanSigningIn": {
+    "description": "Shown while the scanned QR code is exchanged"
+  },
+  "scanFailure": "Unable to sign in. Generate a new POS QR code.",
+  "@scanFailure": {
+    "description": "Fallback when QR sign-in failed without a server message"
+  },
+  "scanAgain": "Scan a new QR code",
+  "@scanAgain": {
+    "description": "Button that restarts scanning after a failure"
+  },
+  "scanVerifying": "Verifying POS login…",
+  "@scanVerifying": {
+    "description": "Status pill while signing in"
+  },
+  "scanPausedError": "Scan paused · Check the message above",
+  "@scanPausedError": {
+    "description": "Status pill after a sign-in failure"
+  },
+  "scanOpeningCamera": "Opening camera…",
+  "@scanOpeningCamera": {
+    "description": "Status pill before the camera is ready"
+  },
+  "scanCheckingWifi": "Checking Wi-Fi…",
+  "@scanCheckingWifi": {
+    "description": "Status pill while the Wi-Fi state is being read"
+  },
+  "scanWifiRequired": "Please connect to the same Wi-Fi network as the POS machine to scan the QR code.",
+  "@scanWifiRequired": {
+    "description": "Shown instead of the camera when the device is not on Wi-Fi"
+  },
+  "scanWifiStatus": "Scanner off · Wi-Fi required",
+  "@scanWifiStatus": {
+    "description": "Status pill while the scanner is disabled for lack of Wi-Fi"
+  },
+  "cameraReady": "Camera on · Looking for QR code…",
+  "@cameraReady": {
+    "description": "Status pill when the camera is looking for a QR code"
+  },
+  "cameraAllowInstructions": "Allow camera access to scan the QR code on your POS machine.",
+  "@cameraAllowInstructions": {
+    "description": "Camera permission explanation"
+  },
+  "cameraPermissionRequired": "Camera permission is required to scan",
+  "@cameraPermissionRequired": {
+    "description": "Status when the camera permission is missing"
+  },
+  "cameraUnavailable": "Camera unavailable",
+  "@cameraUnavailable": {
+    "description": "Status when the camera cannot start"
+  },
+  "cameraPaused": "Camera paused",
+  "@cameraPaused": {
+    "description": "Status when the app is in the background"
+  },
+  "cameraBusy": "Camera unavailable. Close other camera apps and try again.",
+  "@cameraBusy": {
+    "description": "Camera is in use by another app"
+  },
+  "cameraOpenFailed": "Unable to open the camera. Check camera access in Settings.",
+  "@cameraOpenFailed": {
+    "description": "Camera could not be opened"
+  },
+  "cameraTryAgain": "Camera unavailable. Try again.",
+  "@cameraTryAgain": {
+    "description": "Camera error with a retry hint"
+  },
+  "cameraRestricted": "Camera access is restricted on this device.",
+  "@cameraRestricted": {
+    "description": "Camera access is restricted by device policy"
+  },
+  "cameraOpenSettings": "Open Settings",
+  "@cameraOpenSettings": {
+    "description": "Button that opens the system settings"
+  },
+  "cameraAllowRetry": "Allow camera / Retry",
+  "@cameraAllowRetry": {
+    "description": "Button that requests the camera permission again"
+  },
+  "homeLogoutTooltip": "Logout",
+  "@homeLogoutTooltip": {
+    "description": "Tooltip of the Home logout button"
+  },
+  "homeScanSemantics": "Scan product barcode",
+  "@homeScanSemantics": {
+    "description": "Screen-reader label of the circular scan button on Home"
+  },
+  "homeScanTitle": "Tap to scan Barcode",
+  "@homeScanTitle": {
+    "description": "Headline under the Home scan button"
+  },
+  "homeScanSubtitle": "Scan Your Product",
+  "@homeScanSubtitle": {
+    "description": "Subtitle under the Home headline"
+  },
+  "scannerTitle": "Scan Barcode",
+  "@scannerTitle": {
+    "description": "Barcode scanner screen title"
+  },
+  "scannerBackTooltip": "Back to home",
+  "@scannerBackTooltip": {
+    "description": "Tooltip of the scanner back button"
+  },
+  "scannerLookingUp": "Looking up product…",
+  "@scannerLookingUp": {
+    "description": "Shown while a scanned barcode is looked up"
+  },
+  "scannerPaused": "Scan paused · Review the result below",
+  "@scannerPaused": {
+    "description": "Scanner status while a result is shown"
+  },
+  "recentTitle": "Last scanned",
+  "@recentTitle": {
+    "description": "Title of the card listing recently scanned products"
+  },
+  "recentEmpty": "Scan a product barcode to look it up.",
+  "@recentEmpty": {
+    "description": "Shown in the card before any product was scanned"
+  },
+  "recentOpenSemantics": "Open product {name}, barcode {barcode}",
+  "@recentOpenSemantics": {
+    "description": "Screen-reader label of a recently scanned product",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "lookupFailed": "Unable to look up this product.",
+  "@lookupFailed": {
+    "description": "Fallback when a product lookup failed"
+  },
+  "lookupRetry": "Retry lookup",
+  "@lookupRetry": {
+    "description": "Button that repeats a failed lookup"
+  },
+  "scanAnother": "Scan another barcode",
+  "@scanAnother": {
+    "description": "Button that returns to scanning"
+  },
+  "productNotFound": "Product not found",
+  "@productNotFound": {
+    "description": "Title when no POS product has the scanned barcode"
+  },
+  "productNotFoundBody": "No POS product matches barcode {barcode}.",
+  "@productNotFoundBody": {
+    "description": "Explains that the barcode matches no POS product",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "addProduct": "Add product",
+  "@addProduct": {
+    "description": "Button that starts creating a product for an unknown barcode"
+  },
+  "stockInStock": "In stock",
+  "@stockInStock": {
+    "description": "Stock badge for a positive quantity"
+  },
+  "stockOutOfStock": "Out of stock",
+  "@stockOutOfStock": {
+    "description": "Stock badge for zero or negative quantity"
+  },
+  "stockUnavailable": "Stock unavailable",
+  "@stockUnavailable": {
+    "description": "Stock badge when the quantity is unknown"
+  },
+  "productCameraInstructions": "Allow camera access to scan product barcodes.",
+  "@productCameraInstructions": {
+    "description": "Camera permission explanation of the product scanner"
+  },
+  "productCameraReady": "Camera is on · just point at a barcode",
+  "@productCameraReady": {
+    "description": "Status when the product scanner camera is running"
+  },
+  "detailsTitle": "Product",
+  "@detailsTitle": {
+    "description": "Title of the Product Details screen"
+  },
+  "detailsOpenScanner": "Open Scanner",
+  "@detailsOpenScanner": {
+    "description": "Tooltip and screen-reader label of the Open Scanner button"
+  },
+  "detailsEditName": "Edit product name",
+  "@detailsEditName": {
+    "description": "Tooltip of the product name edit button"
+  },
+  "detailsUpdateStock": "Update stock",
+  "@detailsUpdateStock": {
+    "description": "Tooltip of the stock edit button"
+  },
+  "detailsUpdatePrice": "Update price",
+  "@detailsUpdatePrice": {
+    "description": "Tooltip of the price edit button"
+  },
+  "detailsBarcode": "Barcode",
+  "@detailsBarcode": {
+    "description": "Label of the barcode row"
+  },
+  "detailsPrice": "Price",
+  "@detailsPrice": {
+    "description": "Label of the price row"
+  },
+  "detailsTax": "TAX",
+  "@detailsTax": {
+    "description": "Label of the tax row (uppercase in the design)"
+  },
+  "detailsTaxNone": "No taxes assigned",
+  "@detailsTaxNone": {
+    "description": "Shown when the product has no taxes assigned"
+  },
+  "detailsTaxUnavailable": "Tax information unavailable",
+  "@detailsTaxUnavailable": {
+    "description": "Shown when tax identities could not be read"
+  },
+  "detailsLoading": "Loading product details",
+  "@detailsLoading": {
+    "description": "Screen-reader label of the details loading spinner"
+  },
+  "detailsLoadFailed": "Unable to load product details.",
+  "@detailsLoadFailed": {
+    "description": "Fallback when details could not be loaded"
+  },
+  "detailsPullToRefresh": "Pull down to refresh product details.",
+  "@detailsPullToRefresh": {
+    "description": "Hint under a load failure"
+  },
+  "categoryNone": "No Category",
+  "@categoryNone": {
+    "description": "Category badge text when the product has no category"
+  },
+  "categoryUnavailable": "Selected category unavailable",
+  "@categoryUnavailable": {
+    "description": "Shown when the selected category is not in the loaded list"
+  },
+  "categoryLabel": "Category: {name}",
+  "@categoryLabel": {
+    "description": "Screen-reader label of a category badge",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "barcodeLabel": "Barcode: {barcode}",
+  "@barcodeLabel": {
+    "description": "Screen-reader label of a barcode badge",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "syncPending": "Syncing product",
+  "@syncPending": {
+    "description": "Sync indicator while the server is being asked"
+  },
+  "syncOnline": "Online: server verified",
+  "@syncOnline": {
+    "description": "Sync indicator when the server verified the product"
+  },
+  "syncOffline": "Offline: cached data may be outdated",
+  "@syncOffline": {
+    "description": "Sync indicator for cached data"
+  },
+  "syncFailed": "Product synchronization failed",
+  "@syncFailed": {
+    "description": "Sync indicator after a failed read"
+  },
+  "syncLastVerified": "{status}. Last verified {time}",
+  "@syncLastVerified": {
+    "description": "Sync indicator text with the last verification time",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "commonCancel": "Cancel",
+  "@commonCancel": {
+    "description": "Cancel button"
+  },
+  "commonConfirm": "Confirm",
+  "@commonConfirm": {
+    "description": "Confirm button of a confirmation popup"
+  },
+  "commonSaveChanges": "Save Changes",
+  "@commonSaveChanges": {
+    "description": "Primary save button"
+  },
+  "commonTryAgain": "Try again",
+  "@commonTryAgain": {
+    "description": "Retry button"
+  },
+  "commonChecking": "Checking…",
+  "@commonChecking": {
+    "description": "Busy label while data is checked"
+  },
+  "commonUpdating": "Updating…",
+  "@commonUpdating": {
+    "description": "Busy label while a change is saved"
+  },
+  "commonCreating": "Creating…",
+  "@commonCreating": {
+    "description": "Busy label while a product is created"
+  },
+  "taxNoTax": "No Tax",
+  "@taxNoTax": {
+    "description": "Explicit choice of no tax"
+  },
+  "taxSelect": "Select Tax",
+  "@taxSelect": {
+    "description": "Tax picker title and placeholder"
+  },
+  "taxSelectSemantics": "Select product tax",
+  "@taxSelectSemantics": {
+    "description": "Screen reader label of the tax field"
+  },
+  "taxCloseTooltip": "Close tax selection",
+  "@taxCloseTooltip": {
+    "description": "Closes the tax picker"
+  },
+  "taxMultipleNotice": "Multiple taxes are currently assigned. Selecting an option replaces all of them.",
+  "@taxMultipleNotice": {
+    "description": "Shown when several taxes are assigned"
+  },
+  "productNameLabel": "Product Name",
+  "@productNameLabel": {
+    "description": "Product name field label"
+  },
+  "productTaxLabel": "TAX",
+  "@productTaxLabel": {
+    "description": "Tax field label"
+  },
+  "productCategoryLabel": "CATEGORY",
+  "@productCategoryLabel": {
+    "description": "Category field label"
+  },
+  "categorySelect": "Select Category",
+  "@categorySelect": {
+    "description": "Category picker title and placeholder"
+  },
+  "categorySelectSemantics": "Select product category",
+  "@categorySelectSemantics": {
+    "description": "Screen reader label of the category field"
+  },
+  "categoryCloseTooltip": "Close category selection",
+  "@categoryCloseTooltip": {
+    "description": "Closes the category picker"
+  },
+  "categoryNewHint": "New category name",
+  "@categoryNewHint": {
+    "description": "Hint of the new category field"
+  },
+  "categoryAddTooltip": "Add category",
+  "@categoryAddTooltip": {
+    "description": "Creates the typed category"
+  },
+  "categoryRequired": "Select a category.",
+  "@categoryRequired": {
+    "description": "Category is required for a new product"
+  },
+  "editTitle": "Edit Name & Tax",
+  "@editTitle": {
+    "description": "Title of the edit name and tax screen"
+  },
+  "editLoading": "Loading product information",
+  "@editLoading": {
+    "description": "Loading product information"
+  },
+  "editLoadFailed": "Unable to load product information.",
+  "@editLoadFailed": {
+    "description": "Product information could not be loaded"
+  },
+  "editNoPermission": "You do not have permission to edit this product.",
+  "@editNoPermission": {
+    "description": "No permission to edit the product"
+  },
+  "editCheckCurrent": "Check current information",
+  "@editCheckCurrent": {
+    "description": "Re-reads the product after an uncertain save"
+  },
+  "editConfirmTitle": "Confirm changes",
+  "@editConfirmTitle": {
+    "description": "Title of the edit confirmation popup"
+  },
+  "editConfirmMessage": "Save these changes?\n\nName: {name}\nTax: {tax}\nCategory: {category}",
+  "@editConfirmMessage": {
+    "description": "Body of the edit confirmation popup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "tax": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "editSuccessTitle": "{fields, select, name{Product name updated successfully} tax{Tax updated successfully} category{Category updated successfully} nameTax{Product name and tax updated successfully} nameCategory{Product name and category updated successfully} taxCategory{Tax and category updated successfully} nameTaxCategory{Product name, tax and category updated successfully} other{Product updated successfully}}",
+  "editSuccessName": "New name: {name}",
+  "@editSuccessName": {
+    "description": "Success toast text after editing: the new product name",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editSuccessTax": "Tax: {tax}",
+  "@editSuccessTax": {
+    "description": "Success toast text after editing: the tax",
+    "placeholders": {
+      "tax": {
+        "type": "String"
+      }
+    }
+  },
+  "editSuccessCategory": "Category: {category}",
+  "@editSuccessCategory": {
+    "description": "Success toast text after editing: the category",
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "@editSuccessTitle": {
+    "description": "Success toast title after editing; fields lists only the fields that were changed and saved (name, tax, category and their combinations)",
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
+  "priceTitle": "Update Price",
+  "@priceTitle": {
+    "description": "Title of the price update screen"
+  },
+  "priceNewLabel": "New Price",
+  "@priceNewLabel": {
+    "description": "New price field label"
+  },
+  "priceNewHint": "Enter new price",
+  "@priceNewHint": {
+    "description": "New price field hint"
+  },
+  "priceCurrentLabel": "Current Price",
+  "@priceCurrentLabel": {
+    "description": "Current price row label"
+  },
+  "priceLoading": "Loading current price",
+  "@priceLoading": {
+    "description": "Loading the current price"
+  },
+  "priceLoadFailed": "Unable to load the current product price.",
+  "@priceLoadFailed": {
+    "description": "The current price could not be loaded"
+  },
+  "priceNoPermission": "You do not have permission to update this price.",
+  "@priceNoPermission": {
+    "description": "No permission to update the price"
+  },
+  "priceCheckCurrent": "Check current price",
+  "@priceCheckCurrent": {
+    "description": "Re-reads the price after an uncertain save"
+  },
+  "priceConfirmTitle": "Confirm price update",
+  "@priceConfirmTitle": {
+    "description": "Title of the price confirmation popup"
+  },
+  "priceConfirmMessage": "{name}\n\nCurrent price: CHF {current}\nNew price: CHF {price}\n\nSave this product price?",
+  "@priceConfirmMessage": {
+    "description": "Body of the price confirmation popup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "priceSuccessTitle": "Price Updated Successfully",
+  "@priceSuccessTitle": {
+    "description": "Success toast title after a price update"
+  },
+  "priceSuccessMessage": "New price: CHF {price}",
+  "@priceSuccessMessage": {
+    "description": "Success toast text after a price update",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "stockTitle": "Update Stock",
+  "@stockTitle": {
+    "description": "Title of the stock update screen"
+  },
+  "stockCountedLabel": "Counted Quantity",
+  "@stockCountedLabel": {
+    "description": "Counted quantity field label"
+  },
+  "stockCountedHint": "Enter the counted quantity",
+  "@stockCountedHint": {
+    "description": "Counted quantity hint"
+  },
+  "stockCountedHelper": "Replaces the current stock at the POS location.",
+  "@stockCountedHelper": {
+    "description": "Counted quantity helper text"
+  },
+  "stockCurrentLabel": "Current Stock",
+  "@stockCurrentLabel": {
+    "description": "Current stock row label"
+  },
+  "stockLoading": "Loading current stock",
+  "@stockLoading": {
+    "description": "Loading the current stock"
+  },
+  "stockLoadFailed": "Unable to load the current product stock.",
+  "@stockLoadFailed": {
+    "description": "The current stock could not be loaded"
+  },
+  "stockNoPermission": "You do not have permission to update this stock.",
+  "@stockNoPermission": {
+    "description": "No permission to update stock"
+  },
+  "stockNotTracked": "Stock is not tracked for this product.",
+  "@stockNotTracked": {
+    "description": "The product has no tracked stock"
+  },
+  "stockCannotCount": "Stock for this product cannot be counted here. Packaged, owner-specific or lot-tracked stock must be adjusted in the back office.",
+  "@stockCannotCount": {
+    "description": "Packaged, owner-specific or lot-tracked stock"
+  },
+  "stockCheckCurrent": "Check current stock",
+  "@stockCheckCurrent": {
+    "description": "Re-reads the stock after an uncertain save"
+  },
+  "stockConfirmTitle": "Confirm stock update",
+  "@stockConfirmTitle": {
+    "description": "Title of the stock confirmation popup"
+  },
+  "stockConfirmMessage": "{name}\n\nCurrent stock: {current}\nCounted stock: {counted}\nDifference: {difference}\n\nSave this count?",
+  "@stockConfirmMessage": {
+    "description": "Body of the stock confirmation popup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "counted": {
+        "type": "String"
+      },
+      "difference": {
+        "type": "String"
+      }
+    }
+  },
+  "stockSuccessTitle": "Stock Updated Successfully",
+  "@stockSuccessTitle": {
+    "description": "Success toast title after a stock update"
+  },
+  "stockSuccessMessage": "Previous stock: {previous} · New stock: {next}",
+  "@stockSuccessMessage": {
+    "description": "Success toast text with the previous and new stock",
+    "placeholders": {
+      "previous": {
+        "type": "String"
+      },
+      "next": {
+        "type": "String"
+      }
+    }
+  },
+  "stockSuccessNew": "New stock: {next}",
+  "@stockSuccessNew": {
+    "description": "Success toast text with the new stock",
+    "placeholders": {
+      "next": {
+        "type": "String"
+      }
+    }
+  },
+  "stockNotSet": "Not Set",
+  "@stockNotSet": {
+    "description": "Stock that was never set (not zero)"
+  },
+  "stockOperationsLabel": "Stock operation",
+  "@stockOperationsLabel": {
+    "description": "Accessibility label of the Update, Add and Remove selector"
+  },
+  "stockOperationUpdate": "Update",
+  "@stockOperationUpdate": {
+    "description": "Stock operation: replace the stock with the counted quantity"
+  },
+  "stockOperationAdd": "Add",
+  "@stockOperationAdd": {
+    "description": "Stock operation: increase the stock"
+  },
+  "stockOperationRemove": "Remove",
+  "@stockOperationRemove": {
+    "description": "Stock operation: decrease the stock"
+  },
+  "stockAddLabel": "Quantity to add",
+  "@stockAddLabel": {
+    "description": "Quantity field label in Add mode"
+  },
+  "stockRemoveLabel": "Quantity to remove",
+  "@stockRemoveLabel": {
+    "description": "Quantity field label in Remove mode"
+  },
+  "stockAddHint": "Enter the quantity to add",
+  "@stockAddHint": {
+    "description": "Quantity field hint in Add mode"
+  },
+  "stockRemoveHint": "Enter the quantity to remove",
+  "@stockRemoveHint": {
+    "description": "Quantity field hint in Remove mode"
+  },
+  "stockAddHelper": "Increases the current stock.",
+  "@stockAddHelper": {
+    "description": "Helper text in Add mode"
+  },
+  "stockRemoveHelper": "Decreases the current stock. It cannot go below zero.",
+  "@stockRemoveHelper": {
+    "description": "Helper text in Remove mode"
+  },
+  "stockPreviewUpdate": "New stock: {result}",
+  "@stockPreviewUpdate": {
+    "description": "Preview of the stock after an update",
+    "placeholders": {
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "stockPreviewAdd": "{current} + {amount} = {result}",
+  "@stockPreviewAdd": {
+    "description": "Preview of the stock after adding, for example 150 + 40 = 190 Units",
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "stockPreviewRemove": "{current} − {amount} = {result}",
+  "@stockPreviewRemove": {
+    "description": "Preview of the stock after removing, for example 150 - 40 = 110 Units",
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "stockErrorInvalid": "Enter a valid number.",
+  "@stockErrorInvalid": {
+    "description": "The quantity is not a valid number"
+  },
+  "stockErrorWhole": "Enter a whole number for this unit.",
+  "@stockErrorWhole": {
+    "description": "The unit only allows whole numbers"
+  },
+  "stockErrorDecimals": "Use at most {decimals} decimal places for this unit.",
+  "@stockErrorDecimals": {
+    "description": "The quantity has too many decimals",
+    "placeholders": {
+      "decimals": {
+        "type": "int"
+      }
+    }
+  },
+  "stockErrorZero": "Enter a quantity greater than zero.",
+  "@stockErrorZero": {
+    "description": "Add and Remove need a quantity above zero"
+  },
+  "stockErrorExceeds": "You cannot remove more than the current stock ({current}).",
+  "@stockErrorExceeds": {
+    "description": "Remove would take the stock below zero",
+    "placeholders": {
+      "current": {
+        "type": "String"
+      }
+    }
+  },
+  "stockActionUpdate": "Update Stock",
+  "@stockActionUpdate": {
+    "description": "Action button in Update mode"
+  },
+  "stockActionAdd": "Add Stock",
+  "@stockActionAdd": {
+    "description": "Action button in Add mode"
+  },
+  "stockActionRemove": "Remove Stock",
+  "@stockActionRemove": {
+    "description": "Action button in Remove mode"
+  },
+  "stockConfirmAddMessage": "{name}\n\nCurrent stock: {current}\nAdd: {amount}\nNew stock: {result}\n\nAdd this stock?",
+  "@stockConfirmAddMessage": {
+    "description": "Body of the confirmation popup when adding stock",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "stockConfirmRemoveMessage": "{name}\n\nCurrent stock: {current}\nRemove: {amount}\nNew stock: {result}\n\nRemove this stock?",
+  "@stockConfirmRemoveMessage": {
+    "description": "Body of the confirmation popup when removing stock",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "current": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "createTitle": "Create New Product",
+  "@createTitle": {
+    "description": "Title of the product creation screen"
+  },
+  "createNameHint": "Enter product name",
+  "@createNameHint": {
+    "description": "Product name hint"
+  },
+  "createPriceLabel": "Price (optional)",
+  "@createPriceLabel": {
+    "description": "Optional price field label"
+  },
+  "createPriceHint": "0.00",
+  "@createPriceHint": {
+    "description": "Price hint: an empty price is 0.00"
+  },
+  "createStockLabel": "Stock Quantity (optional)",
+  "@createStockLabel": {
+    "description": "Optional stock quantity field label"
+  },
+  "createLoading": "Loading product creation options",
+  "@createLoading": {
+    "description": "Loading the creation options"
+  },
+  "createLoadFailed": "Unable to load product creation options.",
+  "@createLoadFailed": {
+    "description": "The creation options could not be loaded"
+  },
+  "createExists": "This barcode already exists. Open the product instead.",
+  "@createExists": {
+    "description": "The barcode already belongs to a product"
+  },
+  "createNoPermission": "You do not have permission to create products.",
+  "@createNoPermission": {
+    "description": "No permission to create products"
+  },
+  "createButton": "Create Product",
+  "@createButton": {
+    "description": "Creates the product"
+  },
+  "createOpenDetails": "Open Product Details",
+  "@createOpenDetails": {
+    "description": "Opens the product that already exists"
+  },
+  "createCheckBarcode": "Check barcode",
+  "@createCheckBarcode": {
+    "description": "Checks the barcode after an uncertain creation"
+  },
+  "createConfirmTitle": "Confirm new product",
+  "@createConfirmTitle": {
+    "description": "Title of the creation confirmation popup"
+  },
+  "createConfirmMessage": "Create this product?\n\nName: {name}\nBarcode: {barcode}\nCategory: {category}\nTax: {tax}\nPrice: CHF {price}\nStock: {stock}",
+  "@createConfirmMessage": {
+    "description": "Body of the creation confirmation popup",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "barcode": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      },
+      "tax": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "stock": {
+        "type": "String"
+      }
+    }
+  },
+  "createSuccessTitle": "Product Created Successfully",
+  "@createSuccessTitle": {
+    "description": "Success toast title after creating a product"
+  },
+  "createSuccessMessage": "{name} · CHF {price} · {tax}",
+  "@createSuccessMessage": {
+    "description": "Success toast text after creating a product",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "tax": {
+        "type": "String"
+      }
+    }
+  },
+  "mockDiscountNote": "Preview only. This does not change product prices.",
+  "@mockDiscountNote": {
+    "description": "Note of the discount preview"
+  }
 }
