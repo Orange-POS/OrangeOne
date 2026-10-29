@@ -25,17 +25,44 @@ CHANNELS = {
   'refs/heads/staging' => %w[staging staging]
 }.freeze
 
+# Production is reachable only from a published GitHub Release of a version tag.
+RELEASE_REF = %r{\Arefs/tags/v\d+\.\d+\.\d+\z}.freeze
+
 def channel_group
-  flavor, group = CHANNELS.fetch(ENV['GITHUB_REF'].to_s) do
-    UI.user_error!('TestFlight delivery is limited to the develop and staging branches')
+  ref = ENV['GITHUB_REF'].to_s
+  if ref.match?(RELEASE_REF)
+    UI.user_error!('Production delivery runs only for a published GitHub Release') unless
+      ENV['GITHUB_EVENT_NAME'] == 'release'
+    flavor, group = %w[production production]
+  else
+    flavor, group = CHANNELS.fetch(ref) do
+      UI.user_error!('TestFlight delivery is limited to the develop and staging branches and release tags')
+    end
+    UI.user_error!('TestFlight delivery runs only for a push or a manual dispatch') unless
+      %w[push workflow_dispatch].include?(ENV['GITHUB_EVENT_NAME'])
   end
-  UI.user_error!('TestFlight delivery runs only for a push or a manual dispatch') unless
-    %w[push workflow_dispatch].include?(ENV['GITHUB_EVENT_NAME'])
   UI.user_error!('The flavor does not match the branch') unless ENV['CHANNEL_FLAVOR'] == flavor
   UI.user_error!('The tester group does not match the branch') unless ENV['TARGET_GROUP'] == group
   UI.user_error!('Signing always uses the production identity') unless
     ENV.fetch('RELEASE_FLAVOR', 'production') == 'production'
   group
+end
+
+# The binary is already uploaded when Apple still needs export compliance or
+# review. That is a pending distribution, not a failed build: keep the upload,
+# say which exact version/build to resume, and never upload it again.
+def distribute_or_report(distribution, version:, number:, group:)
+  distribution.distribute(version: version, number: number)
+  true
+rescue OrangeoneTestflight::Pending => error
+  text = "Build #{version} (#{number}) is uploaded but not yet in the #{group} group: #{error.message} "          "Resume without rebuilding or uploading: run the iOS workflow operation distribute_existing "          "with version #{version}, build #{number} and target group #{group}."
+  UI.important(text)
+  puts "::warning title=TestFlight distribution pending::#{text}"
+  summary = ENV.fetch('GITHUB_STEP_SUMMARY', '')
+  File.write(summary, "### TestFlight distribution pending
+#{text}
+", mode: 'a') unless summary.empty?
+  false
 end
 
 platform :ios do
@@ -83,8 +110,9 @@ platform :ios do
         notify_external_testers: false,
         skip_waiting_for_build_processing: true
       )
-      distribution.distribute(version: version, number: number)
-      UI.success('The exact build was assigned to its channel tester group only.')
+      if distribute_or_report(distribution, version: version, number: number, group: target)
+        UI.success('The exact build was assigned to its channel tester group only.')
+      end
     end
   rescue OrangeoneTestflight::Error, OrangeoneBuildNumber::Error => error
     UI.user_error!(error.message)
@@ -117,8 +145,10 @@ platform :ios do
       notify_external_testers: false,
       skip_waiting_for_build_processing: true
     )
-    distribution.distribute(version: ENV.fetch('RELEASE_VERSION'), number: ENV.fetch('RELEASE_BUILD_NUMBER'))
-    UI.success('Exact production build assignment confirmed for the selected TestFlight group.')
+    if distribute_or_report(distribution, version: ENV.fetch('RELEASE_VERSION'),
+                            number: ENV.fetch('RELEASE_BUILD_NUMBER'), group: target)
+      UI.success('Exact production build assignment confirmed for the selected TestFlight group.')
+    end
   rescue OrangeoneTestflight::Error => error
     UI.user_error!(error.message)
   end

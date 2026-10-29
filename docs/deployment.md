@@ -26,6 +26,8 @@ PR #19 into main.
 | `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as production; exact uploaded build assigned to the selected tester group, then exported/signed on a fresh runner and uploaded to internal TestFlight |
 | `ios.yaml` / `submit` | Manual `submit_for_review` from main after release checks, iPhone confirmation and separate environment approval | Submit existing tested build for review; public release remains manual |
 | `ios-testflight.yaml` | Push to `develop` (DEV) or `staging` (STG); manual dispatch on those branches (dry run by default) | Waits for the required CI checks, allocates the build number, compiles the flavor secret-free, signs and (only when enabled) uploads to that channel's one tester group. See Stage 2 below |
+| `ios-release.yaml` | Published GitHub Release of a `vX.Y.Z` tag only | Validates the tag, waits for the required checks, builds production, signs and (only when enabled) uploads to Production Testers |
+| `android-release.yaml` | Published GitHub Release of a `vX.Y.Z` tag only | Builds the production APK signed with the existing release keystore, verifies it and keeps it as a private artifact |
 | `license_check.yaml` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues, manual | Flutter dependency license policy |
 
 A merge into an integration branch triggers push checks. Workflows use read-only repository access;
@@ -581,3 +583,105 @@ need a hosted macOS run with the credentials above; the archive step
 (`flutter build ios --config-only` plus `xcodebuild` with the override) has not
 run on macOS yet, so the first dry run is the proof. No upload and no App Review
 submission has been made by this change.
+
+## Release management: production iOS and Android from GitHub Releases
+
+Production is built **only** from an approved, published GitHub Release. A commit,
+merge, branch push, pull request or manual run never starts `ios-release.yaml` or
+`android-release.yaml`, and `ios-testflight.yaml` (DEV/STG) cannot reach the
+production group.
+
+### What makes a release approved
+
+`tool/ci/release_tags.py` fails the run unless all of these hold:
+
+- the Release is *published* (not a draft, not a pre-release) and its tag is exactly `vX.Y.Z`;
+- the workflow ref is that tag and it points at a commit that is on `main`;
+- the tag version equals the `pubspec.yaml` version of that commit (the **approved
+  source version**; nothing is taken from free-form input);
+- the version is not below one already uploaded to App Store Connect
+  (`tool/ci/release_versions.json`);
+- the pubspec build number is above that of every earlier release tag (it is the
+  Android version code, so Android always accepts the update);
+- every required CI check of the tagged commit passed (`wait_for_checks.py`).
+
+Approval itself is a person publishing the Release plus the protected
+environment (`ios-production`, `android-release`) with required reviewers.
+
+### iOS: Production Testers
+
+`ios-release.yaml` runs the same jobs as DEV/STG (plan, checks, allocate, archive,
+deliver) with the `production` flavor, the production bundle ID and the existing
+signing job, and assigns the exact build to **Production Testers** only. The build
+number is `max(App Store Connect, repository floor) + 1`, shared with DEV/STG and
+serialized in the same `testflight-cd` concurrency group. It is a dry run (sign and
+verify, no upload) until the repository variable `PRODUCTION_RELEASE_ENABLED` is
+`true`; it is separate from `TESTFLIGHT_CD_ENABLED`.
+
+Submitting to Apple App Review and publishing to the public App Store remain the
+manual `ios.yaml` operations (`submit_for_review`, environment `ios-app-store`,
+physical iPhone confirmation, `automatic_release: false`). Nothing here submits
+anything.
+
+### Export compliance and resuming a distribution
+
+Compliance comes from `ITSAppUsesNonExemptEncryption = false` in every flavor
+Info.plist (the owner-approved declaration, checked on every export; see the
+export compliance section above). No answer is assumed or submitted.
+
+If Apple nevertheless still needs compliance, or beta review, **after** the IPA
+uploaded, the upload is kept and is not a failed build: the lane records a
+`TestFlight distribution pending` warning and step summary naming the exact version
+and build and finishes without rebuilding or uploading again. After compliance is
+completed in App Store Connect, run **OrangeONE iOS** manually with operation
+`distribute_existing`, the same version and build, and the target group. It assigns
+that exact build to that group only (no export, signing or upload) and fails, never
+passes silently, while it is still pending. Hard failures (processing failed,
+expired, wrong group, changed group) still fail the run.
+
+### Android: signed APK for private distribution
+
+`android-release.yaml` builds `flutter build apk --release --flavor production`
+with `--build-name` from the tag and `--build-number` as the version code.
+
+- **Identity is preserved.** `android/app/build.gradle.kts` still signs with the
+  existing keystore from `ANDROID_KEYSTORE_*`; a release build without it fails and
+  never falls back to the debug key. `tool/ci/android_apk.py keystore` opens the
+  keystore and compares its certificate with the pinned `ANDROID_SIGNING_CERT_SHA256`
+  *before* building, and `verify` rechecks the finished APK with `apksigner`
+  (single signer, v2/v3 scheme, the pinned SHA-256, `com.orangeone.app`, tag
+  version and version code, not debuggable). A different key is refused.
+- **Updates.** Android installs an update only with the same signer and a higher
+  version code. `android_apk.py upgrade <old.apk> <new.apk>` checks both; the tag
+  rule above keeps the version code increasing.
+- **Private.** The APK and `android-release.json` (SHA-256, size, version,
+  certificate) are a workflow artifact kept for 30 days, never a Release asset
+  and never public. Hand it to customers through a private, access-controlled
+  channel (for example an authenticated download or your MDM) and publish the
+  SHA-256 next to it.
+- **Warnings.** A legitimately signed APK from a trusted source still shows
+  Android's "install unknown apps" permission prompt and, depending on the version,
+  Play Protect's scan prompt for apps outside Google Play. Those protections are not
+  bypassed and cannot be promised away. They are minimized by one stable signing
+  identity, stable `com.orangeone.app` ID, a verified signature (v2/v3), a
+  non-debuggable release, an HTTPS download from your own domain, and, where
+  Google's developer verification applies to your distribution, registering the
+  package name and the signing certificate fingerprint with it.
+
+### Owner setup (not done by the repository change)
+
+1. Environment `ios-production`: allow deployment from release tags matching
+   `v*` (it allows `main` today) and keep required reviewers; the signing secrets
+   already live there.
+2. Create environment `android-release` (tags `v*`, required reviewers) with secrets
+   `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEYSTORE_ALIAS`,
+   `ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD` and `ANDROID_SIGNING_CERT_SHA256` (the
+   SHA-256 of the existing release certificate; `keytool -list -v` shows it). Use the
+   existing keystore; do not generate a new one.
+3. Protect `v*` tags (a tag ruleset) so only maintainers can create them.
+4. After a dry-run release succeeds, set `PRODUCTION_RELEASE_ENABLED=true`.
+
+Not verified here: signing, upload and group assignment on hosted macOS, a signed
+production APK from the real keystore, installing/updating on devices and the
+Android warnings on supported versions. The APK tooling was checked against real
+`apksigner`, `aapt` and `keytool` output only.

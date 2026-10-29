@@ -7,6 +7,9 @@ class OrangeoneTestflight
   BUNDLE_ID = CONFIG.fetch('bundle_id').freeze
   GROUPS = CONFIG.fetch('groups').freeze
   class Error < StandardError; end
+  # The exact build is uploaded and valid, but Apple still has to finish export
+  # compliance or beta review. Distribution resumes later without a new upload.
+  class Pending < Error; end
 
   def self.group_name(target)
     GROUPS.fetch(target) { raise Error, 'Unsupported TestFlight target group.' }
@@ -85,7 +88,7 @@ class OrangeoneTestflight
           detail = build.build_beta_detail
           compliance_states = %w[MISSING_EXPORT_COMPLIANCE IN_EXPORT_COMPLIANCE_REVIEW]
           if [detail.internal_build_state, detail.external_build_state].any? { |state| compliance_states.include?(state) }
-            raise Error, 'Complete export compliance for this exact build in App Store Connect, then run distribute_existing with the same version/build; do not reupload. No compliance answer is assumed.'
+            raise Pending, 'Complete export compliance for this exact build in App Store Connect, then run distribute_existing with the same version/build; do not reupload. No compliance answer is assumed.'
           end
           group = selected_group
           raise Error, 'Selected tester group changed during processing.' unless group.id == @group.id
@@ -120,7 +123,7 @@ class OrangeoneTestflight
     when 'READY_FOR_BETA_TESTING', 'IN_BETA_TESTING'
       true
     when 'MISSING_EXPORT_COMPLIANCE', 'IN_EXPORT_COMPLIANCE_REVIEW'
-      raise Error, 'Complete or await export compliance for this exact build in App Store Connect, then run distribute_existing; do not reupload. No compliance answer is assumed.'
+      raise Pending, 'Complete or await export compliance for this exact build in App Store Connect, then run distribute_existing; do not reupload. No compliance answer is assumed.'
     when 'PROCESSING_EXCEPTION', 'EXPIRED'
       raise Error, 'Internal processing failed or this exact build expired. Inspect the build in App Store Connect.'
     else
@@ -139,13 +142,13 @@ class OrangeoneTestflight
     when 'BETA_APPROVED', 'READY_FOR_BETA_TESTING', 'IN_BETA_TESTING'
       true
     when 'READY_FOR_BETA_SUBMISSION'
-      raise Error, 'This exact build requires manual Beta App Review submission in App Store Connect; no automatic review is submitted.'
+      raise Pending, 'This exact build requires manual Beta App Review submission in App Store Connect; no automatic review is submitted.'
     when 'WAITING_FOR_BETA_REVIEW', 'IN_BETA_REVIEW'
-      raise Error, 'Beta App Review is pending for this exact build. Wait for Apple review in App Store Connect, then run distribute_existing for this same version/build; do not reupload.'
+      raise Pending, 'Beta App Review is pending for this exact build. Wait for Apple review in App Store Connect, then run distribute_existing for this same version/build; do not reupload.'
     when 'BETA_REJECTED'
       raise Error, 'Beta App Review rejected this exact build. Resolve the rejection in App Store Connect before external distribution.'
     when 'MISSING_EXPORT_COMPLIANCE', 'IN_EXPORT_COMPLIANCE_REVIEW'
-      raise Error, 'Complete or await export compliance for this exact build in App Store Connect, then run distribute_existing; do not reupload. No compliance answer is assumed.'
+      raise Pending, 'Complete or await export compliance for this exact build in App Store Connect, then run distribute_existing; do not reupload. No compliance answer is assumed.'
     when 'PROCESSING_EXCEPTION', 'EXPIRED'
       raise Error, 'External processing failed or this exact build expired. Inspect the build in App Store Connect.'
     else

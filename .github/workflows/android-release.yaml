@@ -1,0 +1,115 @@
+name: OrangeONE Android Release
+# Signed production APK for private, direct customer distribution (no Play Store).
+# Starts only from an approved, published GitHub Release of a version tag. The APK
+# is kept as a private workflow artifact, never attached to the public release.
+# It must be signed with the existing release keystore; the signing certificate
+# is pinned so another identity can never be shipped by mistake.
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      version: ${{ steps.plan.outputs.version }}
+      version_code: ${{ steps.plan.outputs.android_version_code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate the approved release tag
+        id: plan
+        run: python3 tool/ci/release_tags.py
+
+  checks:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Wait for every required check of this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: python3 tool/ci/wait_for_checks.py
+
+  apk:
+    needs: [plan, checks]
+    environment: android-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+      ANDROID_VERSION_CODE: ${{ needs.plan.outputs.version_code }}
+      ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD }}
+      ANDROID_SIGNING_CERT_SHA256: ${{ secrets.ANDROID_SIGNING_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - run: flutter pub get --enforce-lockfile
+      - name: Restore the existing release keystore and confirm its identity
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
+          python3 tool/ci/android_apk.py keystore
+      - name: Build the signed production APK
+        run: flutter build apk --release --flavor production --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$ANDROID_VERSION_CODE"
+      - name: Verify signature, identity and version
+        run: |
+          tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          export PATH="$tools:$PATH"
+          python3 tool/ci/android_apk.py verify build/app/outputs/flutter-apk/app-production-release.apk android-release.json
+          cat android-release.json
+      - name: Summary
+        run: |
+          {
+            echo "### Signed production APK"
+            echo "- Release: ${{ needs.plan.outputs.tag }} (version code ${{ needs.plan.outputs.version_code }})"
+            echo '```json'
+            cat android-release.json
+            echo '```'
+            echo "Distribute privately; do not attach the APK to a public release."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-production-${{ needs.plan.outputs.version }}-${{ needs.plan.outputs.version_code }}
+          path: |
+            build/app/outputs/flutter-apk/app-production-release.apk
+            android-release.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"

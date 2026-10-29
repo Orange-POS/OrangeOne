@@ -33,6 +33,7 @@ end
 
 module UI
   def self.success(message) = nil
+  def self.important(message) = nil
   def self.user_error!(message) = raise(ArgumentError, message)
 end
 
@@ -409,6 +410,77 @@ class ChannelLaneTest < Minitest::Test
     @harness.define_singleton_method(:sh) { |*| raise 'synthetic export failure' }
     assert_raises(RuntimeError) { run_with_ipa(:testflight_channel) }
     refute @harness.calls.assoc(:testflight)
+  end
+
+  def use_release(tag = 'v1.2.0')
+    ENV.update('GITHUB_REF' => "refs/tags/#{tag}", 'GITHUB_EVENT_NAME' => 'release',
+               'CHANNEL_FLAVOR' => 'production', 'TARGET_GROUP' => 'production',
+               'RELEASE_VERSION' => '1.2.0')
+    @harness.calls.clear
+  end
+
+  def test_production_is_reachable_only_from_a_published_release_of_a_version_tag
+    [['refs/tags/v1.2.0', 'push'], ['refs/tags/v1.2.0', 'workflow_dispatch'],
+     ['refs/heads/main', 'release'], ['refs/heads/develop', 'release'],
+     ['refs/tags/release-1', 'release'], ['refs/tags/v1.2', 'release'],
+     ['refs/tags/v1.2.0-rc1', 'release']].each do |ref, event|
+      use_release
+      ENV.update('GITHUB_REF' => ref, 'GITHUB_EVENT_NAME' => event)
+      %i[allocate_build testflight_channel].each do |lane|
+        assert_raises(ArgumentError, "#{ref} #{event} #{lane}") { run_with_ipa(lane) }
+      end
+    end
+    assert_empty @harness.calls
+  end
+
+  def test_a_release_run_is_production_only_and_checks_every_other_group
+    use_release
+    assert_equal 36, run_lane(:allocate_build)
+    assert_equal [:prepare_channel, 'production'], @harness.calls.assoc(:prepare_channel)
+    [['CHANNEL_FLAVOR', 'development'], ['TARGET_GROUP', 'dev'], ['TARGET_GROUP', 'staging']].each do |key, value|
+      use_release
+      ENV[key] = value
+      assert_raises(ArgumentError, "#{key}=#{value}") { run_with_ipa(:testflight_channel) }
+      assert_empty @harness.calls
+    end
+  end
+
+  def test_a_release_dry_run_never_uploads
+    use_release
+    run_with_ipa(:testflight_channel)
+    assert_equal [:key, :prepare_channel, :unused, :export], @harness.calls.map(&:first)
+  end
+
+  def test_a_pending_compliance_keeps_the_upload_and_reports_how_to_resume
+    ENV.update('DRY_RUN' => 'false', 'TESTFLIGHT_CD_ENABLED' => 'true')
+    @distribution.define_singleton_method(:distribute) do |**|
+      raise OrangeoneTestflight::Pending, 'Complete export compliance for this exact build.'
+    end
+    Tempfile.create('summary') do |file|
+      ENV['GITHUB_STEP_SUMMARY'] = file.path
+      output, = capture_io { run_with_ipa(:testflight_channel) }
+      assert_match(/::warning/, output)
+      text = File.read(file.path)
+      assert_includes text, 'uploaded but not yet in the dev group'
+      assert_includes text, 'distribute_existing'
+      assert_includes text, 'version 1.1.0, build 36'
+      assert_includes text, 'without rebuilding or uploading'
+    end
+    assert_equal 1, @harness.calls.count { |call| call.first == :testflight }
+    refute @harness.calls.assoc(:assign)
+  ensure
+    ENV.delete('GITHUB_STEP_SUMMARY')
+  end
+
+  def test_the_resume_lane_still_fails_while_compliance_is_pending
+    ENV.update('GITHUB_REF' => 'refs/heads/main', 'GITHUB_EVENT_NAME' => 'workflow_dispatch',
+               'TARGET_GROUP' => 'dev', 'RELEASE_BUILD_NUMBER' => '36')
+    ENV.delete('PR_NUMBER')
+    @distribution.define_singleton_method(:prepare) { |*| self }
+    @distribution.define_singleton_method(:distribute) { |**| raise OrangeoneTestflight::Pending, 'pending' }
+    assert_raises(ArgumentError) { run_lane(:distribute_existing) }
+    refute @harness.calls.assoc(:testflight)
+    refute @harness.calls.assoc(:export)
   end
 
   def test_a_group_or_assignment_failure_fails_the_lane
