@@ -102,7 +102,7 @@ class _ProductStockUpdatePageState
     final l10n = context.l10n;
     if (value.details.product == null) return;
     // A counted quantity, even zero, is a set stock.
-    ref.read(unsetStockProvider.notifier).clear(widget.barcode);
+    ref.read(unsetStockProvider.notifier).clear(value.details.product!.id);
     ref
         .read(productSuccessProvider.notifier)
         .show(
@@ -252,7 +252,7 @@ class _ProductStockUpdatePageState
                             value:
                                 ref
                                         .watch(unsetStockProvider)
-                                        .contains(current.barcode) &&
+                                        .contains(current.id) &&
                                     (current.stock ?? 0) == 0
                                 ? l10n.stockNotSet
                                 : current.stock == null

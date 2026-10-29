@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/app/app.dart';
 import 'package:orange_one/app/router/app_router.dart';
@@ -10,10 +11,16 @@ import 'package:orange_one/features/products/domain/entities/product_details.dar
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/presentation/pages/product_stock_update_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/product_details_fakes.dart';
+
+class _Unset extends UnsetStockController {
+  @override
+  Set<int> build() => const {10};
+}
 
 /// Update, Add and Remove on the stock screen (stock 48 Units).
 void main() {
@@ -21,6 +28,7 @@ void main() {
     WidgetTester tester, {
     FakeDetailsRepository? repository,
     bool direct = false,
+    List<Override> more = const [],
   }) async {
     tester.view
       ..physicalSize = const Size(800, 2400)
@@ -35,6 +43,7 @@ void main() {
           ),
           utcNowProvider.overrideWithValue(() => testNow),
           productDetailsRepositoryProvider.overrideWithValue(repo),
+          ...more,
         ],
         child: const App(),
       ),
@@ -256,6 +265,25 @@ void main() {
       );
     });
   }
+
+  testWidgets('a saved count clears the not-set flag of that product', (
+    tester,
+  ) async {
+    await openStock(
+      tester,
+      more: [unsetStockProvider.overrideWith(_Unset.new)],
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(App)),
+    );
+    expect(container.read(unsetStockProvider), {10});
+    await enter(tester, '0');
+    await tester.tap(find.widgetWithText(FilledButton, 'Update Stock'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+    expect(container.read(unsetStockProvider), isEmpty);
+  });
 
   testWidgets('a version conflict stays on the screen and writes once', (
     tester,

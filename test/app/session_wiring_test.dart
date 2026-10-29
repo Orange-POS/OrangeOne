@@ -19,6 +19,7 @@ import 'package:orange_one/features/home/domain/entities/product.dart';
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
 import 'package:orange_one/features/home/presentation/providers/recent_scans_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 
 import '../support/auth_fakes.dart';
 
@@ -190,6 +191,7 @@ void main() {
       container = ProviderContainer.test(
         overrides: [
           readCacheOverride,
+          unsetStockScopeOverride,
           authenticatedMobileApiOverride,
           productRepositoryOverride,
           recentScansRepositoryOverride,
@@ -463,5 +465,96 @@ void main() {
         expect(await second.read('4006381333931'), isNull);
       },
     );
+    group('unset-stock flags', () {
+      // Product 7 (created without stock) in the first session.
+      Future<String?> markProduct() async {
+        await container.read(sessionControllerProvider.future);
+        final scope = container.read(unsetStockScopeProvider);
+        container.listen(unsetStockProvider, (previous, next) {});
+        container.read(unsetStockProvider.notifier).mark(7, scope: scope);
+        expect(container.read(unsetStockProvider), {7});
+        return scope;
+      }
+
+      Future<void> replaceSession() async {
+        await container.read(sessionControllerProvider.notifier).signOut();
+        await container.pump();
+        auth.pendingLogin = Completer<AuthSession>()
+          ..complete(_session(sessionId: 'family-2', userId: 3));
+        await container.read(sessionControllerProvider.notifier).signIn('qr');
+        await container.pump();
+      }
+
+      test('belong to the authenticated session, not the token', () async {
+        final scope = await markProduct();
+        expect(scope, isNotNull);
+        expect(scope, container.read(readCacheIdentityProvider));
+        auth.currentToken = 'oa_refreshed';
+        await container.read(sessionControllerProvider.notifier).accessToken();
+        await container.pump();
+        expect(container.read(unsetStockProvider), {7});
+      });
+
+      test('are cleared on logout', () async {
+        await markProduct();
+        await container.read(sessionControllerProvider.notifier).signOut();
+        await container.pump();
+        expect(container.read(unsetStockScopeProvider), isNull);
+        expect(container.read(unsetStockProvider), isEmpty);
+      });
+
+      test('do not leak into a replacement session with the same barcode '
+          'and product', () async {
+        await markProduct();
+        await replaceSession();
+        expect(container.read(unsetStockScopeProvider), isNotNull);
+        // The other shop's product has the same id and barcode and a confirmed
+        // zero stock: nothing marks it as not set.
+        expect(container.read(unsetStockProvider), isEmpty);
+      });
+
+      test('are cleared when authentication is rejected', () async {
+        await markProduct();
+        auth.tokenFailure = invalidSession;
+        await expectLater(
+          container.read(sessionControllerProvider.notifier).accessToken(),
+          throwsA(same(invalidSession)),
+        );
+        await container.pump();
+        expect(container.read(unsetStockProvider), isEmpty);
+      });
+
+      test('are cleared when the session is replaced without a logout '
+          'screen in between', () async {
+        await markProduct();
+        await replaceSession();
+        container
+            .read(unsetStockProvider.notifier)
+            .mark(7, scope: container.read(unsetStockScopeProvider));
+        expect(container.read(unsetStockProvider), {7});
+        await replaceSession();
+        expect(container.read(unsetStockProvider), isEmpty);
+      });
+
+      test(
+        'a create finishing after the session ended marks nothing',
+        () async {
+          final scope = await markProduct();
+          await replaceSession();
+          container.read(unsetStockProvider.notifier).mark(8, scope: scope);
+          container.read(unsetStockProvider.notifier).mark(9, scope: null);
+          expect(container.read(unsetStockProvider), isEmpty);
+        },
+      );
+
+      test('a saved count clears only that product', () async {
+        await markProduct();
+        container
+            .read(unsetStockProvider.notifier)
+            .mark(8, scope: container.read(unsetStockScopeProvider));
+        container.read(unsetStockProvider.notifier).clear(7);
+        expect(container.read(unsetStockProvider), {8});
+      });
+    });
   });
 }

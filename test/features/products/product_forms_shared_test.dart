@@ -17,7 +17,7 @@ import '../../support/product_router.dart';
 
 class _Unset extends UnsetStockController {
   @override
-  Set<String> build() => const {'0010101010'};
+  Set<int> build() => const {10};
 }
 
 const _noStock = ProductDetails(

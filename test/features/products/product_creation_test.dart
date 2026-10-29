@@ -29,6 +29,7 @@ void main() {
     container = ProviderContainer.test(
       overrides: [
         productDetailsRepositoryProvider.overrideWithValue(repository),
+        unsetStockScopeProvider.overrideWithValue('session-a'),
       ],
     );
   });
@@ -243,12 +244,15 @@ void main() {
         .read(provider.notifier)
         .edit(name: 'New', taxIds: [], categoryId: 4);
     await container.read(provider.notifier).save();
-    expect(container.read(unsetStockProvider), {'000123'});
+    expect(container.read(unsetStockProvider), {11});
     expect(repository.submittedProduct!.initialQuantity, isNull);
 
     final other = FakeDetailsRepository()..product = null;
     final second = ProviderContainer.test(
-      overrides: [productDetailsRepositoryProvider.overrideWithValue(other)],
+      overrides: [
+        productDetailsRepositoryProvider.overrideWithValue(other),
+        unsetStockScopeProvider.overrideWithValue('session-a'),
+      ],
     );
     final secondProvider = productCreationControllerProvider('000123');
     second.listen(secondProvider, (previous, next) {});
@@ -429,7 +433,7 @@ void main() {
     expect(success.barcode, '000123');
     expect(success.title, 'Product Created Successfully');
     expect(success.message, contains('CHF 0.00'));
-    expect(container.read(unsetStockProvider), {'000123'});
+    expect(container.read(unsetStockProvider), {11});
     expect(tester.takeException(), isNull);
   });
 

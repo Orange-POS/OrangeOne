@@ -45,6 +45,7 @@ void bootstrap(AppEnvironment environment) {
         ),
         appLoggerProvider.overrideWithValue(logger),
         readCacheOverride,
+        unsetStockScopeOverride,
         recentScansRepositoryOverride,
         authenticatedMobileApiOverride,
         productRepositoryOverride,

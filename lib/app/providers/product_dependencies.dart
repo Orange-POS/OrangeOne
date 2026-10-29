@@ -22,6 +22,7 @@ import 'package:orange_one/features/products/data/data_sources/product_catalog_r
 import 'package:orange_one/features/products/data/repositories/odoo_product_details_repository.dart';
 import 'package:orange_one/features/products/data/repositories/product_cache_synchronizer.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 
 /// The signed-in session for data wiring, or null while signed out, loading
 /// or failed. Token refresh keeps the same [AuthSession] instance, so
@@ -47,6 +48,12 @@ final readCacheIdentityProvider = Provider<String?>((ref) {
     session,
   );
 }, name: 'readCacheIdentityProvider');
+
+/// Unset-stock flags belong to the session identity: logout, expiry,
+/// authentication rejection or a replacement session resets them.
+final Override unsetStockScopeOverride = unsetStockScopeProvider.overrideWith(
+  (ref) => ref.watch(readCacheIdentityProvider),
+);
 
 /// Reads tokens from the session controller at request time.
 class _SessionTokens implements AccessTokenSource {

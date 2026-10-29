@@ -42,7 +42,7 @@ class ProductNameCard extends ConsumerWidget {
     final stockNotSet =
         current != null &&
         (current.stock ?? 0) == 0 &&
-        ref.watch(unsetStockProvider).contains(current.barcode);
+        ref.watch(unsetStockProvider).contains(current.id);
     return _card(context, stockNotSet);
   }
 

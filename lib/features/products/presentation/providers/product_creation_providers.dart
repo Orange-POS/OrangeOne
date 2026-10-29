@@ -268,6 +268,7 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
     final current = state.value;
     if (_recovering || current == null || !current.canSubmit) return;
     final generation = _generation;
+    final scope = ref.read(unsetStockScopeProvider);
     final repository = ref.read(productDetailsRepositoryProvider);
     final useCase = CreateProduct(repository);
     final draft = useCase.validate(
@@ -285,7 +286,7 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
       if (!ref.mounted || generation != _generation) return;
       // No quantity was entered: the stock is not set, which is not zero.
       if (draft.initialQuantity == null) {
-        ref.read(unsetStockProvider.notifier).mark(barcode);
+        ref.read(unsetStockProvider.notifier).mark(created.id, scope: scope);
       }
       state = AsyncData(
         current.copy(
