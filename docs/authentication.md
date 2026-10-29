@@ -119,8 +119,9 @@ session rejection, expiry and logout still reset session-dependent state. No
 periodic ping or write replay is introduced. See [Offline reads](offline-data.md).
 
 Home exposes a visible **Logout** action. Expiry and logout hide protected UI and
-clear local secure storage. Logout is local because the supplied controller has no
-remote revocation route. A new session requires a fresh POS QR code.
+clear local secure storage. Logout clears local state first and then calls
+`POST /auth/logout` (best effort) to revoke the token family. A new session
+requires a fresh POS QR code.
 
 Login is guarded against concurrent scans in both the scanner/controller and
 repository. Sign-out cancels a pending login; generation checks ignore stale

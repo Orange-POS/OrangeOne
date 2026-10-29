@@ -139,7 +139,7 @@ void main() {
       );
       expect(tester.widget<TextField>(getInput()).controller!.text, '125.00');
       expect(find.textContaining('Price Updated Successfully'), findsNothing);
-      expect(find.text('Details 0010101010'), findsNothing);
+      expect(find.text('details 0010101010'), findsNothing);
       await tester.tap(find.text('Check current price'));
       await tester.pumpAndSettle();
       expect(repo.writes, 1);

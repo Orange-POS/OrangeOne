@@ -11,17 +11,24 @@ import time
 import urllib.request
 
 REQUIRED = json.loads(Path(__file__).with_name('required_checks.json').read_text())['contexts']
-PASSING = ('success', 'skipped', 'neutral')
+PASSING = ('success',)
+# A skipped or neutral run (for example the ios.yaml matrix on a manual dispatch)
+# proves nothing: it never counts as a pass and never replaces a real result.
+INCONCLUSIVE = ('skipped', 'neutral')
 
 
 def evaluate(check_runs, required=REQUIRED):
     """-> ('passed' | 'pending' | 'failed', [problem, ...]).
 
-    The newest run of a context decides, so a re-run replaces an older failure.
+    The newest conclusive run of a context decides, so a re-run replaces an older
+    failure. Only success passes; skipped or neutral runs are ignored, so a
+    context that never really ran stays unfinished until the deadline.
     """
     newest = {}
     for run in check_runs:
         name = run.get('name')
+        if run.get('status') == 'completed' and run.get('conclusion') in INCONCLUSIVE:
+            continue
         if name in required and run.get('id', 0) >= newest.get(name, {}).get('id', -1):
             newest[name] = run
     failed, pending = [], []

@@ -13,7 +13,7 @@ import 'package:orange_one/shared/widgets/stock_badge.dart';
 class ProductNameCard extends ConsumerWidget {
   const new({
     required this.product,
-    this.emptyTitle = 'Product Not Found',
+    this.emptyTitle,
     this.detailsLayout = false,
     this.showActions = true,
     this.taxText,
@@ -22,7 +22,7 @@ class ProductNameCard extends ConsumerWidget {
     super.key,
   });
   final ProductDetails? product;
-  final String emptyTitle;
+  final String? emptyTitle;
   final bool detailsLayout;
 
   /// Shows the pencil actions; the editing screens hide them.
@@ -100,41 +100,46 @@ class ProductNameCard extends ConsumerWidget {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white, width: .5),
             ),
-            child: detailsLayout
-                ? _detailsContent(context, stockNotSet)
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(children: [AppLogo()]),
-                      const SizedBox(height: 16),
-                      Text(
-                        product?.name ?? emptyTitle,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      if (product?.reference.isNotEmpty ?? false)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Text(
-                            product!.reference,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      StockBadge(
-                        quantity: product?.stock,
-                        unit: product?.unit ?? '',
-                      ),
-                    ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(children: [AppLogo()]),
+                const SizedBox(height: 16),
+                Text(
+                  product?.name ?? emptyTitle ?? context.l10n.productNotFound,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
+                ),
+                if (product?.reference.isNotEmpty ?? false)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      product!.reference,
+                      style: const TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                StockBadge(
+                  quantity: stockNotSet ? null : product?.stock,
+                  unit: product?.unit ?? '',
+                  labels: _stockLabels(context, stockNotSet),
+                ),
+              ],
+            ),
           ),
   );
+  StockBadgeLabels _stockLabels(BuildContext context, bool stockNotSet) {
+    final l10n = context.l10n;
+    return StockBadgeLabels(
+      inStock: l10n.stockInStock,
+      outOfStock: l10n.stockOutOfStock,
+      unavailable: stockNotSet ? l10n.stockNotSet : l10n.stockUnavailable,
+    );
+  }
+
   Widget _detailsContent(BuildContext context, bool stockNotSet) {
     final l10n = context.l10n;
     final category = product?.category?.name.trim();
@@ -157,7 +162,7 @@ class ProductNameCard extends ConsumerWidget {
           children: [
             Expanded(
               child: Text(
-                product?.name ?? emptyTitle,
+                product?.name ?? emptyTitle ?? l10n.productNotFound,
                 style: const TextStyle(
                   fontSize: 28,
                   height: 36 / 28,
@@ -194,13 +199,7 @@ class ProductNameCard extends ConsumerWidget {
                     quantity: stockNotSet ? null : product?.stock,
                     unit: product?.unit ?? '',
                     compact: true,
-                    labels: StockBadgeLabels(
-                      inStock: l10n.stockInStock,
-                      outOfStock: l10n.stockOutOfStock,
-                      unavailable: stockNotSet
-                          ? l10n.stockNotSet
-                          : l10n.stockUnavailable,
-                    ),
+                    labels: _stockLabels(context, stockNotSet),
                   ),
                 ],
               ),

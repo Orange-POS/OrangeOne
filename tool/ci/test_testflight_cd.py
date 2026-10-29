@@ -128,8 +128,21 @@ class CheckGateTest(unittest.TestCase):
     def test_all_required_checks_must_succeed(self):
         self.assertEqual(('passed', []), wait_for_checks.evaluate(
             self.runs(a='success', b='success'), self.required))
-        self.assertEqual('passed', wait_for_checks.evaluate(
-            self.runs(a='success', b='skipped'), self.required)[0])
+
+    def test_skipped_or_neutral_checks_never_satisfy_the_gate(self):
+        for inconclusive in ('skipped', 'neutral'):
+            state, problems = wait_for_checks.evaluate(
+                self.runs(a='success', b=inconclusive), self.required)
+            self.assertEqual('pending', state, inconclusive)
+            self.assertIn('b', problems[0])
+
+    def test_a_later_skipped_run_does_not_hide_a_real_success_or_failure(self):
+        # ios.yaml skips its matrix on a manual dispatch of the same commit.
+        for real, expected in (('success', 'passed'), ('failure', 'failed')):
+            runs = [{'id': 1, 'name': 'a', 'status': 'completed', 'conclusion': 'success'},
+                    {'id': 2, 'name': 'b', 'status': 'completed', 'conclusion': real},
+                    {'id': 9, 'name': 'b', 'status': 'completed', 'conclusion': 'skipped'}]
+            self.assertEqual(expected, wait_for_checks.evaluate(runs, self.required)[0])
 
     def test_failed_cancelled_or_timed_out_checks_block(self):
         for bad in ('failure', 'cancelled', 'timed_out', 'action_required', 'stale'):

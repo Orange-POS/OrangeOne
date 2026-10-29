@@ -134,7 +134,7 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
     for (final category in view.categories) {
       if (category.id == change.id) return category.name;
     }
-    return change.id == null ? l10n.categoryNone : l10n.detailsTaxUnavailable;
+    return change.id == null ? l10n.categoryNone : l10n.categoryUnavailable;
   }
 
   /// Nothing is saved before Confirm is selected.

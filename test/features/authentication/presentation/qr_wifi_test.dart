@@ -155,6 +155,18 @@ void main() {
     expect(camera(), findsOneWidget);
   });
 
+  testWidgets('a read error after Wi-Fi was on stops the camera', (
+    tester,
+  ) async {
+    wifi.add(true);
+    await pumpScanner(tester);
+    expect(camera(), findsOneWidget);
+    wifi.addError(StateError('plugin failure'));
+    await tester.pumpAndSettle();
+    expect(camera(), findsNothing);
+    expect(find.text(_wifiMessage), findsOneWidget);
+  });
+
   testWidgets('QR sign-in is unchanged when Wi-Fi is on', (tester) async {
     wifi.add(true);
     await pumpScanner(tester);

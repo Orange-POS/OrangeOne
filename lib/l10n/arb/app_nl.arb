@@ -72,6 +72,7 @@
   "detailsLoadFailed": "Productgegevens kunnen niet worden geladen.",
   "detailsPullToRefresh": "Trek omlaag om de productgegevens te vernieuwen.",
   "categoryNone": "Geen categorie",
+  "categoryUnavailable": "Geselecteerde categorie niet beschikbaar",
   "categoryLabel": "Categorie: {name}",
   "barcodeLabel": "Barcode: {barcode}",
   "syncPending": "Product synchroniseren",

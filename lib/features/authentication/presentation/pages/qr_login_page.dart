@@ -36,7 +36,8 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
     // Reading failures count as "not connected".
     final wifi = ref.watch(wifiConnectionProvider);
     final checkingWifi = wifi.isLoading;
-    final wifiOn = wifi.value ?? false;
+    // An error keeps the previous value in Riverpod 3; it still means off.
+    final wifiOn = !wifi.hasError && (wifi.value ?? false);
     // A fresh camera starts whenever Wi-Fi returns.
     ref.listen(wifiConnectionProvider, (previous, next) {
       if (previous?.value != next.value && mounted) {

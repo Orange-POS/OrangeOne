@@ -306,6 +306,10 @@
   "@categoryNone": {
     "description": "Category badge text when the product has no category"
   },
+  "categoryUnavailable": "Selected category unavailable",
+  "@categoryUnavailable": {
+    "description": "Shown when the selected category is not in the loaded list"
+  },
   "categoryLabel": "Category: {name}",
   "@categoryLabel": {
     "description": "Screen-reader label of a category badge",

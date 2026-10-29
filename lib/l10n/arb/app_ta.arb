@@ -72,6 +72,7 @@
   "detailsLoadFailed": "தயாரிப்பு விவரங்களை ஏற்ற முடியவில்லை.",
   "detailsPullToRefresh": "தயாரிப்பு விவரங்களைப் புதுப்பிக்க கீழே இழுக்கவும்.",
   "categoryNone": "வகை இல்லை",
+  "categoryUnavailable": "தேர்ந்தெடுத்த வகை கிடைக்கவில்லை",
   "categoryLabel": "வகை: {name}",
   "barcodeLabel": "பார்கோடு: {barcode}",
   "syncPending": "தயாரிப்பு ஒத்திசைக்கப்படுகிறது",

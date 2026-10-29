@@ -72,6 +72,7 @@
   "detailsLoadFailed": "Impossible de charger les détails du produit.",
   "detailsPullToRefresh": "Tirez vers le bas pour actualiser les détails du produit.",
   "categoryNone": "Aucune catégorie",
+  "categoryUnavailable": "Catégorie sélectionnée indisponible",
   "categoryLabel": "Catégorie : {name}",
   "barcodeLabel": "Code-barres : {barcode}",
   "syncPending": "Synchronisation du produit",
