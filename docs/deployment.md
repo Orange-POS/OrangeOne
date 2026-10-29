@@ -685,3 +685,14 @@ Not verified here: signing, upload and group assignment on hosted macOS, a signe
 production APK from the real keystore, installing/updating on devices and the
 Android warnings on supported versions. The APK tooling was checked against real
 `apksigner`, `aapt` and `keytool` output only.
+
+## Runner placement
+
+Jobs run on the cheapest runner that supports their tools. Apple web-API work
+(App Store Connect key, tester-group checks, build-number allocation: the
+`allocate` jobs) runs on `ubuntu-24.04` through `tool/ci/apple_api_key.py`.
+Everything that needs Xcode, a keychain or a certificate (archive, signing, export,
+upload) stays on `macos-26` through `tool/ci/ios_signing.py`, which refuses to run
+elsewhere and reports the stage `platform-check`. `tool/ci/test_runner_compatibility.py`
+fails a change that puts a macOS-only tool on a Linux job. Both scripts print only
+a stage name on failure, never a secret.

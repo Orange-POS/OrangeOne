@@ -371,8 +371,8 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('cancel-in-progress: false', self.text)
 
     def test_cleanup_always_runs_in_credential_jobs(self):
-        for name in ('allocate', 'deliver'):
-            self.assertRegex(self.parts[name], r'if: always\(\)\n\s+run: python3 tool/ci/ios_signing.py cleanup')
+        for name, script in (('allocate', 'apple_api_key.py'), ('deliver', 'ios_signing.py')):
+            self.assertRegex(self.parts[name], r'if: always\(\)\n\s+run: python3 tool/ci/' + script + ' cleanup')
 
     def test_production_workflow_is_not_affected(self):
         ios = read('ios.yaml')
