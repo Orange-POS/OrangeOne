@@ -5,6 +5,11 @@ settings, so the archive is produced with Flutter's documented two-step flow:
 ``flutter build ios --config-only`` writes the flavor's configuration, then
 ``xcodebuild archive`` overrides only ``FLAVOR_BUNDLE_ID``. That setting is read
 by the Runner target alone, so plugin frameworks keep their own identifiers.
+
+``--no-codesign`` is required on the configuration step: for a release device
+build Flutter otherwise looks for a development signing certificate (reading the
+flavor's own ``.dev``/``.stg`` bundle ID) before it writes the configuration, and
+this secret-free job has none. Signing happens only in the protected deliver job.
 """
 import os
 from pathlib import Path
@@ -26,7 +31,7 @@ def commands(flavor, version, build_number):
         raise ValueError('Use an allocated build integer from 1 to 9999.')
     return [
         ['flutter', 'build', 'ios', '--config-only', '--release',
-         '--flavor', flavor, '--target', f'lib/main_{flavor}.dart',
+         '--no-codesign', '--flavor', flavor, '--target', f'lib/main_{flavor}.dart',
          f'--dart-define-from-file=config/{flavor}.example.json',
          f'--build-name={version}', f'--build-number={build_number}'],
         ['xcodebuild', 'archive',

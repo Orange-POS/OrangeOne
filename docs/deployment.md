@@ -578,10 +578,20 @@ still the only way to submit to Apple review. No release or tag trigger exists.
    `dry_run` on. When both succeed, set the repository variable
    `TESTFLIGHT_CD_ENABLED` to `true`; the next push uploads.
 
+Unsigned archive and Flutter's signing check: `flutter build ios --release`
+validates for a development signing certificate (using the flavor's own
+`.dev`/`.stg` bundle ID) unless `--no-codesign` is passed, even with
+`--config-only`. The secret-free `archive` job has no certificate, so
+`archive_flavor.py` passes `--no-codesign`; `xcodebuild archive` then sets
+`CODE_SIGNING_ALLOWED=NO` and `FLAVOR_BUNDLE_ID=ch.orangepos.productscanner`, and the
+deliver job signs and exports with the production profile. The `.dev` ID seen in a
+log therefore belongs to the flavor default and never reaches the archive:
+`archive_flavor.verify` and `prepare_archive.py` reject any other bundle ID.
+
 Hosted verification still pending: signing, export, upload and group assignment
 need a hosted macOS run with the credentials above; the archive step
-(`flutter build ios --config-only` plus `xcodebuild` with the override) has not
-run on macOS yet, so the first dry run is the proof. No upload and no App Review
+(`flutter build ios --config-only --no-codesign` plus `xcodebuild` with the
+override) has not run to completion on macOS yet, so the first dry run is the proof. No upload and no App Review
 submission has been made by this change.
 
 ## Release management: production iOS and Android from GitHub Releases
