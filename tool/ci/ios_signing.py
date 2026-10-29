@@ -1,4 +1,8 @@
-"""Ephemeral macOS signing material. Never print secrets or subprocess commands."""
+"""Ephemeral macOS signing material. Never print secrets or subprocess commands.
+
+macOS only. Jobs that just call the Apple API (build numbers, tester groups) run
+on Linux with apple_api_key.py instead.
+"""
 import base64
 import datetime as dt
 import json
@@ -288,7 +292,10 @@ def main(arguments=None):
     _stage('startup')
     try:
         if sys.platform != 'darwin':
+            # Linux runners use apple_api_key.py for API-only work.
+            _stage('platform-check')
             raise ValueError('Signing operations require a hosted macOS runner.')
+        _stage('startup')
         operation = (sys.argv[1:] if arguments is None else arguments)[0]
         if operation == 'install':
             install_signing()
