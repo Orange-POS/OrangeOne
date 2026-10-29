@@ -95,7 +95,7 @@ Fastlane actions; they never sign, upload, contact Apple or access credentials.
 
 Keep the independent native flavor builds and license workflow required statuses.
 Only the legacy quality status is replaced by **Format, analyze and test**.
-The workflows are linted with actionlint, and `tool/ci/test_workflows.py` and
+`ios-testflight.yaml` (DEV/STG delivery) is covered by `tool/ci/test_testflight_cd.py`, `test_testflight_build_number.rb` and the channel lane tests in `test_fastlane.rb`. The workflows are linted with actionlint, and `tool/ci/test_workflows.py` and
 `test_versioning.py` guard triggers, secrets, signing protections and the app
 version (see "Stage 1 CI foundation" in [Deployment](deployment.md)).
 Environment protection rules (reviewers) still require owner configuration.

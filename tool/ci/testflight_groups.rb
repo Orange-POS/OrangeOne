@@ -50,6 +50,18 @@ class OrangeoneTestflight
     self
   end
 
+  # DEV/STG channel builds must reach exactly one tester group. Apple adds every
+  # new build to each group with access to all builds, so no other group may
+  # have it, or a development build could reach Production Testers.
+  def prepare_channel(target)
+    prepare(target)
+    others = request { @api.groups(@app) }.reject { |group| group.name == @name }
+    if others.any?(&:has_access_to_all_builds)
+      raise Error, 'Disable automatic distribution (access to all builds) on every other tester group before channel delivery; otherwise new builds would reach them too.'
+    end
+    self
+  end
+
   def distribute(version:, number:)
     raise Error, 'TestFlight group was not prepared.' unless @group
     unless version.match?(/\A\d+\.\d+\.\d+\z/) && number.match?(/\A[1-9]\d{0,3}\z/)

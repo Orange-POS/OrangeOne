@@ -25,6 +25,7 @@ PR #19 into main.
 | `ios.yaml` / `ios` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues | Unsigned release `.app` ZIPs on GitHub-hosted `macos-26`; no Apple secrets |
 | `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as production; exact uploaded build assigned to the selected tester group, then exported/signed on a fresh runner and uploaded to internal TestFlight |
 | `ios.yaml` / `submit` | Manual `submit_for_review` from main after release checks, iPhone confirmation and separate environment approval | Submit existing tested build for review; public release remains manual |
+| `ios-testflight.yaml` | Push to `develop` (DEV) or `staging` (STG); manual dispatch on those branches (dry run by default) | Waits for the required CI checks, allocates the build number, compiles the flavor secret-free, signs and (only when enabled) uploads to that channel's one tester group. See Stage 2 below |
 | `license_check.yaml` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues, manual | Flutter dependency license policy |
 
 A merge into an integration branch triggers push checks. Workflows use read-only repository access;
@@ -490,3 +491,93 @@ A PKCS12 keystore with one `orangepos` private-key entry exists outside the
 repository; it was not modified or read beyond its public entry listing.
 Customer APKs must be distributed privately (a later stage); CI APKs stay
 debug-signed.
+
+
+## Stage 2 DEV and STG TestFlight delivery
+
+`ios-testflight.yaml` delivers the **development** flavor from `develop` to
+*Dev Testers* and the **staging** flavor from `staging` to *Staging Testers*. It
+is a separate workflow: `ios.yaml` (manual production TestFlight and App Store
+submission, environments `ios-production` / `ios-app-store`) is untouched and
+still the only way to submit to Apple review. No release or tag trigger exists.
+
+### One app, three flavors, three groups
+
+- **One App Store Connect app and one bundle ID**, `ch.orangepos.productscanner`,
+  for every signed build. A flavor never changes the bundle ID in TestFlight; it
+  selects the display name (`[DEV] OrangeONE`, `[STG] OrangeONE`), icon, Info.plist
+  and `config/<flavor>.example.json` (`APP_ENVIRONMENT`). No backend URL is
+  baked into any flavor: the POS QR selects the server.
+- The Runner target's bundle ID is now `$(FLAVOR_BUNDLE_ID)` for the development
+  and staging configurations, with defaults `.dev` / `.stg`, so local builds and
+  the unsigned CI builds keep their own IDs. The TestFlight archive overrides that
+  one setting (`tool/ci/archive_flavor.py`: `flutter build ios --config-only`,
+  then `xcodebuild archive FLAVOR_BUNDLE_ID=ch.orangepos.productscanner`).
+  Plugin frameworks keep their own identifiers; production is not overridable.
+- `Info-development.plist` now carries the same owner-approved
+  `ITSAppUsesNonExemptEncryption = false` as `Info.plist`; the export check
+  compares every exported IPA with the trusted production declaration.
+- **Consequence:** DEV, STG and PROD share one bundle ID, so only one of them can
+  be installed on an iPhone at a time (TestFlight replaces it). Testers see the
+  flavor from the home-screen name and icon.
+- Existing signing is reused unchanged: the same Apple Distribution certificate
+  and the production App Store profile. `RELEASE_FLAVOR=production` in the signing
+  job names the signing identity only.
+
+### Flow and safety
+
+| Job | Access | Purpose |
+| --- | --- | --- |
+| `plan` | none | Branch -> flavor, group and environment (`testflight_channels.py`); only `develop` and `staging` pushes or manual dispatches pass; decides dry run |
+| `checks` | `checks: read` | `wait_for_checks.py` waits for the eight required checks of the pushed commit (`required_checks.json`); failed, cancelled or unfinished checks block signing |
+| `allocate` | environment, API key only | Preflights the tester groups and allocates the build number from App Store Connect |
+| `archive` | none | Compiles the flavor on `macos-26` without credentials or caches |
+| `deliver` | environment, signing | Validates the archive as data, signs/exports on a fresh runner, and uploads and assigns unless dry run |
+
+- **Build numbers.** One shared sequence for all flavors: the next number is
+  `max(highest build App Store Connect has for the app, repository floor) + 1`,
+  where the floor is the highest of `tool/ci/release_versions.json` and
+  `pubspec.yaml` minus one. It is re-checked just before upload, deliveries are
+  serialized (`testflight-cd` concurrency, never cancelled) and the version stays
+  the pubspec marketing version. A number is never taken from the user.
+- **Groups.** `develop` -> `dev`, `staging` -> `staging` (allowlist in
+  `testflight_targets.json`). Besides the existing checks (one exact group, no
+  all-build access), `prepare_channel` fails if **any other** group has
+  automatic distribution, since Apple would then add the build there too (for
+  example Production Testers). The lane re-verifies branch, flavor and group.
+- **Activation guard.** Real uploads happen only when the repository variable
+  `TESTFLIGHT_CD_ENABLED` is `true` and the run is a push or a dispatch with
+  `dry_run` off. Until then every run (push or dispatch) is a **dry run**: it
+  allocates, builds, signs and verifies the export but never uploads, assigns or
+  submits. Enable it only after dry runs succeed on both branches.
+- Secrets exist only in `allocate` and `deliver`, behind the environment of the
+  branch (`ios-development` for `develop`, `ios-staging` for `staging`). The
+  build job never sees them, and no credential is printed or stored.
+
+### Owner setup before the first run (not done by the repository change)
+
+1. Create the `develop` and `staging` branches (they are protected by the
+   `integration branches` ruleset: pull request, one approval, the eight required
+   checks) from the approved code base after PR #38 is merged.
+2. In **Settings -> Environments**, set the deployment branch of `ios-development`
+   to `develop` and of `ios-staging` to `staging` (both are `main` today), and add
+   required reviewers if wanted.
+3. Add the signing secrets to **both** environments (GitHub cannot copy secrets):
+   `IOS_CERTIFICATE_BASE64`, `IOS_CERTIFICATE_PASSWORD`,
+   `IOS_PROVISION_PROFILE_BASE64` (the **production** App Store profile for
+   `ch.orangepos.productscanner`; the profile stored there today is unverified and
+   must not be a `.dev` / `.stg` profile), `APPLE_TEAM_ID`,
+   `APP_STORE_CONNECT_KEY_BASE64`, `APP_STORE_CONNECT_KEY_ID` and
+   `APP_STORE_CONNECT_ISSUER_ID`. Both environments hold only
+   `IOS_PROVISION_PROFILE_BASE64` now.
+4. In App Store Connect (TestFlight) keep the three groups and make sure **none**
+   has automatic distribution / access to all builds; the preflight enforces it.
+5. Run **OrangeONE iOS TestFlight** manually on `develop`, then `staging`, with
+   `dry_run` on. When both succeed, set the repository variable
+   `TESTFLIGHT_CD_ENABLED` to `true`; the next push uploads.
+
+Hosted verification still pending: signing, export, upload and group assignment
+need a hosted macOS run with the credentials above; the archive step
+(`flutter build ios --config-only` plus `xcodebuild` with the override) has not
+run on macOS yet, so the first dry run is the proof. No upload and no App Review
+submission has been made by this change.
