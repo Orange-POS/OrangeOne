@@ -112,7 +112,7 @@ The app uses only the OrangeONE Mobile API v2 (`/api/orangeone/mobile/v1`) of th
 - Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
 
 ## Testing CI (Task 11)
-- Read `docs/testing.md`. `.github/workflows/flutter_tests.yml` replaces only the quality workflow: format, analysis, offline unit/widget tests, coverage and deployment-script checks on every push/PR, main merge queue and manual dispatch.
+- Read `docs/testing.md`. `.github/workflows/flutter_tests.yml` replaces only the quality workflow: format, analysis, offline unit/widget tests, coverage and deployment-script checks once per commit (push only on `main`/`develop`/`staging`, PRs otherwise), merge queues and manual dispatch; actionlint and `tool/ci/test_workflows.py` / `test_versioning.py` guard triggers, secrets and the `pubspec.yaml` version, which must stay above every uploaded TestFlight build (`tool/ci/release_versions.json`).
 - Native checks in `android.yaml` and `ios.yaml` cover all three flavors; preserve `license_check.yaml`. Distribution is manual from main through protected `ios-production` / `ios-app-store` environments. Compile candidate source without secrets, then validate/sign/export on a fresh trusted runner without rebuilding. Preserve regression tests in `tool/ci`, cleanup on partial failure and explicit iPhone confirmation before submission. Never automatically publish. Read `docs/deployment.md`.
 - Preserve existing test suites and use mirrored feature/layer folders for new suites. Reuse Mocktail, service overrides and controlled fakes; no live Odoo or credential dependencies.
 

@@ -20,14 +20,14 @@ PR #19 into main.
 
 | File/job | Trigger | Output / access |
 | --- | --- | --- |
-| `flutter_tests.yml` | Every push, every PR, main merge queue, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax and Fastlane lane guards; device integration remains manual |
-| `android.yaml` | Every push, PR to main, main merge queue, manual | Development/staging/production debug APK artifacts; no Play Store upload |
-| `ios.yaml` / `ios` | Every push, PR to main, main merge queue | Unsigned release `.app` ZIPs on GitHub-hosted `macos-26`; no Apple secrets |
+| `flutter_tests.yml` | Pushes to `main`/`develop`/`staging`, every PR, their merge queues, manual | Format/analyze, offline unit/widgets, LCOV, release-script tests, Ruby syntax and Fastlane lane guards; device integration remains manual |
+| `android.yaml` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues, manual | Development/staging/production debug APK artifacts; no Play Store upload |
+| `ios.yaml` / `ios` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues | Unsigned release `.app` ZIPs on GitHub-hosted `macos-26`; no Apple secrets |
 | `ios.yaml` / `candidate` + `beta` | Manual `testflight`: select an open PR number or leave blank for main; protected signing approval | Selected commit compiled as production; exact uploaded build assigned to the selected tester group, then exported/signed on a fresh runner and uploaded to internal TestFlight |
 | `ios.yaml` / `submit` | Manual `submit_for_review` from main after release checks, iPhone confirmation and separate environment approval | Submit existing tested build for review; public release remains manual |
-| `license_check.yaml` | Every push, PR to main, main merge queue, manual | Flutter dependency license policy |
+| `license_check.yaml` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues, manual | Flutter dependency license policy |
 
-A merge into main triggers push checks. Workflows use read-only repository access;
+A merge into an integration branch triggers push checks. Workflows use read-only repository access;
 there is no `pull_request_target` or secrets in untrusted PR jobs. Production code
 comes from main or the explicitly selected open PR head targeting main, pinned to its immutable SHA. The workflow itself must still be dispatched from main so its control/signing scripts remain trusted. PR TestFlight builds are never automatic. Signing jobs are
 serialized and not cancelled by a new dispatch. Unsigned apps are ZIP-wrapped to
@@ -436,3 +436,57 @@ keys and exact types) to the trusted production plist. An omitted/changed or
 unapproved declaration fails before upload. This also prevents a PR candidate
 from independently changing a declaration without trusted-main review.
 No certificate, provisioning profile or GitHub Secret changes are needed.
+
+
+## Stage 1 CI foundation (triggers, required checks, versioning)
+
+Stage 1 changes only CI triggers, guard tests and the app version. Signing, the
+TestFlight group assignment, the protected environments and the manual
+`workflow_dispatch` operations are untouched; no release trigger exists yet.
+
+**One run per commit.** The four CI workflows used to run on every push and on
+every pull request, so each commit of a PR branch ran everything twice
+(including six unsigned macOS iOS builds). They now run on `push` only for the
+integration branches `main`, `develop` and `staging`, and on `pull_request` for
+PRs into them (`flutter_tests.yml` runs for PRs into any branch because it is
+cheap). A feature branch without a PR runs nothing; opening the PR runs it once.
+Merge queues cover the same three branches. `develop` and `staging` do not exist
+yet; the triggers and rulesets are ready for them. Job and matrix names are
+unchanged because branch rules require them as status contexts. Path filters
+are deliberately not used: a skipped matrix job reports under a different name
+and would block merging.
+
+**Required checks** (branch ruleset, `main` today; `develop`/`staging` rules are
+created in advance): `Format, analyze and test`, `android (development|staging|production)`,
+`ios (development|staging|production)` and `license_check / build`, with a pull
+request and one approving review. Manual distribution jobs are not checks.
+
+**Guards** (`tool/ci/test_workflows.py`, run by `flutter_tests.yml`): replays push
+and pull-request events to prove one run per commit, forbids
+`pull_request_target`/`workflow_run`, requires read-only default permissions,
+secrets only in the protected `ios-production` / `ios-app-store` jobs, no
+branch/tag/release trigger on signing, a timeout per job, one Flutter version in
+every workflow and `pubspec.yaml`, and the unchanged `ios.yaml` signing
+protections. `flutter_tests.yml` also lints all workflows with actionlint 1.7.12.
+
+**Versioning.** `pubspec.yaml` is the single source (`X.Y.Z+N`): Flutter derives
+the iOS marketing/build number and the Android `versionName`/`versionCode` from
+it, and the app sends the version as `X-App-Version`. One App Store Connect app
+serves all three tester groups, so build numbers are one shared sequence.
+`tool/ci/release_versions.json` records what manual runs uploaded or attempted
+(highest build 34; marketing versions up to 1.0.9). `test_versioning.py` fails
+if the pubspec build number is not above every used build, the marketing version
+is below an uploaded one, or the pair is already used. The app was set to
+`1.1.0+35`. Manual TestFlight runs still take an explicit version/build: choose
+a number above the ledger and add the entry after uploading. Automatic
+numbering from the App Store Connect API is a later stage; the ledger may lag
+behind App Store Connect until then.
+
+**Android release signing** is not configured in Stage 1. `build.gradle.kts`
+already reads `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_ALIAS`,
+`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD` (or the
+git-ignored `android/key.properties`), but no such secret exists in GitHub yet.
+A PKCS12 keystore with one `orangepos` private-key entry exists outside the
+repository; it was not modified or read beyond its public entry listing.
+Customer APKs must be distributed privately (a later stage); CI APKs stay
+debug-signed.

@@ -86,7 +86,8 @@ committing. Keep the existing format-on-save settings and staged-format hook.
 ## CI
 
 `.github/workflows/flutter_tests.yml` preserves PR #9's format, analyze, offline
-unit/widget and coverage gates on pushes, PRs, main merge queues and manual runs.
+unit/widget and coverage gates on pushes to `main`/`develop`/`staging`, PRs, their
+merge queues and manual runs (never both a push and a PR run for one commit).
 It also executes `python3 -m unittest discover -s tool/ci -p 'test_*.py'`,
 `ruby -c fastlane/Fastfile` and `ruby tool/ci/test_fastlane.rb`.
 The deployment tests use synthetic profiles/archives and mocked subprocesses and
@@ -94,7 +95,10 @@ Fastlane actions; they never sign, upload, contact Apple or access credentials.
 
 Keep the independent native flavor builds and license workflow required statuses.
 Only the legacy quality status is replaced by **Format, analyze and test**.
-GitHub branch protection/environment settings require owner configuration.
+The workflows are linted with actionlint, and `tool/ci/test_workflows.py` and
+`test_versioning.py` guard triggers, secrets, signing protections and the app
+version (see "Stage 1 CI foundation" in [Deployment](deployment.md)).
+Environment protection rules (reviewers) still require owner configuration.
 See [Deployment](deployment.md) for manual protected release controls.
 
 ## Real-backend validation

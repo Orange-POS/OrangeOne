@@ -1,10 +1,11 @@
 name: OrangeONE iOS
 on:
   push:
+    branches: [main, develop, staging]
   pull_request:
-    branches: [main]
+    branches: [main, develop, staging]
   merge_group:
-    branches: [main]
+    branches: [main, develop, staging]
   workflow_dispatch:
     inputs:
       operation:

@@ -1,6 +1,6 @@
 name: orange_one
 description: OrangeONE mobile inventory management application.
-version: 1.0.0+1
+version: 1.1.0+35
 publish_to: none
 environment:
   sdk: ^3.13.0
