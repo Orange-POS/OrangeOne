@@ -180,5 +180,17 @@
   "createConfirmMessage": "Dit product aanmaken?\n\nNaam: {name}\nBarcode: {barcode}\nCategorie: {category}\nBtw: {tax}\nPrijs: CHF {price}\nVoorraad: {stock}",
   "createSuccessTitle": "Product succesvol aangemaakt",
   "createSuccessMessage": "{name} · CHF {price} · {tax}",
-  "mockDiscountNote": "Alleen een voorbeeld. Dit wijzigt de productprijzen niet."
+  "mockDiscountNote": "Alleen een voorbeeld. Dit wijzigt de productprijzen niet.",
+  "settingsTitle": "Instellingen",
+  "settingsOpenTooltip": "Instellingen openen",
+  "settingsDeveloperSection": "Ontwikkelhulpmiddelen",
+  "settingsEnvironmentLabel": "Omgeving",
+  "settingsCrashButton": "Crash veroorzaken",
+  "settingsCrashHelper": "Sluit de app en stuurt een testcrash naar het Firebase-ontwikkelproject. Open de app daarna opnieuw zodat het rapport wordt geüpload.",
+  "settingsCrashConfirmTitle": "Een testcrash veroorzaken?",
+  "settingsCrashConfirmBody": "De app sluit onmiddellijk. Alleen bedoeld om crashrapportage te controleren.",
+  "settingsCrashConfirm": "App laten crashen",
+  "settingsCancel": "Annuleren",
+  "settingsNonFatalButton": "Testfoutrapport verzenden",
+  "settingsNonFatalSent": "Testfoutrapport verzonden."
 }

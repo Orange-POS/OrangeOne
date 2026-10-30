@@ -15,6 +15,7 @@ import 'package:orange_one/features/products/presentation/pages/product_details_
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_stock_update_page.dart';
+import 'package:orange_one/features/settings/presentation/pages/settings_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
@@ -121,6 +122,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashPage(),
       ),
       GoRoute(path: '/', redirect: (context, state) => '/login'),
+      // Development-flavor Crashlytics verification; absent in STG and PROD.
+      if (ref.watch(crashTestControlsProvider))
+        GoRoute(
+          name: 'settings',
+          path: '/settings',
+          builder: (context, state) => const SettingsPage(),
+        ),
       if (ref.watch(developmentDiagnosticsProvider))
         GoRoute(
           name: 'initialization',

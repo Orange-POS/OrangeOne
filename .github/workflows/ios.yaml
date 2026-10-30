@@ -159,11 +159,23 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test integration_test
       - run: flutter analyze --fatal-infos --fatal-warnings
       - run: flutter test
+      - name: Write the production Firebase configuration
+        env:
+          FIREBASE_IOS_PRODUCTION_B64: ${{ vars.FIREBASE_IOS_PRODUCTION_B64 }}
+          FIREBASE_PROJECT_ID_NONPRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_NONPRODUCTION }}
+          FIREBASE_PROJECT_ID_PRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_PRODUCTION }}
+        run: python3 tool/ci/firebase_config.py write ios production
       - name: Archive selected source without signing credentials
         env:
           RELEASE_VERSION: ${{ inputs.version }}
           RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
+          CRASHLYTICS_UPLOAD_SYMBOLS: 'true'
         run: flutter build ipa --release --no-codesign --flavor production --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$RELEASE_BUILD_NUMBER"
+      - name: Confirm the archive carries the production Firebase project
+        env:
+          FIREBASE_PROJECT_ID_NONPRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_NONPRODUCTION }}
+          FIREBASE_PROJECT_ID_PRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_PRODUCTION }}
+        run: python3 tool/ci/firebase_config.py verify-ios build/ios/archive/Runner.xcarchive production
       - name: Package unsigned archive as data
         run: ditto -c -k --norsrc --noextattr --keepParent build/ios/archive/Runner.xcarchive candidate.zip
       - uses: actions/upload-artifact@v4

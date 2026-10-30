@@ -111,6 +111,14 @@ jobs:
       FLAVOR: ${{ needs.plan.outputs.flavor }}
       RELEASE_VERSION: ${{ needs.plan.outputs.version }}
       RELEASE_BUILD_NUMBER: ${{ needs.allocate.outputs.build_number }}
+      # Firebase project identifiers ship inside every app; they are repository
+      # variables, not secrets, so this job stays credential-free.
+      FIREBASE_IOS_DEVELOPMENT_B64: ${{ vars.FIREBASE_IOS_DEVELOPMENT_B64 }}
+      FIREBASE_IOS_STAGING_B64: ${{ vars.FIREBASE_IOS_STAGING_B64 }}
+      FIREBASE_PROJECT_ID_NONPRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_NONPRODUCTION }}
+      FIREBASE_PROJECT_ID_PRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_PRODUCTION }}
+      # dSYMs are uploaded (to the flavor's own project) only for real deliveries.
+      CRASHLYTICS_UPLOAD_SYMBOLS: ${{ needs.plan.outputs.dry_run == 'false' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -124,8 +132,14 @@ jobs:
           # Signing jobs must never consume a cache written by this compilation.
           cache: false
       - run: flutter pub get --enforce-lockfile
-      - name: Archive the flavor under the production bundle ID, unsigned
+      - name: Write the flavor's Firebase configuration, archive under the production bundle ID, unsigned
         run: python3 tool/ci/archive_flavor.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flutter-symbols-${{ needs.plan.outputs.flavor }}
+          path: build/symbols/ios
+          if-no-files-found: error
+          retention-days: 7
       - name: Package unsigned archive as data
         run: ditto -c -k --norsrc --noextattr --keepParent build/ios/archive/Runner.xcarchive candidate.zip
       - uses: actions/upload-artifact@v4
@@ -176,6 +190,15 @@ jobs:
           path: ${{ runner.temp }}/candidate-download
       - name: Validate and unpack the archive without executing its code
         run: python3 tool/ci/prepare_archive.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: flutter-symbols-${{ needs.plan.outputs.flavor }}
+          path: ${{ runner.temp }}/symbols-download
+      - name: Upload the Dart symbols to the Crashlytics project of this build
+        if: needs.plan.outputs.dry_run == 'false'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: python3 tool/ci/upload_flutter_symbols.py "$RUNNER_TEMP/symbols-download" "$RUNNER_TEMP/candidate/Runner.xcarchive/Products/Applications/Runner.app/GoogleService-Info.plist"
       - name: Import temporary Apple credentials
         env:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}

@@ -218,6 +218,7 @@ class ArchiveTest(unittest.TestCase):
             self.assertEqual(['flutter', 'build', 'ios', '--config-only'], configure[:4])
             # Without it Flutter demands a signing certificate in the secret-free job.
             self.assertIn('--no-codesign', configure)
+            self.assertIn(f'--split-debug-info={archive_flavor.SYMBOLS}', configure)
             self.assertIn(f'lib/main_{flavor}.dart', configure)
             self.assertIn(f'--dart-define-from-file=config/{flavor}.example.json', configure)
             self.assertIn('--build-name=1.1.0', configure)
@@ -265,10 +266,12 @@ class ArchiveTest(unittest.TestCase):
                 archive_flavor.verify = lambda *a, **k: original(*a, archive=archive)
                 archive_flavor.main(
                     {'FLAVOR': 'development', 'RELEASE_VERSION': '1.1.0', 'RELEASE_BUILD_NUMBER': '36'},
-                    run=lambda command, **options: recorded.append((command[0], options)))
+                    run=lambda command, **options: recorded.append((command[0], options)),
+                    write_config=lambda *a: recorded.append(('firebase-write', {'check': True, 'cwd': archive_flavor.ROOT})),
+                    verify_config=lambda *a: recorded.append(('firebase-verify', {'check': True, 'cwd': archive_flavor.ROOT})))
             finally:
                 archive_flavor.verify = original
-        self.assertEqual(['flutter', 'xcodebuild'], [name for name, _ in recorded])
+        self.assertEqual(['firebase-write', 'flutter', 'xcodebuild', 'firebase-verify'], [name for name, _ in recorded])
         for _, options in recorded:
             self.assertTrue(options['check'])
             self.assertEqual(archive_flavor.ROOT, options['cwd'])

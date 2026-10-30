@@ -361,7 +361,7 @@ pending/rejected review, compliance and terminal failures stop with manual guida
 Unknown external states fail closed. No absent external-readiness method is called. Hosted
 macOS verification is still required for real signing, API permissions, group
 eligibility/processing, TestFlight installation and protected-environment rules.
-Firebase is not integrated by this change.
+Firebase Crashlytics configuration, symbols and the DEV verification control are described in `docs/firebase-crashlytics.md`.
 
 
 ### Recover assignment without another upload

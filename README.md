@@ -37,7 +37,7 @@ The project documentation describes these milestones:
 | 11 | Environments and logging | [Validated settings and safe structured logs](docs/environments-and-logging.md) |
 | Testing / Deployment | Reliability and delivery | [Testing strategy](docs/testing.md) |
 
-Product lookup opens details for a matching barcode and the Create New Product form for an unknown barcode. Details support name/tax/category editing, price updates and absolute stock counts at the POS location; writes use `If-Match` versions and idempotency keys. Previously read products stay readable offline (read-only) and are refreshed from the change feed. Firebase integrations, the complete inventory dashboard, and signed store distribution remain future work.
+Product lookup opens details for a matching barcode and the Create New Product form for an unknown barcode. Details support name/tax/category editing, price updates and absolute stock counts at the POS location; writes use `If-Match` versions and idempotency keys. Previously read products stay readable offline (read-only) and are refreshed from the change feed. Firebase Crashlytics (see `docs/firebase-crashlytics.md`) reports crashes and technical failures; Remote Config, Analytics, the complete inventory dashboard, and signed store distribution remain future work.
 
 ## Technology stack
 
@@ -214,7 +214,7 @@ for inputs, environments and release checks.
 - Keep local development configuration files ignored by Git.
 - Real Android distribution requires signing credentials and a protected keystore.
 - iOS distribution requires an Apple Developer account, provisioning/signing and App Store Connect configuration.
-- Production distribution requires a manual main-branch request and protected approval. Actual signing and iPhone testing require recorded run evidence. Firebase integrations remain future work.
+- Production distribution requires a manual main-branch request and protected approval. Actual signing and iPhone testing require recorded run evidence. Crashlytics setup (Firebase projects, repository variables) is described in `docs/firebase-crashlytics.md`.
 - Verify permissions, network behavior and backend compatibility with real devices and a test Odoo environment before production use.
 
 ## Project documentation

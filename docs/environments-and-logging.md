@@ -65,7 +65,8 @@ reach the sink. Framework/platform error handlers emit fixed safe events rather
 than dumping raw exception details. This intentionally sacrifices raw error
 messages/stacks; debugger breakpoints remain available during development.
 There is no persistent logging, remote telemetry or automatic retry. Production
-Crashlytics/telemetry remains a separate task. OS/plugin diagnostics are outside
+Crashlytics reporting is described in `docs/firebase-crashlytics.md`; this logger still
+sends nothing remote. OS/plugin diagnostics are outside
 this Dart logger; verify native release logs during release qualification.
 
 ## Verification
