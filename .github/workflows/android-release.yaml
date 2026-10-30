@@ -48,7 +48,7 @@ jobs:
 
   apk:
     needs: [plan, checks]
-    environment: android-release
+    environment: android-production
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
@@ -60,10 +60,11 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD }}
       ANDROID_SIGNING_CERT_SHA256: ${{ secrets.ANDROID_SIGNING_CERT_SHA256 }}
-      # Firebase project identifiers ship inside the APK; repository variables.
-      FIREBASE_ANDROID_PRODUCTION_B64: ${{ vars.FIREBASE_ANDROID_PRODUCTION_B64 }}
-      FIREBASE_PROJECT_ID_NONPRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_NONPRODUCTION }}
-      FIREBASE_PROJECT_ID_PRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_PRODUCTION }}
+      # Firebase client configuration of the android-production environment
+      # (project identifiers that ship inside the APK, not credentials).
+      FIREBASE_CONFIG_BASE64: ${{ vars.FIREBASE_CONFIG_BASE64 }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
       # A release without its Firebase configuration fails instead of skipping it.
       FIREBASE_CONFIG_REQUIRED: 'true'
     steps:

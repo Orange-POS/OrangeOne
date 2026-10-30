@@ -45,41 +45,50 @@ limit) or failing, the app starts normally with a no-op reporter.
 
 ## Environments and projects
 
-| Flavor | Android app ID | Firebase project |
-| --- | --- | --- |
-| development | `com.orangeone.app.dev` | non-production |
-| staging | `com.orangeone.app.stg` | non-production |
-| production | `com.orangeone.app` | production |
+| Flavor | Built from | GitHub environment | Firebase project |
+| --- | --- | --- | --- |
+| iOS development | `develop` push (`ios-testflight.yaml`) | `ios-development` | Development |
+| iOS staging | `staging` push (`ios-testflight.yaml`) | `ios-staging` | Development (never Production) |
+| iOS production | published GitHub Release (`ios-release.yaml`) | `ios-production` | Production |
+| Android development | `develop` push (`android-development.yaml`) | `android-development` | Development |
+| Android production | published GitHub Release (`android-release.yaml`) | `android-production` | Production |
 
 All iOS flavors share the App Store bundle ID `ch.orangepos.productscanner`, so on
-iOS the flavor's own `GoogleService-Info.plist` (chosen at build time) is the only
-separator: one iOS app per Firebase project, registered with that bundle ID. DEV
-and STG iOS reports share the non-production project and are told apart by the
-`environment` key. `tool/ci/firebase_config.py` refuses a configuration for the
-wrong project and requires the two projects to differ.
+iOS the configuration file that CI selects per environment is the only separator:
+one iOS app per Firebase project, registered with that bundle ID. Android apps are
+distinguished by application ID (`com.orangeone.app`, `.dev`, `.stg`). DEV and STG
+iOS reports share the Development project and are told apart by the `environment`
+key.
 
 ## Configuration without committed files
 
-`google-services.json` and `GoogleService-Info.plist` are written by CI from
-repository **variables** (they are project identifiers that ship in every app, not
-credentials) and are gitignored (`android/app/src/*/google-services.json`,
-`ios/config/*/GoogleService-Info.plist`):
+`google-services.json` and `GoogleService-Info.plist` are never committed
+(gitignored: `android/app/src/*/google-services.json`,
+`ios/config/*/GoogleService-Info.plist`). Every GitHub environment holds the
+**client configuration** of its own project under the **same names**; CI writes the
+files for the build and verifies the finished app.
 
-| Variable | Content |
-| --- | --- |
-| `FIREBASE_PROJECT_ID_NONPRODUCTION` / `FIREBASE_PROJECT_ID_PRODUCTION` | Firebase project IDs |
-| `FIREBASE_IOS_DEVELOPMENT_B64`, `FIREBASE_IOS_STAGING_B64`, `FIREBASE_IOS_PRODUCTION_B64` | base64 of each iOS plist |
-| `FIREBASE_ANDROID_PRODUCTION_B64` (and `_DEVELOPMENT_B64`, `_STAGING_B64` if you build those) | base64 of each `google-services.json` |
+- **Client configuration** (Firebase project identifiers and the public client API
+  key; they ship inside every app, so they are *Variables*, not Secrets).
+- **Service account** (a private credential; a *Secret*, used only to upload Dart
+  symbols, only in protected signing jobs).
 
-Secret (protected environments only, never in the archive or allocate jobs):
-`FIREBASE_SERVICE_ACCOUNT_JSON`, used solely to upload Dart symbols.
+How it flows (iOS): the `allocate` job already runs in the protected environment.
+It validates `FIREBASE_CONFIG_BASE64` (`firebase_config.py export`) and passes it as
+a job output to the credential-free `archive` job, which therefore never reads an
+environment or a secret. Android jobs run in their own environment and read the
+variables directly.
 
+- **Wrong project fails before distribution.** `firebase_config.py` requires the
+  `production` flavor to use `FIREBASE_PRODUCTION_PROJECT_ID` and the `development`
+  and `staging` flavors to use a different project. It also checks the iOS bundle ID
+  (`ch.orangepos.productscanner`) and the Android application ID of the flavor, and
+  verifies the finished archive/APK again.
 - **Missing configuration fails.** The DEV/STG archive (`archive_flavor.py`), the
-  production iOS archive and the production APK write the configuration first and
-  verify the finished archive/APK afterwards. Android builds set
-  `FIREBASE_CONFIG_REQUIRED=true`, so the Gradle plugins are applied and a
-  missing file fails the build. Local and unit-test builds without a
-  configuration simply run without Firebase.
+  production iOS archive, and both Android workflows write the configuration first.
+  Android builds set `FIREBASE_CONFIG_REQUIRED=true`, so the Gradle plugins are
+  applied and a missing file fails the build. Local and unit-test builds without a
+  configuration run without Firebase.
 - **Android:** `com.google.gms.google-services` and
   `com.google.firebase.crashlytics` are applied only when a configuration exists
   or is required (`android/app/build.gradle.kts`); the R8 mapping uploads with
@@ -94,6 +103,10 @@ Secret (protected environments only, never in the archive or allocate jobs):
   `tool/ci/upload_flutter_symbols.py` uploads them with a pinned `firebase-tools`
   in the protected job; without `FIREBASE_SERVICE_ACCOUNT_JSON` it warns and the
   Flutter stack traces of that build stay unsymbolicated.
+- **Reporting from debug builds:** staging and production report only from
+  release/profile builds; the development flavor also reports from debug builds
+  (it uses the Development project), which is what the debug-signed Android
+  development APK needs.
 
 ## DEV verification
 
@@ -106,22 +119,57 @@ which the bootstrap enables for the development flavor only. STG and PROD builds
 (including TestFlight and customer APKs) have no such route
 (`test/app/crash_test_access_test.dart`). Settings is currently only this tool.
 
-## Owner setup (not done by the repository change)
+## GitHub setup guide (owner, manual)
 
-1. Create two Firebase projects (production, non-production); enable Crashlytics.
-2. Register Android apps (`com.orangeone.app` in production, `.dev`/`.stg` in
-   non-production) and one iOS app per project with bundle ID
-   `ch.orangepos.productscanner`; download both configuration files per app.
-3. Add the repository variables above (base64: `base64 -w0 file`).
-4. Create a service account with the Firebase Crashlytics symbol-upload role and
-   add `FIREBASE_SERVICE_ACCOUNT_JSON` to the `ios-development`, `ios-staging`,
-   `ios-production` environments (matching project each).
-5. Confirm with the backend what `company_id` and `pos_config_id` mean for
+Names are identical in every environment. Values come from the Firebase console of
+the project named in the table; nothing here is invented or stored in Git.
+
+### Client configuration (Variables, not secret)
+
+| Name | Type | Where to add it | Firebase project | Value from | Used by | Base64 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FIREBASE_CONFIG_BASE64` | Variable | `ios-development` | Development, iOS app | Firebase console > Project settings > Your apps > iOS app `ch.orangepos.productscanner` > download `GoogleService-Info.plist` | `ios-testflight.yaml` (develop) | **Yes**: `base64 -w0 GoogleService-Info.plist` (macOS: `base64 -i GoogleService-Info.plist | tr -d '\n'`) |
+| `FIREBASE_CONFIG_BASE64` | Variable | `ios-staging` | Development, iOS app (same file as `ios-development`) | same | `ios-testflight.yaml` (staging) | Yes |
+| `FIREBASE_CONFIG_BASE64` | Variable | `ios-production` | Production, iOS app | Production project > Your apps > iOS app `ch.orangepos.productscanner` > `GoogleService-Info.plist` | `ios-release.yaml`, `ios.yaml` | Yes |
+| `FIREBASE_CONFIG_BASE64` | Variable | `android-development` | Development, Android app `com.orangeone.app.dev` | Development project > Your apps > Android app > download `google-services.json` | `android-development.yaml` | Yes: `base64 -w0 google-services.json` |
+| `FIREBASE_CONFIG_BASE64` | Variable | `android-production` | Production, Android app `com.orangeone.app` | Production project > Your apps > Android app > `google-services.json` | `android-release.yaml` | Yes |
+| `FIREBASE_PROJECT_ID` | Variable | each of the five environments above | the environment's own project | Project settings > General > Project ID (also `project_id` inside the file) | all of the above (cross-check) | No |
+| `FIREBASE_PRODUCTION_PROJECT_ID` | Variable | **Repository** variables (Settings > Secrets and variables > Actions > Variables) | Production | Production project > Project settings > Project ID | all of the above (guard: production must equal it, development and staging must differ) | No |
+
+Staging has no Firebase project of its own: `ios-staging` uses the **Development**
+project. Do not put Production values in `ios-staging`; the workflow fails if you do.
+
+### Private service-account credential (Secret)
+
+| Name | Type | Where to add it | Firebase project | Value from | Used by | Base64 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | **Secret** | `ios-development`, `ios-staging` | Development | Google Cloud console > IAM > Service accounts of the Development project: create a JSON key for an account with the **Firebase Crashlytics Symbol Uploader** role | `ios-testflight.yaml` (Dart symbol upload, real deliveries only) | No: paste the JSON as is |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | **Secret** | `ios-production`, `android-production` | Production | same, in the Production project | `ios-release.yaml`, `android-release.yaml` | No |
+
+It is optional: without it a build only warns and its Flutter stack traces stay
+unsymbolicated. It is never given to `android-development`, to build jobs without
+an environment, or to Android jobs of another project.
+
+### Environments to create or adjust
+
+| Environment | Action | Branch / tag restriction |
+| --- | --- | --- |
+| `ios-development`, `ios-staging`, `ios-production` | Exist; **add only** the variables above. Keep the Apple signing secrets untouched. | existing (`develop`, `staging`, `main` plus `v*` tags for production) |
+| `android-development` | **Create** | deployment branch: `develop` only |
+| `android-production` | **Create**; copy the Android keystore secrets (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEYSTORE_ALIAS`, `ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD`, `ANDROID_SIGNING_CERT_SHA256`) from the old `android-release` environment if it exists; the workflow no longer uses that name | tags `v*`; keep required reviewers |
+
+`ios-production` must allow the release tags `v*` (it allowed `main` before).
+
+### Other setup
+
+1. Create the two Firebase projects with Crashlytics enabled; register the apps
+   with the IDs above.
+2. Confirm with the backend what `company_id` and `pos_config_id` mean for
    customer and shop, and whether to report more.
 
 Not verified here: Firebase initialization on a device or simulator, report
 delivery to the console, symbolication, the Xcode run scripts, the Gradle plugin
 versions (`google-services` 4.4.4, `crashlytics` 3.0.6), `--split-debug-info`
-with `flutter build ios --config-only`, `firebase-tools` symbol upload, and that
-the Crashlytics console can search by the `error_id` key (otherwise use the
-BigQuery export or the `error_id=` log line in the report).
+with `flutter build ios --config-only`, `firebase-tools` symbol upload, the job
+output hand-over on a hosted runner, and that the Crashlytics console can search by
+the `error_id` key (otherwise use the BigQuery export or the `error_id=` log line).

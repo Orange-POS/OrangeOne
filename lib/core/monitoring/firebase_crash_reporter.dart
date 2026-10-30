@@ -149,8 +149,11 @@ Future<CrashReporter> initializeCrashReporting({
   try {
     await (initialize?.call() ?? Firebase.initializeApp()).timeout(timeout);
     final instance = crashlytics?.call() ?? FirebaseCrashlytics.instance;
-    // Debug builds never report; release and profile builds of every flavor do.
-    await instance.setCrashlyticsCollectionEnabled(!kDebugMode);
+    // Staging and production report only from release/profile builds; the
+    // development flavor also reports from debug builds (Development project).
+    await instance.setCrashlyticsCollectionEnabled(
+      !kDebugMode || environment == AppEnvironment.development,
+    );
     return FirebaseCrashReporter(instance, environment: environment)
       ..setIdentity(null);
   } on Object {

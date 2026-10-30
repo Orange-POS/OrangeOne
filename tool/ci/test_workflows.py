@@ -139,7 +139,10 @@ class SecurityTest(unittest.TestCase):
     def test_signing_protections_of_ios_are_unchanged(self):
         ios = jobs(read('ios.yaml'))
         self.assertEqual(set(ios), {
-            'ios', 'release_checks', 'candidate', 'beta', 'distribute_existing', 'submit'})
+            'ios', 'release_checks', 'firebase', 'candidate', 'beta', 'distribute_existing', 'submit'})
+        # The firebase job only reads non-secret Firebase client variables.
+        self.assertNotIn('secrets.', ios['firebase'])
+        self.assertIn('environment: ios-production', ios['firebase'])
         self.assertNotIn('secrets.', ios['candidate'])
         self.assertNotIn('environment:', ios['candidate'])
         self.assertNotIn('environment:', ios['ios'])

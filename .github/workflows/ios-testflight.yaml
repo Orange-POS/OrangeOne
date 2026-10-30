@@ -68,6 +68,8 @@ jobs:
       contents: read
     outputs:
       build_number: ${{ steps.allocate.outputs.build_number }}
+      firebase_config: ${{ steps.firebase.outputs.config }}
+      firebase_project_id: ${{ steps.firebase.outputs.project_id }}
     env:
       CHANNEL_FLAVOR: ${{ needs.plan.outputs.flavor }}
       TARGET_GROUP: ${{ needs.plan.outputs.group }}
@@ -89,6 +91,16 @@ jobs:
           bundler-cache: false
       - run: bundle config set --local frozen true
       - run: bundle install
+      # Firebase client configuration (project identifiers, not credentials) lives in
+      # this GitHub environment. It is validated here and handed to the credential-free
+      # build job as an output, so that job never needs the environment or its secrets.
+      - name: Validate this environment's Firebase configuration
+        id: firebase
+        env:
+          FIREBASE_CONFIG_BASE64: ${{ vars.FIREBASE_CONFIG_BASE64 }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
+        run: python3 tool/ci/firebase_config.py export ios "$CHANNEL_FLAVOR"
       - name: Load only the App Store Connect API key
         env:
           APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
@@ -111,12 +123,11 @@ jobs:
       FLAVOR: ${{ needs.plan.outputs.flavor }}
       RELEASE_VERSION: ${{ needs.plan.outputs.version }}
       RELEASE_BUILD_NUMBER: ${{ needs.allocate.outputs.build_number }}
-      # Firebase project identifiers ship inside every app; they are repository
-      # variables, not secrets, so this job stays credential-free.
-      FIREBASE_IOS_DEVELOPMENT_B64: ${{ vars.FIREBASE_IOS_DEVELOPMENT_B64 }}
-      FIREBASE_IOS_STAGING_B64: ${{ vars.FIREBASE_IOS_STAGING_B64 }}
-      FIREBASE_PROJECT_ID_NONPRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_NONPRODUCTION }}
-      FIREBASE_PROJECT_ID_PRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_PRODUCTION }}
+      # Validated by the allocate job from this branch's GitHub environment; the
+      # build job itself reads no environment and no secret.
+      FIREBASE_CONFIG_BASE64: ${{ needs.allocate.outputs.firebase_config }}
+      FIREBASE_PROJECT_ID: ${{ needs.allocate.outputs.firebase_project_id }}
+      FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
       # dSYMs are uploaded (to the flavor's own project) only for real deliveries.
       CRASHLYTICS_UPLOAD_SYMBOLS: ${{ needs.plan.outputs.dry_run == 'false' && 'true' || 'false' }}
     steps:

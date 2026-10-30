@@ -214,7 +214,7 @@ for inputs, environments and release checks.
 - Keep local development configuration files ignored by Git.
 - Real Android distribution requires signing credentials and a protected keystore.
 - iOS distribution requires an Apple Developer account, provisioning/signing and App Store Connect configuration.
-- Production distribution requires a manual main-branch request and protected approval. Actual signing and iPhone testing require recorded run evidence. Crashlytics setup (Firebase projects, repository variables) is described in `docs/firebase-crashlytics.md`.
+- Production distribution requires a manual main-branch request and protected approval. Actual signing and iPhone testing require recorded run evidence. Crashlytics setup (Firebase projects, per-environment GitHub variables) is described in `docs/firebase-crashlytics.md`.
 - Verify permissions, network behavior and backend compatibility with real devices and a test Odoo environment before production use.
 
 ## Project documentation

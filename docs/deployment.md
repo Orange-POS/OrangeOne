@@ -28,6 +28,7 @@ PR #19 into main.
 | `ios-testflight.yaml` | Push to `develop` (DEV) or `staging` (STG); manual dispatch on those branches (dry run by default) | Waits for the required CI checks, allocates the build number, compiles the flavor secret-free, signs and (only when enabled) uploads to that channel's one tester group. See Stage 2 below |
 | `ios-release.yaml` | Published GitHub Release of a `vX.Y.Z` tag only | Validates the tag, waits for the required checks, builds production, signs and (only when enabled) uploads to Production Testers |
 | `android-release.yaml` | Published GitHub Release of a `vX.Y.Z` tag only | Builds the production APK signed with the existing release keystore, verifies it and keeps it as a private artifact |
+| `android-development.yaml` | Push to `develop` | Debug-signed development APK with the Development Firebase project (environment `android-development`); see `docs/firebase-crashlytics.md` |
 | `license_check.yaml` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues, manual | Flutter dependency license policy |
 
 A merge into an integration branch triggers push checks. Workflows use read-only repository access;
@@ -616,7 +617,7 @@ production group.
 - every required CI check of the tagged commit passed (`wait_for_checks.py`).
 
 Approval itself is a person publishing the Release plus the protected
-environment (`ios-production`, `android-release`) with required reviewers.
+environment (`ios-production`, `android-production`) with required reviewers.
 
 ### iOS: Production Testers
 
@@ -683,7 +684,7 @@ with `--build-name` from the tag and `--build-number` as the version code.
 1. Environment `ios-production`: allow deployment from release tags matching
    `v*` (it allows `main` today) and keep required reviewers; the signing secrets
    already live there.
-2. Create environment `android-release` (tags `v*`, required reviewers) with secrets
+2. Create environment `android-production` (tags `v*`, required reviewers) with secrets
    `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEYSTORE_ALIAS`,
    `ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD` and `ANDROID_SIGNING_CERT_SHA256` (the
    SHA-256 of the existing release certificate; `keytool -list -v` shows it). Use the

@@ -134,10 +134,40 @@ jobs:
           ruby -c fastlane/Fastfile
           ruby tool/ci/test_fastlane.rb
 
+  firebase:
+    # Production Firebase client configuration comes from the protected ios-production
+    # environment and is handed to the credential-free candidate build as an output.
+    needs: release_checks
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'testflight'
+    environment: ios-production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      config: ${{ steps.firebase.outputs.config }}
+      project_id: ${{ steps.firebase.outputs.project_id }}
+    steps:
+      # Trusted control-plane files of the protected branch only.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate the production Firebase configuration
+        id: firebase
+        env:
+          FIREBASE_CONFIG_BASE64: ${{ vars.FIREBASE_CONFIG_BASE64 }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
+        run: python3 tool/ci/firebase_config.py export ios production
+
   candidate:
     env:
       RELEASE_FLAVOR: production
-    needs: release_checks
+      FIREBASE_CONFIG_BASE64: ${{ needs.firebase.outputs.config }}
+      FIREBASE_PROJECT_ID: ${{ needs.firebase.outputs.project_id }}
+      FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
+    needs: [release_checks, firebase]
     if: github.event_name == 'workflow_dispatch' && inputs.operation == 'testflight'
     runs-on: macos-26
     timeout-minutes: 60
@@ -160,10 +190,6 @@ jobs:
       - run: flutter analyze --fatal-infos --fatal-warnings
       - run: flutter test
       - name: Write the production Firebase configuration
-        env:
-          FIREBASE_IOS_PRODUCTION_B64: ${{ vars.FIREBASE_IOS_PRODUCTION_B64 }}
-          FIREBASE_PROJECT_ID_NONPRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_NONPRODUCTION }}
-          FIREBASE_PROJECT_ID_PRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_PRODUCTION }}
         run: python3 tool/ci/firebase_config.py write ios production
       - name: Archive selected source without signing credentials
         env:
@@ -172,9 +198,6 @@ jobs:
           CRASHLYTICS_UPLOAD_SYMBOLS: 'true'
         run: flutter build ipa --release --no-codesign --flavor production --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$RELEASE_BUILD_NUMBER"
       - name: Confirm the archive carries the production Firebase project
-        env:
-          FIREBASE_PROJECT_ID_NONPRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_NONPRODUCTION }}
-          FIREBASE_PROJECT_ID_PRODUCTION: ${{ vars.FIREBASE_PROJECT_ID_PRODUCTION }}
         run: python3 tool/ci/firebase_config.py verify-ios build/ios/archive/Runner.xcarchive production
       - name: Package unsigned archive as data
         run: ditto -c -k --norsrc --noextattr --keepParent build/ios/archive/Runner.xcarchive candidate.zip

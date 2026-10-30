@@ -269,9 +269,25 @@ void main() {
         crashlytics: () => crashlytics,
       );
       expect(result, isA<FirebaseCrashReporter>());
-      verify(() => crashlytics.setCrashlyticsCollectionEnabled(false))
-          .called(1);
+      // The development flavor also reports from debug builds.
+      verify(() => crashlytics.setCrashlyticsCollectionEnabled(true)).called(1);
       expect(events, isEmpty);
+    });
+
+    test('staging and production never report from debug builds', () async {
+      for (final environment in [
+        AppEnvironment.staging,
+        AppEnvironment.production,
+      ]) {
+        await initializeCrashReporting(
+          environment: environment,
+          logger: logger,
+          initialize: () async => null,
+          crashlytics: () => crashlytics,
+        );
+      }
+      verify(() => crashlytics.setCrashlyticsCollectionEnabled(false))
+          .called(2);
     });
 
     test('a missing configuration falls back to the no-op reporter', () async {
