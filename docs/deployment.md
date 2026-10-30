@@ -578,10 +578,20 @@ still the only way to submit to Apple review. No release or tag trigger exists.
    `dry_run` on. When both succeed, set the repository variable
    `TESTFLIGHT_CD_ENABLED` to `true`; the next push uploads.
 
+Unsigned archive and Flutter's signing check: `flutter build ios --release`
+validates for a development signing certificate (using the flavor's own
+`.dev`/`.stg` bundle ID) unless `--no-codesign` is passed, even with
+`--config-only`. The secret-free `archive` job has no certificate, so
+`archive_flavor.py` passes `--no-codesign`; `xcodebuild archive` then sets
+`CODE_SIGNING_ALLOWED=NO` and `FLAVOR_BUNDLE_ID=ch.orangepos.productscanner`, and the
+deliver job signs and exports with the production profile. The `.dev` ID seen in a
+log therefore belongs to the flavor default and never reaches the archive:
+`archive_flavor.verify` and `prepare_archive.py` reject any other bundle ID.
+
 Hosted verification still pending: signing, export, upload and group assignment
 need a hosted macOS run with the credentials above; the archive step
-(`flutter build ios --config-only` plus `xcodebuild` with the override) has not
-run on macOS yet, so the first dry run is the proof. No upload and no App Review
+(`flutter build ios --config-only --no-codesign` plus `xcodebuild` with the
+override) has not run to completion on macOS yet, so the first dry run is the proof. No upload and no App Review
 submission has been made by this change.
 
 ## Release management: production iOS and Android from GitHub Releases
@@ -685,3 +695,14 @@ Not verified here: signing, upload and group assignment on hosted macOS, a signe
 production APK from the real keystore, installing/updating on devices and the
 Android warnings on supported versions. The APK tooling was checked against real
 `apksigner`, `aapt` and `keytool` output only.
+
+## Runner placement
+
+Jobs run on the cheapest runner that supports their tools. Apple web-API work
+(App Store Connect key, tester-group checks, build-number allocation: the
+`allocate` jobs) runs on `ubuntu-24.04` through `tool/ci/apple_api_key.py`.
+Everything that needs Xcode, a keychain or a certificate (archive, signing, export,
+upload) stays on `macos-26` through `tool/ci/ios_signing.py`, which refuses to run
+elsewhere and reports the stage `platform-check`. `tool/ci/test_runner_compatibility.py`
+fails a change that puts a macOS-only tool on a Linux job. Both scripts print only
+a stage name on failure, never a secret.

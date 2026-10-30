@@ -92,13 +92,13 @@ jobs:
       - name: Load only the App Store Connect API key
         env:
           APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
-        run: python3 tool/ci/ios_signing.py api-key
+        run: python3 tool/ci/apple_api_key.py api-key
       - name: Check the tester groups and allocate the next build number
         id: allocate
         run: bundle exec fastlane ios allocate_build
       - name: Remove the temporary API key
         if: always()
-        run: python3 tool/ci/ios_signing.py cleanup
+        run: python3 tool/ci/apple_api_key.py cleanup
 
   archive:
     # Secret-free: compiles the branch with its flavor and no credentials.

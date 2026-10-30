@@ -216,6 +216,8 @@ class ArchiveTest(unittest.TestCase):
         for flavor in ('development', 'staging'):
             configure, archive = archive_flavor.commands(flavor, '1.1.0', '36')
             self.assertEqual(['flutter', 'build', 'ios', '--config-only'], configure[:4])
+            # Without it Flutter demands a signing certificate in the secret-free job.
+            self.assertIn('--no-codesign', configure)
             self.assertIn(f'lib/main_{flavor}.dart', configure)
             self.assertIn(f'--dart-define-from-file=config/{flavor}.example.json', configure)
             self.assertIn('--build-name=1.1.0', configure)
@@ -292,6 +294,36 @@ class NativeIdentityTest(unittest.TestCase):
                 self.assertEqual(channels.BUNDLE_ID, bundle.group(1), configuration)
                 self.assertIsNone(default, 'production must not be overridable')
         self.assertEqual(6, len(seen))
+
+    def test_unsigned_archive_needs_no_credentials_and_always_uses_the_store_bundle_id(self):
+        store = json.loads((ROOT / 'tool/ci/testflight_targets.json').read_text())['bundle_id']
+        self.assertEqual('ch.orangepos.productscanner', store)
+        self.assertEqual(store, channels.BUNDLE_ID)
+        project = (ROOT / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
+        for flavor in ('development', 'staging'):
+            configure, archive = archive_flavor.commands(flavor, '1.1.0', '36')
+            self.assertEqual(f'FLAVOR_BUNDLE_ID={store}',
+                             next(a for a in archive if a.startswith('FLAVOR_BUNDLE_ID=')))
+            self.assertFalse([a for a in configure + archive if re.search(r'\.(dev|stg)', a)])
+            # The scheme and the configuration the archive selects must exist.
+            self.assertTrue((ROOT / f'ios/Runner.xcodeproj/xcshareddata/xcschemes/{flavor}.xcscheme').exists())
+            self.assertGreaterEqual(project.count(f'name = "Release-{flavor}";'), 2)
+            for argument in configure + archive:
+                for secret in ('CODE_SIGN_IDENTITY=x', 'DEVELOPMENT_TEAM', 'PROVISIONING_PROFILE'):
+                    self.assertNotIn(secret, argument)
+            self.assertIn('CODE_SIGNING_ALLOWED=NO', archive)
+        # The flavor's own IDs only apply to local builds; the Runner target reads them
+        # through the override setting for every non-production configuration.
+        self.assertRegex(project, r'FLAVOR_BUNDLE_ID = ch\.orangepos\.productscanner\.dev;')
+        self.assertRegex(project, r'FLAVOR_BUNDLE_ID = ch\.orangepos\.productscanner\.stg;')
+
+    def test_archive_job_is_secret_free_and_signing_runs_only_in_deliver(self):
+        text = read(WORKFLOW)
+        archive = jobs(text)['archive']
+        for forbidden in ('secrets.', 'environment:', 'ios_signing.py', 'IOS_CERTIFICATE', 'APPLE_TEAM_ID'):
+            self.assertNotIn(forbidden, archive)
+        self.assertIn('archive_flavor.py', archive)
+        self.assertIn('prepare_archive.py', jobs(text)['deliver'])
 
     def test_only_the_runner_target_reads_the_override_setting(self):
         project = (ROOT / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
@@ -371,8 +403,8 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn('cancel-in-progress: false', self.text)
 
     def test_cleanup_always_runs_in_credential_jobs(self):
-        for name in ('allocate', 'deliver'):
-            self.assertRegex(self.parts[name], r'if: always\(\)\n\s+run: python3 tool/ci/ios_signing.py cleanup')
+        for name, script in (('allocate', 'apple_api_key.py'), ('deliver', 'ios_signing.py')):
+            self.assertRegex(self.parts[name], r'if: always\(\)\n\s+run: python3 tool/ci/' + script + ' cleanup')
 
     def test_production_workflow_is_not_affected(self):
         ios = read('ios.yaml')
