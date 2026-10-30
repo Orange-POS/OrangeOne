@@ -22,12 +22,25 @@ class SanitizedReport implements Exception {
   String toString() => description;
 }
 
+/// One queued reporting step. It is abandoned when it exceeds
+/// [FirebaseCrashReporter.reportTimeout]; its remaining plugin calls are then
+/// skipped, so it cannot resume after newer reports.
+class _ReportStep {
+  bool abandoned = false;
+}
+
+class _Abandoned implements Exception {
+  const new();
+}
+
 /// [CrashReporter] on Firebase Crashlytics. Every call is guarded: a plugin
 /// failure is swallowed so monitoring can never break the application.
 ///
 /// Crashlytics custom keys are shared state, so reports run one at a time in
 /// call order: each event writes all of its keys (clearing absent ones) and
-/// is recorded before the next one starts. Callers never wait for it.
+/// is recorded before the next one starts. Callers never wait for it. The
+/// same values travel with the event itself (`recordError` information), so
+/// a plugin call that completes late cannot change what an event says.
 class FirebaseCrashReporter implements CrashReporter {
   new(
     this._crashlytics, {
@@ -50,6 +63,7 @@ class FirebaseCrashReporter implements CrashReporter {
   final String Function() _newReference;
   final _lastReported = <String, DateTime>{};
   Future<void> _queue = Future<void>.value();
+  CrashIdentity? _identity;
 
   void _guard(void Function() action) {
     try {
@@ -59,43 +73,100 @@ class FirebaseCrashReporter implements CrashReporter {
     }
   }
 
-  void _enqueue(Future<void> Function() action) {
+  void _enqueue(Future<void> Function(_ReportStep step) action) {
     try {
       _queue = _queue
-          .then((_) => action().timeout(reportTimeout))
+          .then((_) {
+            final step = _ReportStep();
+            return action(step).timeout(
+              reportTimeout,
+              onTimeout: () {
+                step.abandoned = true;
+              },
+            );
+          })
           .catchError((Object _) {});
     } on Object {
       // Monitoring failures never reach the application.
     }
   }
 
-  /// Writes every per-event key, so an event never inherits another event's
+  /// Runs one plugin call of [step], unless the step was abandoned after its
+  /// timeout: a late-resuming step stops here instead of touching shared keys.
+  Future<void> _call(_ReportStep step, Future<void> Function() call) async {
+    if (step.abandoned) throw const _Abandoned();
+    await call();
+  }
+
+  /// Every per-event key, so an event never inherits another event's
   /// reference, operation or optional identifiers.
-  Future<void> _setEventKeys({
+  Map<String, String> _eventKeys({
     String errorId = '',
     String failureKind = '',
     String operation = '',
     String? apiCode,
     String? requestId,
+  }) => {
+    'error_id': errorId,
+    'failure_kind': failureKind,
+    'operation': operation,
+    'api_code': apiCode ?? '',
+    'request_id': requestId ?? '',
+  };
+
+  Map<String, String> _identityKeys(CrashIdentity? identity) => {
+    'environment': _environment.name,
+    'company_id': identity == null ? '' : '${identity.companyId}',
+    'pos_config_id': identity == null ? '' : '${identity.posConfigId}',
+  };
+
+  /// Writes the event keys, then records the event with the same values
+  /// (plus the identity at report time) attached to the event itself.
+  Future<void> _record(
+    _ReportStep step, {
+    required Map<String, String> keys,
+    required CrashIdentity? identity,
+    required SanitizedReport report,
+    required StackTrace stack,
+    required String reason,
+    bool fatal = false,
   }) async {
-    await _crashlytics.setCustomKey('error_id', errorId);
-    await _crashlytics.setCustomKey('failure_kind', failureKind);
-    await _crashlytics.setCustomKey('operation', operation);
-    await _crashlytics.setCustomKey('api_code', apiCode ?? '');
-    await _crashlytics.setCustomKey('request_id', requestId ?? '');
+    for (final entry in keys.entries) {
+      await _call(
+        step,
+        () => _crashlytics.setCustomKey(entry.key, entry.value),
+      );
+    }
+    final information = [
+      for (final entry in {...keys, ..._identityKeys(identity)}.entries)
+        '${entry.key}=${entry.value}',
+    ];
+    await _call(
+      step,
+      () => _crashlytics.recordError(
+        report,
+        stack,
+        reason: reason,
+        information: information,
+        fatal: fatal,
+      ),
+    );
   }
 
   @override
   void recordFatal(Object error, StackTrace stack) {
-    _enqueue(() async {
-      await _setEventKeys();
-      await _crashlytics.recordError(
-        SanitizedReport('Unhandled ${error.runtimeType}'),
-        stack,
+    final identity = _identity;
+    _enqueue(
+      (step) => _record(
+        step,
+        keys: _eventKeys(),
+        identity: identity,
+        report: SanitizedReport('Unhandled ${error.runtimeType}'),
+        stack: stack,
         reason: 'unhandled_error',
         fatal: true,
-      );
-    });
+      ),
+    );
   }
 
   @override
@@ -114,50 +185,57 @@ class FirebaseCrashReporter implements CrashReporter {
     }
     _lastReported[key] = now;
     final reference = _newReference();
-    _enqueue(() async {
-      await _setEventKeys(
-        errorId: reference,
-        failureKind: failure.kind.name,
-        operation: operation,
-        apiCode: failure.code,
-        requestId: failure.requestId,
-      );
-      await _crashlytics.log('error_id=$reference');
-      await _crashlytics.recordError(
-        SanitizedReport('OrangeFailure(${failure.kind.name}, $operation)'),
-        stack ?? StackTrace.current,
+    final identity = _identity;
+    final trace = stack ?? StackTrace.current;
+    _enqueue(
+      (step) => _record(
+        step,
+        keys: _eventKeys(
+          errorId: reference,
+          failureKind: failure.kind.name,
+          operation: operation,
+          apiCode: failure.code,
+          requestId: failure.requestId,
+        ),
+        identity: identity,
+        report: SanitizedReport(
+          'OrangeFailure(${failure.kind.name}, $operation)',
+        ),
+        stack: trace,
         reason: failure.kind.name,
-      );
-    });
+      ),
+    );
     return reference;
   }
 
   @override
   void setIdentity(CrashIdentity? identity) {
-    _enqueue(() async {
-      await _crashlytics.setCustomKey('environment', _environment.name);
-      await _crashlytics.setCustomKey(
-        'company_id',
-        identity == null ? '' : '${identity.companyId}',
-      );
-      await _crashlytics.setCustomKey(
-        'pos_config_id',
-        identity == null ? '' : '${identity.posConfigId}',
-      );
+    _identity = identity;
+    _enqueue((step) async {
+      for (final entry in _identityKeys(identity).entries) {
+        await _call(
+          step,
+          () => _crashlytics.setCustomKey(entry.key, entry.value),
+        );
+      }
     });
   }
 
   @override
   void recordTestNonFatal() {
     final reference = _newReference();
-    _enqueue(() async {
-      await _setEventKeys(errorId: reference);
-      await _crashlytics.recordError(
-        const SanitizedReport('OrangeTest(non-fatal verification)'),
-        StackTrace.current,
+    final identity = _identity;
+    final trace = StackTrace.current;
+    _enqueue(
+      (step) => _record(
+        step,
+        keys: _eventKeys(errorId: reference),
+        identity: identity,
+        report: const SanitizedReport('OrangeTest(non-fatal verification)'),
+        stack: trace,
         reason: 'verification',
-      );
-    });
+      ),
+    );
   }
 
   @override

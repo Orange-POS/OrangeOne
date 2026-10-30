@@ -21,7 +21,10 @@ void main() {
   late _MockCrashlytics crashlytics;
   late Map<String, String> keys;
   late List<String> logs;
-  late List<({Object error, String? reason, bool fatal})> recorded;
+  late List<
+    ({Object error, String? reason, bool fatal, List<String> information})
+  >
+  recorded;
   var now = DateTime.utc(2030);
   var references = 0;
 
@@ -53,6 +56,7 @@ void main() {
         any<Object>(),
         any<StackTrace?>(),
         reason: any<String?>(named: 'reason'),
+        information: any<Iterable<Object>>(named: 'information'),
         fatal: any<bool>(named: 'fatal'),
       ),
     ).thenAnswer((call) async {
@@ -60,6 +64,11 @@ void main() {
         error: call.positionalArguments[0] as Object,
         reason: call.namedArguments[#reason] as String?,
         fatal: (call.namedArguments[#fatal] as bool?) ?? false,
+        information: [
+          ...(call.namedArguments[#information] as Iterable<Object>? ?? []).map(
+            (line) => '$line',
+          ),
+        ],
       ));
     });
     when(() => crashlytics.setCrashlyticsCollectionEnabled(any()))
@@ -163,11 +172,22 @@ void main() {
         expect(keys['api_code'], 'INTERNAL_ERROR');
         expect(keys['request_id'], 'req-123');
         expect(keys['operation'], 'POST /products/{id}/stock-adjustments');
-        expect(logs, ['error_id=OO-TEST0']);
+        // The same values travel with the event itself (logged natively).
+        expect(recorded.single.information, [
+          'error_id=OO-TEST0',
+          'failure_kind=backend',
+          'operation=POST /products/{id}/stock-adjustments',
+          'api_code=INTERNAL_ERROR',
+          'request_id=req-123',
+          'environment=development',
+          'company_id=',
+          'pos_config_id=',
+        ]);
+        expect(logs, isEmpty);
         expect(recorded.single.fatal, isFalse);
         final everything = [
           ...keys.values,
-          ...logs,
+          ...recorded.single.information,
           recorded.single.error.toString(),
           recorded.single.reason,
         ].join(' ');
@@ -256,6 +276,7 @@ void main() {
       'request_id',
     ];
     late List<Map<String, String>> snapshots;
+    late List<List<String>> informations;
 
     // Waits for every queued report; plugin calls below take real time.
     Future<void> drain() =>
@@ -267,6 +288,7 @@ void main() {
 
     setUp(() {
       snapshots = [];
+      informations = [];
       // Each key write yields, so reports that are not serialized interleave.
       when(() => crashlytics.setCustomKey(any(), any()))
           .thenAnswer((call) async {
@@ -279,9 +301,17 @@ void main() {
           any<Object>(),
           any<StackTrace?>(),
           reason: any<String?>(named: 'reason'),
+          information: any<Iterable<Object>>(named: 'information'),
           fatal: any<bool>(named: 'fatal'),
         ),
-      ).thenAnswer((_) async => snapshots.add(Map.of(keys)));
+      ).thenAnswer((call) async {
+        snapshots.add(Map.of(keys));
+        informations.add([
+          ...(call.namedArguments[#information] as Iterable<Object>? ?? []).map(
+            (line) => '$line',
+          ),
+        ]);
+      });
     });
 
     test('concurrent failures keep their own metadata', () async {
@@ -371,6 +401,97 @@ void main() {
         'api_code': '',
         'request_id': '',
       });
+    });
+
+    test('a timed-out report never resumes after a newer report', () async {
+      final stalled = Completer<void>();
+      var calls = 0;
+      when(() => crashlytics.setCustomKey(any(), any())).thenAnswer((call) {
+        final name = call.positionalArguments[0] as String;
+        final value = '${call.positionalArguments[1]}';
+        // Report A's first key write stalls; the plugin applies it only later.
+        if (calls++ == 0) {
+          return stalled.future.then((_) {
+            keys[name] = value;
+          });
+        }
+        keys[name] = value;
+        return Future<void>.value();
+      });
+      final r =
+          FirebaseCrashReporter(
+              crashlytics,
+              environment: AppEnvironment.development,
+              clock: () => now,
+              newReference: () => 'OO-TEST${references++}',
+              reportTimeout: const Duration(milliseconds: 20),
+            )
+            ..recordFailure(
+              const AppFailure(
+                FailureKind.backend,
+                'a',
+                requestId: 'request-A',
+              ),
+              operation: 'GET /products',
+            )
+            ..recordFailure(
+              const AppFailure(
+                FailureKind.protocol,
+                'b',
+                requestId: 'request-B',
+              ),
+              operation: 'POST /products',
+            );
+
+      // A times out, then B is written and recorded on its own.
+      await drain();
+      expect(snapshots.map((s) => s['request_id']), ['request-B']);
+
+      // A's stalled call completes after B finished: A must not resume.
+      stalled.complete();
+      await drain();
+      expect(snapshots.map((s) => s['request_id']), ['request-B']);
+      expect(informations.single, contains('error_id=OO-TEST1'));
+      expect(informations.single, contains('request_id=request-B'));
+
+      // The late key write cannot leak into the next report.
+      r.recordFailure(
+        const AppFailure(FailureKind.storage, 'c'),
+        operation: 'cache',
+      );
+      await drain();
+      expect(eventKeysOf(snapshots.last), {
+        'error_id': 'OO-TEST2',
+        'failure_kind': 'storage',
+        'operation': 'cache',
+        'api_code': '',
+        'request_id': '',
+      });
+    });
+
+    test('events carry their own metadata and identity', () async {
+      reporter()
+        ..setIdentity(const CrashIdentity(companyId: 7, posConfigId: 3))
+        ..recordFailure(
+          const AppFailure(FailureKind.backend, 'x', requestId: 'request-A'),
+          operation: 'POST /products',
+        )
+        ..setIdentity(null)
+        ..recordFatal(StateError('boom'), StackTrace.current);
+      await drain();
+
+      expect(informations[0], [
+        'error_id=OO-TEST0',
+        'failure_kind=backend',
+        'operation=POST /products',
+        'api_code=',
+        'request_id=request-A',
+        'environment=development',
+        'company_id=7',
+        'pos_config_id=3',
+      ]);
+      expect(informations[1], contains('company_id='));
+      expect(informations[1], contains('error_id='));
     });
 
     test('a stalled plugin call does not stop later reports', () async {
