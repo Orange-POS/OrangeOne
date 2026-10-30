@@ -929,5 +929,53 @@
   "mockDiscountNote": "Preview only. This does not change product prices.",
   "@mockDiscountNote": {
     "description": "Note of the discount preview"
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Title of the Settings screen"
+  },
+  "settingsOpenTooltip": "Open settings",
+  "@settingsOpenTooltip": {
+    "description": "Tooltip of the Settings gear on the login screen"
+  },
+  "settingsDeveloperSection": "Development tools",
+  "@settingsDeveloperSection": {
+    "description": "Heading of the development-only tools"
+  },
+  "settingsEnvironmentLabel": "Environment",
+  "@settingsEnvironmentLabel": {
+    "description": "Label of the build environment row"
+  },
+  "settingsCrashButton": "Trigger the Crash",
+  "@settingsCrashButton": {
+    "description": "Button that crashes the development app on purpose"
+  },
+  "settingsCrashHelper": "Closes the app and sends a test crash to the development Firebase project. Open the app again afterwards so the report uploads.",
+  "@settingsCrashHelper": {
+    "description": "Explains the crash test button"
+  },
+  "settingsCrashConfirmTitle": "Trigger a test crash?",
+  "@settingsCrashConfirmTitle": {
+    "description": "Title of the crash test confirmation"
+  },
+  "settingsCrashConfirmBody": "The app will close immediately. This is only for verifying crash reporting.",
+  "@settingsCrashConfirmBody": {
+    "description": "Body of the crash test confirmation"
+  },
+  "settingsCrashConfirm": "Crash the app",
+  "@settingsCrashConfirm": {
+    "description": "Confirm button of the crash test"
+  },
+  "settingsCancel": "Cancel",
+  "@settingsCancel": {
+    "description": "Cancel button of the crash test confirmation"
+  },
+  "settingsNonFatalButton": "Send test error report",
+  "@settingsNonFatalButton": {
+    "description": "Button that sends a non-fatal test report"
+  },
+  "settingsNonFatalSent": "Test error report sent.",
+  "@settingsNonFatalSent": {
+    "description": "Confirmation after the non-fatal test report"
   }
 }

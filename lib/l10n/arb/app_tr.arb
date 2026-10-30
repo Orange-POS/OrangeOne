@@ -180,5 +180,17 @@
   "createConfirmMessage": "Bu ürün oluşturulsun mu?\n\nAd: {name}\nBarkod: {barcode}\nKategori: {category}\nVergi: {tax}\nFiyat: CHF {price}\nStok: {stock}",
   "createSuccessTitle": "Ürün Oluşturuldu",
   "createSuccessMessage": "{name} · CHF {price} · {tax}",
-  "mockDiscountNote": "Yalnızca önizleme. Ürün fiyatlarını değiştirmez."
+  "mockDiscountNote": "Yalnızca önizleme. Ürün fiyatlarını değiştirmez.",
+  "settingsTitle": "Ayarlar",
+  "settingsOpenTooltip": "Ayarları aç",
+  "settingsDeveloperSection": "Geliştirme araçları",
+  "settingsEnvironmentLabel": "Ortam",
+  "settingsCrashButton": "Çökmeyi tetikle",
+  "settingsCrashHelper": "Uygulamayı kapatır ve geliştirme Firebase projesine bir test çökmesi gönderir. Raporun yüklenmesi için uygulamayı sonra yeniden açın.",
+  "settingsCrashConfirmTitle": "Test çökmesi tetiklensin mi?",
+  "settingsCrashConfirmBody": "Uygulama hemen kapanır. Yalnızca çökme raporlamasını doğrulamak içindir.",
+  "settingsCrashConfirm": "Uygulamayı çökert",
+  "settingsCancel": "İptal",
+  "settingsNonFatalButton": "Test hata raporu gönder",
+  "settingsNonFatalSent": "Test hata raporu gönderildi."
 }

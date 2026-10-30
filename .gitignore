@@ -146,3 +146,7 @@ vendor/bundle/
 
 # Playwright real-backend checks (local only)
 tool/e2e/
+
+# Firebase configuration is written by CI and never committed.
+android/app/src/*/google-services.json
+ios/config/*/GoogleService-Info.plist

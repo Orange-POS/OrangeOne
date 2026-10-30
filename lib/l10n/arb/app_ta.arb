@@ -180,5 +180,17 @@
   "createConfirmMessage": "இந்தப் பொருளை உருவாக்கவா?\n\nபெயர்: {name}\nபார்கோடு: {barcode}\nவகை: {category}\nவரி: {tax}\nவிலை: CHF {price}\nஇருப்பு: {stock}",
   "createSuccessTitle": "பொருள் வெற்றிகரமாக உருவாக்கப்பட்டது",
   "createSuccessMessage": "{name} · CHF {price} · {tax}",
-  "mockDiscountNote": "முன்னோட்டம் மட்டும். பொருள் விலைகளை மாற்றாது."
+  "mockDiscountNote": "முன்னோட்டம் மட்டும். பொருள் விலைகளை மாற்றாது.",
+  "settingsTitle": "அமைப்புகள்",
+  "settingsOpenTooltip": "அமைப்புகளைத் திற",
+  "settingsDeveloperSection": "மேம்பாட்டு கருவிகள்",
+  "settingsEnvironmentLabel": "சூழல்",
+  "settingsCrashButton": "செயலிழப்பைத் தூண்டு",
+  "settingsCrashHelper": "பயன்பாட்டை மூடி, மேம்பாட்டு Firebase திட்டத்திற்கு சோதனை செயலிழப்பை அனுப்பும். அறிக்கை பதிவேற்ற பின்னர் பயன்பாட்டை மீண்டும் திறக்கவும்.",
+  "settingsCrashConfirmTitle": "சோதனை செயலிழப்பைத் தூண்டவா?",
+  "settingsCrashConfirmBody": "பயன்பாடு உடனே மூடப்படும். செயலிழப்பு அறிக்கையைச் சரிபார்க்க மட்டுமே.",
+  "settingsCrashConfirm": "பயன்பாட்டை செயலிழக்கச் செய்",
+  "settingsCancel": "ரத்து செய்",
+  "settingsNonFatalButton": "சோதனை பிழை அறிக்கையை அனுப்பு",
+  "settingsNonFatalSent": "சோதனை பிழை அறிக்கை அனுப்பப்பட்டது."
 }

@@ -109,7 +109,7 @@ The app uses only the OrangeONE Mobile API v2 (`/api/orangeone/mobile/v1`) of th
 - Translate network, backend, auth/authorization, validation, and unexpected errors into typed application failures.
 - Show safe, actionable user-facing messages; do not display server traces or sensitive internals.
 - Retry only operations known to be safe/idempotent or explicitly guarded against duplication.
-- Initialize Firebase Crashlytics and Remote Config only for tasks where they are in scope; isolate environment settings, supply safe defaults, and exclude sensitive values from telemetry.
+- Firebase Crashlytics is integrated (`docs/firebase-crashlytics.md`): report only technical faults through `CrashReporter` (never expected business outcomes), send only fixed descriptions and the allowlisted keys (no messages, URLs, tokens, QR payloads, barcodes or customer data), keep the reporter failure-proof, and show the `OO-` Error ID only for reported failures. The DEV-only crash test (`crashTestControlsProvider`) must never exist in STG or PROD. Remote Config and other Firebase products stay out of scope until requested; keep Firebase configuration out of Git (CI writes it from per-environment GitHub variables, `tool/ci/firebase_config.py`).
 
 ## Testing CI (Task 11)
 - Read `docs/testing.md`. `.github/workflows/flutter_tests.yml` replaces only the quality workflow: format, analysis, offline unit/widget tests, coverage and deployment-script checks once per commit (push only on `main`/`develop`/`staging`, PRs otherwise), merge queues and manual dispatch; actionlint and `tool/ci/test_workflows.py` / `test_versioning.py` guard triggers, secrets and the `pubspec.yaml` version, which must stay above every uploaded TestFlight build (`tool/ci/release_versions.json`).

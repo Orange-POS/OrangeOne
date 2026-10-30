@@ -180,5 +180,17 @@
   "createConfirmMessage": "Creare questo prodotto?\n\nNome: {name}\nCodice a barre: {barcode}\nCategoria: {category}\nImposta: {tax}\nPrezzo: CHF {price}\nScorte: {stock}",
   "createSuccessTitle": "Prodotto creato",
   "createSuccessMessage": "{name} · CHF {price} · {tax}",
-  "mockDiscountNote": "Solo anteprima. Non modifica i prezzi dei prodotti."
+  "mockDiscountNote": "Solo anteprima. Non modifica i prezzi dei prodotti.",
+  "settingsTitle": "Impostazioni",
+  "settingsOpenTooltip": "Apri impostazioni",
+  "settingsDeveloperSection": "Strumenti di sviluppo",
+  "settingsEnvironmentLabel": "Ambiente",
+  "settingsCrashButton": "Provoca il crash",
+  "settingsCrashHelper": "Chiude l'app e invia un crash di prova al progetto Firebase di sviluppo. Riapri poi l'app per caricare il report.",
+  "settingsCrashConfirmTitle": "Provocare un crash di prova?",
+  "settingsCrashConfirmBody": "L'app si chiuderà subito. Serve solo a verificare la segnalazione dei crash.",
+  "settingsCrashConfirm": "Chiudi l'app con un crash",
+  "settingsCancel": "Annulla",
+  "settingsNonFatalButton": "Invia report di errore di prova",
+  "settingsNonFatalSent": "Report di errore di prova inviato."
 }
