@@ -977,5 +977,53 @@
   "settingsNonFatalSent": "Test error report sent.",
   "@settingsNonFatalSent": {
     "description": "Confirmation after the non-fatal test report"
+  },
+  "demoModeTitle": "Demo Mode",
+  "@demoModeTitle": {
+    "description": "Demo Mode of the settings switch"
+  },
+  "demoModeDescription": "Explore OrangeONE with sample products. Sign in with a sample QR code; nothing is sent to a server and no real data is used.",
+  "@demoModeDescription": {
+    "description": "Explains what Demo Mode does"
+  },
+  "demoModeLocked": "Demo Mode can only be changed while you are signed out.",
+  "@demoModeLocked": {
+    "description": "Shown when Demo Mode cannot be changed"
+  },
+  "demoBannerText": "Demo Mode · sample data only",
+  "@demoBannerText": {
+    "description": "Banner shown on every screen while Demo Mode runs"
+  },
+  "demoBannerSettings": "Settings",
+  "@demoBannerSettings": {
+    "description": "Banner button that opens Settings"
+  },
+  "demoSignInTitle": "Demo sign-in",
+  "@demoSignInTitle": {
+    "description": "Title of the sample QR code list on the QR login screen"
+  },
+  "demoSignInBody": "Choose a sample QR code to sign in. No camera, network or server is used.",
+  "@demoSignInBody": {
+    "description": "Explains the sample QR codes"
+  },
+  "demoSampleManagerTitle": "Store manager",
+  "@demoSampleManagerTitle": {
+    "description": "Sample QR code with full access"
+  },
+  "demoSampleManagerBody": "Can look up products, edit them, change prices and count stock.",
+  "@demoSampleManagerBody": {
+    "description": "What the full-access sample may do"
+  },
+  "demoSampleViewerTitle": "Read-only counter",
+  "@demoSampleViewerTitle": {
+    "description": "Sample QR code with read-only access"
+  },
+  "demoSampleViewerBody": "Can look up products but cannot change anything.",
+  "@demoSampleViewerBody": {
+    "description": "What the read-only sample may do"
+  },
+  "demoSampleBarcodesTitle": "Sample barcodes",
+  "@demoSampleBarcodesTitle": {
+    "description": "Heading of the sample barcode list on the scanner"
   }
 }

@@ -192,5 +192,17 @@
   "settingsCrashConfirm": "App laten crashen",
   "settingsCancel": "Annuleren",
   "settingsNonFatalButton": "Testfoutrapport verzenden",
-  "settingsNonFatalSent": "Testfoutrapport verzonden."
+  "settingsNonFatalSent": "Testfoutrapport verzonden.",
+  "demoModeTitle": "Demomodus",
+  "demoModeDescription": "Ontdek OrangeONE met voorbeeldproducten. Meld je aan met een voorbeeld-QR-code; er wordt niets naar een server verzonden en er worden geen echte gegevens gebruikt.",
+  "demoModeLocked": "De demomodus kan alleen worden gewijzigd als u bent uitgelogd.",
+  "demoBannerText": "Demomodus · alleen voorbeeldgegevens",
+  "demoBannerSettings": "Instellingen",
+  "demoSignInTitle": "Demo-aanmelding",
+  "demoSignInBody": "Kies een voorbeeld-QR-code om je aan te melden. Er worden geen camera, netwerk of server gebruikt.",
+  "demoSampleManagerTitle": "Winkelmanager",
+  "demoSampleManagerBody": "Kan producten bekijken en bewerken, prijzen wijzigen en voorraad tellen.",
+  "demoSampleViewerTitle": "Kassa met alleen-lezen",
+  "demoSampleViewerBody": "Kan producten bekijken maar niets wijzigen.",
+  "demoSampleBarcodesTitle": "Voorbeeldbarcodes"
 }

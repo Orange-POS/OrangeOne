@@ -97,7 +97,8 @@ void main() {
   for (final environment in AppEnvironment.values) {
     final development = environment == AppEnvironment.development;
     testWidgets(
-      '${environment.name}: settings route and gear exist=$development',
+      '${environment.name}: Settings open everywhere, crash tools only in '
+      'development=$development',
       (tester) async {
         final container = _container(environment, _SpyReporter());
         final paths = container
@@ -106,13 +107,10 @@ void main() {
             .routes
             .whereType<GoRoute>()
             .map((route) => route.path);
-        expect(paths.contains('/settings'), development);
+        expect(paths.contains('/settings'), isTrue);
 
         await _mount(tester, container, '/login');
-        expect(
-          find.byKey(const Key('settings-button')),
-          development ? findsOneWidget : findsNothing,
-        );
+        expect(find.byKey(const Key('settings-button')), findsOneWidget);
         expect(find.byKey(const Key('scan-login-button')), findsOneWidget);
 
         await _mount(tester, container, '/settings');
@@ -120,7 +118,12 @@ void main() {
           find.byKey(const Key('trigger-crash-button')),
           development ? findsOneWidget : findsNothing,
         );
-        if (!development) expect(find.text('Page not found'), findsOneWidget);
+        expect(find.byKey(const Key('demo-mode-switch')), findsOneWidget);
+        expect(find.text('Page not found'), findsNothing);
+        expect(
+          find.byKey(const Key('settings-environment')),
+          development ? findsOneWidget : findsNothing,
+        );
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
