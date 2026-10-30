@@ -1,8 +1,11 @@
 # Firebase Crashlytics
 
 Crashlytics reports crashes and technical failures of DEV, STG and PROD builds.
-Monitoring never interrupts the app: if Firebase is unconfigured, slow (3 s
-limit) or failing, the app starts normally with a no-op reporter.
+Monitoring never interrupts the app: if Firebase is unconfigured, slow or
+failing, the app starts normally with a no-op reporter. One 3 s limit covers the
+whole startup sequence (Firebase initialization and the collection setting); a
+sequence that finishes or fails after the limit is ignored and cannot replace
+the no-op reporter.
 
 ## Architecture
 
@@ -33,7 +36,12 @@ limit) or failing, the app starts normally with a no-op reporter.
 - **Privacy:** Crashlytics receives only a fixed description (error type or
   `OrangeFailure(kind, METHOD /path/{id})`), the stack trace and these keys:
   `environment`, `error_id`, `failure_kind`, `operation`, `api_code`,
-  `request_id`, `company_id`, `pos_config_id`. Never exception messages, URLs,
+  `request_id`, `company_id`, `pos_config_id`. Custom keys are shared by all
+  reports, so reports are written one at a time in call order (in the
+  background; callers never wait): each event sets `error_id`, `failure_kind`,
+  `operation`, `api_code` and `request_id`, empty when absent (fatal errors
+  set all five empty; the DEV test report sets only its `error_id`), so no
+  event inherits another's values. Never exception messages, URLs,
   headers, tokens, QR payloads, barcodes, product or customer data. Path
   segments outside a fixed allowlist become `{id}`.
 - **Identity:** `company_id` and `pos_config_id` are the numeric ids of the

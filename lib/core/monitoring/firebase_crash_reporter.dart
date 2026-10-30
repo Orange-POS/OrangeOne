@@ -24,11 +24,16 @@ class SanitizedReport implements Exception {
 
 /// [CrashReporter] on Firebase Crashlytics. Every call is guarded: a plugin
 /// failure is swallowed so monitoring can never break the application.
+///
+/// Crashlytics custom keys are shared state, so reports run one at a time in
+/// call order: each event writes all of its keys (clearing absent ones) and
+/// is recorded before the next one starts. Callers never wait for it.
 class FirebaseCrashReporter implements CrashReporter {
   new(
     this._crashlytics, {
     required this._environment,
     this.throttle = const Duration(minutes: 5),
+    this.reportTimeout = const Duration(seconds: 10),
     DateTime Function()? clock,
     String Function()? newReference,
   }) : _clock = clock ?? DateTime.now,
@@ -37,9 +42,14 @@ class FirebaseCrashReporter implements CrashReporter {
   final FirebaseCrashlytics _crashlytics;
   final AppEnvironment _environment;
   final Duration throttle;
+
+  /// Longest wait for one queued step, so a stalled plugin call cannot stop
+  /// every later report.
+  final Duration reportTimeout;
   final DateTime Function() _clock;
   final String Function() _newReference;
   final _lastReported = <String, DateTime>{};
+  Future<void> _queue = Future<void>.value();
 
   void _guard(void Function() action) {
     try {
@@ -49,24 +59,43 @@ class FirebaseCrashReporter implements CrashReporter {
     }
   }
 
-  void _guardAsync(Future<void> Function() action) {
+  void _enqueue(Future<void> Function() action) {
     try {
-      unawaited(action().catchError((Object _) {}));
+      _queue = _queue
+          .then((_) => action().timeout(reportTimeout))
+          .catchError((Object _) {});
     } on Object {
       // Monitoring failures never reach the application.
     }
   }
 
+  /// Writes every per-event key, so an event never inherits another event's
+  /// reference, operation or optional identifiers.
+  Future<void> _setEventKeys({
+    String errorId = '',
+    String failureKind = '',
+    String operation = '',
+    String? apiCode,
+    String? requestId,
+  }) async {
+    await _crashlytics.setCustomKey('error_id', errorId);
+    await _crashlytics.setCustomKey('failure_kind', failureKind);
+    await _crashlytics.setCustomKey('operation', operation);
+    await _crashlytics.setCustomKey('api_code', apiCode ?? '');
+    await _crashlytics.setCustomKey('request_id', requestId ?? '');
+  }
+
   @override
   void recordFatal(Object error, StackTrace stack) {
-    _guardAsync(
-      () => _crashlytics.recordError(
+    _enqueue(() async {
+      await _setEventKeys();
+      await _crashlytics.recordError(
         SanitizedReport('Unhandled ${error.runtimeType}'),
         stack,
         reason: 'unhandled_error',
         fatal: true,
-      ),
-    );
+      );
+    });
   }
 
   @override
@@ -85,16 +114,14 @@ class FirebaseCrashReporter implements CrashReporter {
     }
     _lastReported[key] = now;
     final reference = _newReference();
-    _guardAsync(() async {
-      await _crashlytics.setCustomKey('error_id', reference);
-      await _crashlytics.setCustomKey('failure_kind', failure.kind.name);
-      await _crashlytics.setCustomKey('operation', operation);
-      if (failure.code != null) {
-        await _crashlytics.setCustomKey('api_code', failure.code!);
-      }
-      if (failure.requestId != null) {
-        await _crashlytics.setCustomKey('request_id', failure.requestId!);
-      }
+    _enqueue(() async {
+      await _setEventKeys(
+        errorId: reference,
+        failureKind: failure.kind.name,
+        operation: operation,
+        apiCode: failure.code,
+        requestId: failure.requestId,
+      );
       await _crashlytics.log('error_id=$reference');
       await _crashlytics.recordError(
         SanitizedReport('OrangeFailure(${failure.kind.name}, $operation)'),
@@ -107,7 +134,7 @@ class FirebaseCrashReporter implements CrashReporter {
 
   @override
   void setIdentity(CrashIdentity? identity) {
-    _guardAsync(() async {
+    _enqueue(() async {
       await _crashlytics.setCustomKey('environment', _environment.name);
       await _crashlytics.setCustomKey(
         'company_id',
@@ -123,8 +150,8 @@ class FirebaseCrashReporter implements CrashReporter {
   @override
   void recordTestNonFatal() {
     final reference = _newReference();
-    _guardAsync(() async {
-      await _crashlytics.setCustomKey('error_id', reference);
+    _enqueue(() async {
+      await _setEventKeys(errorId: reference);
       await _crashlytics.recordError(
         const SanitizedReport('OrangeTest(non-fatal verification)'),
         StackTrace.current,
@@ -139,6 +166,10 @@ class FirebaseCrashReporter implements CrashReporter {
 
 /// Initializes Firebase and returns the reporter, or a no-op reporter when
 /// Firebase is unconfigured, slow or failing: the app always starts.
+///
+/// [timeout] bounds the whole sequence (Firebase initialization and the
+/// collection setting). After it expires the sequence is abandoned: a late
+/// completion takes no further step and a late error is ignored.
 Future<CrashReporter> initializeCrashReporting({
   required AppEnvironment environment,
   required AppLogger logger,
@@ -146,18 +177,32 @@ Future<CrashReporter> initializeCrashReporting({
   FirebaseCrashlytics Function()? crashlytics,
   Duration timeout = const Duration(seconds: 3),
 }) async {
-  try {
-    await (initialize?.call() ?? Firebase.initializeApp()).timeout(timeout);
+  var abandoned = false;
+
+  Future<CrashReporter?> start() async {
+    await (initialize?.call() ?? Firebase.initializeApp());
+    if (abandoned) return null;
     final instance = crashlytics?.call() ?? FirebaseCrashlytics.instance;
     // Staging and production report only from release/profile builds; the
     // development flavor also reports from debug builds (Development project).
     await instance.setCrashlyticsCollectionEnabled(
       !kDebugMode || environment == AppEnvironment.development,
     );
+    if (abandoned) return null;
     return FirebaseCrashReporter(instance, environment: environment)
       ..setIdentity(null);
-  } on Object {
-    logger.event(LogEvent.monitoringUnavailable);
-    return const NoopCrashReporter();
   }
+
+  final sequence = start();
+
+  try {
+    final reporter = await sequence.timeout(timeout);
+    if (reporter != null) return reporter;
+  } on Object {
+    abandoned = true;
+    sequence.ignore();
+  }
+
+  logger.event(LogEvent.monitoringUnavailable);
+  return const NoopCrashReporter();
 }

@@ -247,6 +247,162 @@ void main() {
     });
   });
 
+  group('report metadata isolation', () {
+    const eventKeys = [
+      'error_id',
+      'failure_kind',
+      'operation',
+      'api_code',
+      'request_id',
+    ];
+    late List<Map<String, String>> snapshots;
+
+    // Waits for every queued report; plugin calls below take real time.
+    Future<void> drain() =>
+        Future<void>.delayed(const Duration(milliseconds: 100));
+
+    Map<String, String?> eventKeysOf(Map<String, String> snapshot) => {
+      for (final key in eventKeys) key: snapshot[key],
+    };
+
+    setUp(() {
+      snapshots = [];
+      // Each key write yields, so reports that are not serialized interleave.
+      when(() => crashlytics.setCustomKey(any(), any()))
+          .thenAnswer((call) async {
+            await Future<void>.delayed(const Duration(milliseconds: 1));
+            keys[call.positionalArguments[0] as String] =
+                '${call.positionalArguments[1]}';
+          });
+      when(
+        () => crashlytics.recordError(
+          any<Object>(),
+          any<StackTrace?>(),
+          reason: any<String?>(named: 'reason'),
+          fatal: any<bool>(named: 'fatal'),
+        ),
+      ).thenAnswer((_) async => snapshots.add(Map.of(keys)));
+    });
+
+    test('concurrent failures keep their own metadata', () async {
+      final r = reporter();
+      final first = r.recordFailure(
+        const AppFailure(
+          FailureKind.backend,
+          'x',
+          code: 'INTERNAL_ERROR',
+          requestId: 'request-A',
+        ),
+        operation: 'POST /products',
+      );
+      final second = r.recordFailure(
+        const AppFailure(FailureKind.protocol, 'y', requestId: 'request-B'),
+        operation: 'GET /products/{id}',
+      );
+      await drain();
+
+      expect([first, second], ['OO-TEST0', 'OO-TEST1']);
+      expect(snapshots.map(eventKeysOf), [
+        {
+          'error_id': 'OO-TEST0',
+          'failure_kind': 'backend',
+          'operation': 'POST /products',
+          'api_code': 'INTERNAL_ERROR',
+          'request_id': 'request-A',
+        },
+        {
+          'error_id': 'OO-TEST1',
+          'failure_kind': 'protocol',
+          'operation': 'GET /products/{id}',
+          'api_code': '',
+          'request_id': 'request-B',
+        },
+      ]);
+    });
+
+    test('a later failure clears absent optional identifiers', () async {
+      final r = reporter()
+        ..recordFailure(
+          const AppFailure(
+            FailureKind.backend,
+            'x',
+            code: 'INTERNAL_ERROR',
+            requestId: 'request-A',
+          ),
+          operation: 'POST /products',
+        );
+      await drain();
+      r.recordFailure(
+        const AppFailure(FailureKind.storage, 'y'),
+        operation: 'cache',
+      );
+      await drain();
+
+      expect(eventKeysOf(snapshots.last), {
+        'error_id': 'OO-TEST1',
+        'failure_kind': 'storage',
+        'operation': 'cache',
+        'api_code': '',
+        'request_id': '',
+      });
+    });
+
+    test('fatal and test reports do not inherit failure metadata', () async {
+      reporter()
+        ..recordFailure(
+          const AppFailure(
+            FailureKind.backend,
+            'x',
+            code: 'INTERNAL_ERROR',
+            requestId: 'request-A',
+          ),
+          operation: 'POST /products',
+        )
+        ..recordFatal(StateError('boom'), StackTrace.current)
+        ..recordTestNonFatal();
+      await drain();
+
+      expect(snapshots, hasLength(3));
+      expect(eventKeysOf(snapshots[1]), {for (final key in eventKeys) key: ''});
+      expect(eventKeysOf(snapshots[2]), {
+        'error_id': 'OO-TEST1',
+        'failure_kind': '',
+        'operation': '',
+        'api_code': '',
+        'request_id': '',
+      });
+    });
+
+    test('a stalled plugin call does not stop later reports', () async {
+      var calls = 0;
+      when(() => crashlytics.setCustomKey(any(), any())).thenAnswer((call) {
+        if (calls++ == 0) return Completer<void>().future;
+        keys[call.positionalArguments[0] as String] =
+            '${call.positionalArguments[1]}';
+        return Future<void>.value();
+      });
+
+      FirebaseCrashReporter(
+          crashlytics,
+          environment: AppEnvironment.development,
+          clock: () => now,
+          newReference: () => 'OO-TEST${references++}',
+          reportTimeout: const Duration(milliseconds: 20),
+        )
+        ..recordFailure(
+          const AppFailure(FailureKind.backend, 'x'),
+          operation: 'GET /products',
+        )
+        ..recordFailure(
+          const AppFailure(FailureKind.protocol, 'y'),
+          operation: 'POST /products',
+        );
+      await drain();
+
+      expect(snapshots.map((s) => s['error_id']), ['OO-TEST1']);
+    });
+  });
+
   group('initializeCrashReporting', () {
     final events = <String>[];
     late AppLogger logger;
@@ -310,6 +466,57 @@ void main() {
         timeout: const Duration(milliseconds: 20),
       );
       expect(result, isA<NoopCrashReporter>());
+    });
+
+    test('a hanging collection setting does not block startup', () async {
+      when(() => crashlytics.setCrashlyticsCollectionEnabled(any()))
+          .thenAnswer((_) => Completer<void>().future);
+
+      final result = await initializeCrashReporting(
+        environment: AppEnvironment.staging,
+        logger: logger,
+        initialize: () async => null,
+        crashlytics: () => crashlytics,
+        timeout: const Duration(milliseconds: 20),
+      ).timeout(const Duration(milliseconds: 100));
+
+      expect(result, isA<NoopCrashReporter>());
+      expect(events, ['monitoringUnavailable']);
+    });
+
+    test('a late initialization cannot replace the fallback', () async {
+      final initialized = Completer<Object?>();
+
+      final result = await initializeCrashReporting(
+        environment: AppEnvironment.staging,
+        logger: logger,
+        initialize: () => initialized.future,
+        crashlytics: () => crashlytics,
+        timeout: const Duration(milliseconds: 20),
+      );
+      initialized.complete(null);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(result, isA<NoopCrashReporter>());
+      verifyNever(() => crashlytics.setCrashlyticsCollectionEnabled(any()));
+      verifyNever(() => crashlytics.setCustomKey(any(), any()));
+    });
+
+    test('a late initialization error is not unhandled', () async {
+      final initialized = Completer<Object?>();
+
+      final result = await initializeCrashReporting(
+        environment: AppEnvironment.production,
+        logger: logger,
+        initialize: () => initialized.future,
+        crashlytics: () => crashlytics,
+        timeout: const Duration(milliseconds: 20),
+      );
+      initialized.completeError(StateError('late failure'));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(result, isA<NoopCrashReporter>());
+      expect(events, ['monitoringUnavailable']);
     });
 
     test('the no-op reporter accepts every call', () {
