@@ -192,5 +192,17 @@
   "settingsCrashConfirm": "Faire planter l'application",
   "settingsCancel": "Annuler",
   "settingsNonFatalButton": "Envoyer un rapport d'erreur de test",
-  "settingsNonFatalSent": "Rapport d'erreur de test envoyé."
+  "settingsNonFatalSent": "Rapport d'erreur de test envoyé.",
+  "demoModeTitle": "Mode démo",
+  "demoModeDescription": "Découvrez OrangeONE avec des produits d’exemple. Connectez-vous avec un QR code d’exemple ; rien n’est envoyé à un serveur et aucune donnée réelle n’est utilisée.",
+  "demoModeLocked": "Le mode démo ne peut être modifié que lorsque vous êtes déconnecté.",
+  "demoBannerText": "Mode démo · données d’exemple uniquement",
+  "demoBannerSettings": "Paramètres",
+  "demoSignInTitle": "Connexion démo",
+  "demoSignInBody": "Choisissez un QR code d’exemple pour vous connecter. Aucune caméra, aucun réseau et aucun serveur ne sont utilisés.",
+  "demoSampleManagerTitle": "Responsable du magasin",
+  "demoSampleManagerBody": "Peut consulter et modifier les produits, changer les prix et compter le stock.",
+  "demoSampleViewerTitle": "Caisse en lecture seule",
+  "demoSampleViewerBody": "Peut consulter les produits mais ne peut rien modifier.",
+  "demoSampleBarcodesTitle": "Codes-barres d’exemple"
 }

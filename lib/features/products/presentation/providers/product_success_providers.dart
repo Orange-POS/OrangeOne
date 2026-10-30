@@ -23,7 +23,11 @@ productSuccessProvider =
 
 class ProductSuccessController extends Notifier<ProductSuccess?> {
   @override
-  ProductSuccess? build() => null;
+  ProductSuccess? build() {
+    // A message never outlives the session (or demo run) that produced it.
+    ref.watch(unsetStockScopeProvider);
+    return null;
+  }
 
   void show({
     required String barcode,

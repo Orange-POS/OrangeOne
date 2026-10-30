@@ -14,7 +14,11 @@ import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 class QrLoginPage extends ConsumerStatefulWidget {
-  const new({super.key});
+  const new({this.demoSamples, super.key});
+
+  /// Sample QR codes composed by the app while Demo Mode is on; they replace
+  /// the camera, which is not needed (or available) in the demo.
+  final Widget? demoSamples;
 
   @override
   ConsumerState<QrLoginPage> createState() => _QrLoginPageState();
@@ -100,134 +104,139 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
               ),
             ),
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 64 || constraints.maxHeight <= 0) {
-                    return const SizedBox.shrink();
-                  }
-                  final height = math.max<double>(
-                    440 * MediaQuery.textScalerOf(context).scale(1),
-                    constraints.maxHeight,
-                  );
-                  final frameSize = math.min<double>(
-                    240,
-                    constraints.maxWidth - 64,
-                  );
-                  final top = height * .45 - frameSize / 2;
-                  return SingleChildScrollView(
-                    child: SizedBox(
-                      height: height,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            left: (constraints.maxWidth - frameSize) / 2,
-                            top: top,
-                            width: frameSize,
-                            height: frameSize,
-                            child: session.isLoading
-                                ? const Center(
-                                    child: CircularProgressIndicator(
-                                      color: OrangeTheme.brand,
-                                    ),
-                                  )
-                                : session.hasError
-                                ? const SizedBox.shrink()
-                                : !wifiOn
-                                ? _ScannerOff(checking: checkingWifi)
-                                : KeyedSubtree(
-                                    key: ValueKey(_cameraGeneration),
-                                    child: ref.watch(qrCameraBuilderProvider)(
-                                      context,
-                                      (code) => unawaited(
-                                        ref
-                                            .read(
-                                              sessionControllerProvider
-                                                  .notifier,
-                                            )
-                                            .signIn(code),
+              child:
+                  widget.demoSamples ??
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth < 64 ||
+                          constraints.maxHeight <= 0) {
+                        return const SizedBox.shrink();
+                      }
+                      final height = math.max<double>(
+                        440 * MediaQuery.textScalerOf(context).scale(1),
+                        constraints.maxHeight,
+                      );
+                      final frameSize = math.min<double>(
+                        240,
+                        constraints.maxWidth - 64,
+                      );
+                      final top = height * .45 - frameSize / 2;
+                      return SingleChildScrollView(
+                        child: SizedBox(
+                          height: height,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                left: (constraints.maxWidth - frameSize) / 2,
+                                top: top,
+                                width: frameSize,
+                                height: frameSize,
+                                child: session.isLoading
+                                    ? const Center(
+                                        child: CircularProgressIndicator(
+                                          color: OrangeTheme.brand,
+                                        ),
+                                      )
+                                    : session.hasError
+                                    ? const SizedBox.shrink()
+                                    : !wifiOn
+                                    ? _ScannerOff(checking: checkingWifi)
+                                    : KeyedSubtree(
+                                        key: ValueKey(_cameraGeneration),
+                                        child:
+                                            ref.watch(qrCameraBuilderProvider)(
+                                              context,
+                                              (code) => unawaited(
+                                                ref
+                                                    .read(
+                                                      sessionControllerProvider
+                                                          .notifier,
+                                                    )
+                                                    .signIn(code),
+                                              ),
+                                              (status) {
+                                                if (mounted) {
+                                                  setState(
+                                                    () =>
+                                                        _cameraStatus = status,
+                                                  );
+                                                }
+                                              },
+                                            ),
                                       ),
-                                      (status) {
-                                        if (mounted) {
-                                          setState(
-                                            () => _cameraStatus = status,
-                                          );
-                                        }
-                                      },
+                              ),
+                              Positioned(
+                                left: (constraints.maxWidth - frameSize) / 2,
+                                top: top,
+                                width: frameSize,
+                                height: frameSize,
+                                child: const IgnorePointer(child: ScanFrame()),
+                              ),
+                              Positioned(
+                                left: 24,
+                                right: 24,
+                                top: top + frameSize + 24,
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      l10n.scanHeading,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        height: 1.3,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  ),
-                          ),
-                          Positioned(
-                            left: (constraints.maxWidth - frameSize) / 2,
-                            top: top,
-                            width: frameSize,
-                            height: frameSize,
-                            child: const IgnorePointer(child: ScanFrame()),
-                          ),
-                          Positioned(
-                            left: 24,
-                            right: 24,
-                            top: top + frameSize + 24,
-                            child: Column(
-                              children: [
-                                Text(
-                                  l10n.scanHeading,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    height: 1.3,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                    const SizedBox(height: 12),
+                                    Semantics(
+                                      liveRegion: true,
+                                      child: Text(
+                                        session.isLoading
+                                            ? l10n.scanSigningIn
+                                            : failure is AppFailure
+                                            ? failure.message
+                                            : session.hasError
+                                            ? l10n.scanFailure
+                                            : !wifiOn && !checkingWifi
+                                            ? l10n.scanWifiRequired
+                                            : l10n.scanInstruction,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                    if (session.hasError)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 12),
+                                        child: FilledButton(
+                                          onPressed: () {
+                                            ref
+                                                .read(
+                                                  sessionControllerProvider
+                                                      .notifier,
+                                                )
+                                                .clearLoginFailure();
+                                            setState(() {
+                                              _cameraGeneration++;
+                                              _cameraStatus = null;
+                                            });
+                                          },
+                                          child: Text(l10n.scanAgain),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                                const SizedBox(height: 12),
-                                Semantics(
-                                  liveRegion: true,
-                                  child: Text(
-                                    session.isLoading
-                                        ? l10n.scanSigningIn
-                                        : failure is AppFailure
-                                        ? failure.message
-                                        : session.hasError
-                                        ? l10n.scanFailure
-                                        : !wifiOn && !checkingWifi
-                                        ? l10n.scanWifiRequired
-                                        : l10n.scanInstruction,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      height: 1.5,
-                                    ),
-                                  ),
-                                ),
-                                if (session.hasError)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 12),
-                                    child: FilledButton(
-                                      onPressed: () {
-                                        ref
-                                            .read(
-                                              sessionControllerProvider
-                                                  .notifier,
-                                            )
-                                            .clearLoginFailure();
-                                        setState(() {
-                                          _cameraGeneration++;
-                                          _cameraStatus = null;
-                                        });
-                                      },
-                                      child: Text(l10n.scanAgain),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+                        ),
+                      );
+                    },
+                  ),
             ),
             Container(
               width: double.infinity,

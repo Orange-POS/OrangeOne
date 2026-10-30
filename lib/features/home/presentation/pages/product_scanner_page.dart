@@ -14,8 +14,12 @@ import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/scan_frame.dart';
 
 class ProductScannerPage extends ConsumerStatefulWidget {
-  const new({required this.onLookup, super.key});
+  const new({required this.onLookup, this.samples, super.key});
   final Future<void> Function(String barcode, {required bool found}) onLookup;
+
+  /// Optional barcode shortcuts composed by the app (Demo Mode samples); each
+  /// runs the normal lookup with the barcode it is given.
+  final Widget Function(void Function(String barcode) scan)? samples;
 
   @override
   ConsumerState<ProductScannerPage> createState() => _ProductScannerPageState();
@@ -217,6 +221,10 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                       ),
                     ),
                     const Spacer(),
+                    if (widget.samples != null)
+                      widget.samples!(
+                        (code) => unawaited(controller.scan(code)),
+                      ),
                     ProductResultPanel(
                       state: state,
                       recents: recents,

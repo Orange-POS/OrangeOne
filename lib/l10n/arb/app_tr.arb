@@ -192,5 +192,17 @@
   "settingsCrashConfirm": "Uygulamayı çökert",
   "settingsCancel": "İptal",
   "settingsNonFatalButton": "Test hata raporu gönder",
-  "settingsNonFatalSent": "Test hata raporu gönderildi."
+  "settingsNonFatalSent": "Test hata raporu gönderildi.",
+  "demoModeTitle": "Demo Modu",
+  "demoModeDescription": "OrangeONE’ı örnek ürünlerle keşfedin. Örnek bir QR kodla giriş yapın; sunucuya hiçbir şey gönderilmez ve gerçek veri kullanılmaz.",
+  "demoModeLocked": "Demo Modu yalnızca oturum kapalıyken değiştirilebilir.",
+  "demoBannerText": "Demo Modu · yalnızca örnek veriler",
+  "demoBannerSettings": "Ayarlar",
+  "demoSignInTitle": "Demo girişi",
+  "demoSignInBody": "Giriş yapmak için örnek bir QR kod seçin. Kamera, ağ veya sunucu kullanılmaz.",
+  "demoSampleManagerTitle": "Mağaza müdürü",
+  "demoSampleManagerBody": "Ürünleri görüntüleyebilir ve düzenleyebilir, fiyatları değiştirebilir, stok sayabilir.",
+  "demoSampleViewerTitle": "Salt okunur kasa",
+  "demoSampleViewerBody": "Ürünleri görüntüleyebilir ancak hiçbir şeyi değiştiremez.",
+  "demoSampleBarcodesTitle": "Örnek barkodlar"
 }

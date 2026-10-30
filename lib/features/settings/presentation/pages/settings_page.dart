@@ -7,17 +7,20 @@ import 'package:orange_one/core/monitoring/crash_reporter.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
-/// Settings. For now it only holds the development-only Crashlytics
-/// verification; the screen does not exist in staging or production builds.
+/// Settings: the [demoSection] supplied by app composition in every build,
+/// and the Crashlytics verification in the development flavor only.
 class SettingsPage extends ConsumerWidget {
-  const new({super.key});
+  const new({this.demoSection, super.key});
+
+  /// The Demo Mode switch; composed by the app, not owned by this feature.
+  final Widget? demoSection;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Defense in depth: the route is not registered outside development.
-    if (!ref.watch(crashTestControlsProvider)) return const SizedBox.shrink();
+    // The crash tools exist in development only.
+    final developerTools = ref.watch(crashTestControlsProvider);
     final l10n = context.l10n;
-    final environment = ref.watch(environmentProvider);
+    final environment = developerTools ? ref.watch(environmentProvider) : null;
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(gradient: OrangeTheme.gradient),
@@ -60,51 +63,56 @@ class SettingsPage extends ConsumerWidget {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      Text(
-                        l10n.settingsDeveloperSection,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                      ?demoSection,
+                      if (developerTools) ...[
+                        if (demoSection != null) const SizedBox(height: 24),
+                        Text(
+                          l10n.settingsDeveloperSection,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${l10n.settingsEnvironmentLabel}: ${environment.name}',
-                        key: const Key('settings-environment'),
-                        style: const TextStyle(color: OrangeTheme.secondary),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        l10n.settingsCrashHelper,
-                        style: const TextStyle(color: OrangeTheme.secondary),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 56,
-                        child: FilledButton(
-                          key: const Key('trigger-crash-button'),
-                          onPressed: () => _confirmCrash(context, ref),
-                          child: Text(l10n.settingsCrashButton),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${l10n.settingsEnvironmentLabel}: '
+                          '${environment?.name}',
+                          key: const Key('settings-environment'),
+                          style: const TextStyle(color: OrangeTheme.secondary),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 56,
-                        child: OutlinedButton(
-                          key: const Key('send-test-report-button'),
-                          onPressed: () {
-                            ref
-                                .read(crashReporterProvider)
-                                .recordTestNonFatal();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(l10n.settingsNonFatalSent),
-                              ),
-                            );
-                          },
-                          child: Text(l10n.settingsNonFatalButton),
+                        const SizedBox(height: 12),
+                        Text(
+                          l10n.settingsCrashHelper,
+                          style: const TextStyle(color: OrangeTheme.secondary),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 56,
+                          child: FilledButton(
+                            key: const Key('trigger-crash-button'),
+                            onPressed: () => _confirmCrash(context, ref),
+                            child: Text(l10n.settingsCrashButton),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 56,
+                          child: OutlinedButton(
+                            key: const Key('send-test-report-button'),
+                            onPressed: () {
+                              ref
+                                  .read(crashReporterProvider)
+                                  .recordTestNonFatal();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(l10n.settingsNonFatalSent),
+                                ),
+                              );
+                            },
+                            child: Text(l10n.settingsNonFatalButton),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
