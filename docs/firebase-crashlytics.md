@@ -41,7 +41,13 @@ the no-op reporter.
   background; callers never wait): each event sets `error_id`, `failure_kind`,
   `operation`, `api_code` and `request_id`, empty when absent (fatal errors
   set all five empty; the DEV test report sets only its `error_id`), so no
-  event inherits another's values. Never exception messages, URLs,
+  event inherits another's values. A report step that takes longer than
+  10 s is abandoned: when its stalled plugin call completes, it makes no
+  further key write or recording. The same keys, plus `environment`,
+  `company_id` and `pos_config_id` at report time, are also attached to each
+  event as `key=value` log lines (`recordError` information); they cannot be
+  overwritten later, so they are authoritative if a key ever disagrees.
+  Never exception messages, URLs,
   headers, tokens, QR payloads, barcodes, product or customer data. Path
   segments outside a fixed allowlist become `{id}`.
 - **Identity:** `company_id` and `pos_config_id` are the numeric ids of the
