@@ -177,6 +177,10 @@
   "@scannerLookingUp": {
     "description": "Shown while a scanned barcode is looked up"
   },
+  "scannerDemoSamples": "Demo Mode · choose a sample barcode below",
+  "@scannerDemoSamples": {
+    "description": "Product scanner status in Demo Mode, where sample barcodes replace the camera"
+  },
   "scannerPaused": "Scan paused · Review the result below",
   "@scannerPaused": {
     "description": "Scanner status while a result is shown"

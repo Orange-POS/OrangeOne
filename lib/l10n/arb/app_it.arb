@@ -43,6 +43,7 @@
   "scannerTitle": "Scansiona codice a barre",
   "scannerBackTooltip": "Torna alla home",
   "scannerLookingUp": "Ricerca del prodotto…",
+  "scannerDemoSamples": "Modalità demo · scegli un codice a barre di esempio qui sotto",
   "scannerPaused": "Scansione in pausa · Controlla il risultato qui sotto",
   "recentTitle": "Ultime scansioni",
   "recentEmpty": "Scansiona un codice a barre per cercare un prodotto.",

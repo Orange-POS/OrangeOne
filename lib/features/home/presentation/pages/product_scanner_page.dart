@@ -18,7 +18,8 @@ class ProductScannerPage extends ConsumerStatefulWidget {
   final Future<void> Function(String barcode, {required bool found}) onLookup;
 
   /// Optional barcode shortcuts composed by the app (Demo Mode samples); each
-  /// runs the normal lookup with the barcode it is given.
+  /// runs the normal lookup with the barcode it is given. When supplied they
+  /// replace the camera, which is then never built or started.
   final Widget Function(void Function(String barcode) scan)? samples;
 
   @override
@@ -90,6 +91,7 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
     });
     final controller = ref.read(productLookupControllerProvider.notifier);
     final cameraGeneration = _cameraGeneration;
+    final samplesOnly = widget.samples != null;
     final scanning =
         !state.isLoading &&
         !state.hasError &&
@@ -174,7 +176,7 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                if (scanning)
+                                if (scanning && !samplesOnly)
                                   KeyedSubtree(
                                     key: ValueKey(_cameraGeneration),
                                     child:
@@ -206,6 +208,8 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                             child: Text(
                               state.isLoading
                                   ? l10n.scannerLookingUp
+                                  : scanning && samplesOnly
+                                  ? l10n.scannerDemoSamples
                                   : scanning
                                   ? _status ?? l10n.scanOpeningCamera
                                   : l10n.scannerPaused,

@@ -311,11 +311,14 @@ void main() {
   });
 
   group('screens', () {
+    var productCameraBuilds = 0;
+
     Future<(ProviderContainer, FakeAuthRepository)> open(
       WidgetTester tester, {
       FakeAuthRepository? auth,
     }) async {
       final fake = auth ?? FakeAuthRepository();
+      productCameraBuilds = 0;
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -326,9 +329,14 @@ void main() {
               (context, onCode, onStatus) =>
                   const SizedBox(key: Key('real-camera')),
             ),
-            productCameraBuilderProvider.overrideWithValue(
-              (context, onCode, onStatus) => const SizedBox(),
-            ),
+            productCameraBuilderProvider.overrideWithValue((
+              context,
+              onCode,
+              onStatus,
+            ) {
+              productCameraBuilds++;
+              return const SizedBox(key: Key('real-product-camera'));
+            }),
             productRepositoryOverride,
             productDetailsRepositoryOverride,
             recentScansRepositoryOverride,
@@ -444,6 +452,28 @@ void main() {
       expect(container.read(demoModeProvider), isNotNull);
       expect(find.byKey(const Key('scan-login-button')), findsOneWidget);
       expect(auth.signIns + auth.tokenRequests + auth.signOuts, 0);
+    });
+
+    testWidgets('the demo scanner never builds the real product camera', (
+      tester,
+    ) async {
+      final (container, _) = await open(tester);
+      await openSampleLogin(tester, 'manager');
+      unawaited(
+        container.read(routerProvider).pushNamed<bool>('productScanner'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('real-product-camera')), findsNothing);
+      expect(find.text('Demo Mode · choose a sample barcode below'), findsOne);
+      expect(find.text('Opening camera…'), findsNothing);
+
+      // A sample lookup and the return to scanning still use no camera.
+      await tester.tap(find.byKey(const Key('demo-barcode-$_water')));
+      await tester.pumpAndSettle();
+      expect(find.text('Sparkling Water 1L'), findsWidgets);
+      container.read(routerProvider).pop();
+      await tester.pumpAndSettle();
+      expect(productCameraBuilds, 0);
     });
 
     testWidgets('the read-only sample signs in with restricted access', (

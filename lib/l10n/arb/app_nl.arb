@@ -43,6 +43,7 @@
   "scannerTitle": "Barcode scannen",
   "scannerBackTooltip": "Terug naar start",
   "scannerLookingUp": "Product wordt opgezocht…",
+  "scannerDemoSamples": "Demomodus · kies hieronder een voorbeeldbarcode",
   "scannerPaused": "Scannen gepauzeerd · Bekijk het resultaat hieronder",
   "recentTitle": "Laatst gescand",
   "recentEmpty": "Scan een productbarcode om het product op te zoeken.",

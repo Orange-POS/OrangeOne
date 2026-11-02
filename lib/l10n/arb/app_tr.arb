@@ -43,6 +43,7 @@
   "scannerTitle": "Barkod Tara",
   "scannerBackTooltip": "Ana sayfaya dön",
   "scannerLookingUp": "Ürün aranıyor…",
+  "scannerDemoSamples": "Demo Modu · aşağıdan örnek bir barkod seçin",
   "scannerPaused": "Tarama duraklatıldı · Aşağıdaki sonucu inceleyin",
   "recentTitle": "Son taranan",
   "recentEmpty": "Bir ürünü aramak için barkodunu tarayın.",
