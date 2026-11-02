@@ -942,7 +942,43 @@
   "@settingsOpenTooltip": {
     "description": "Tooltip of the Settings gear on the login screen"
   },
-  "settingsDeveloperSection": "Development tools",
+  "settingsApplicationSection": "APPLICATION",
+  "@settingsApplicationSection": {
+    "description": "Section heading for application information; kept in capitals"
+  },
+  "settingsAppVersionLabel": "App Version",
+  "@settingsAppVersionLabel": {
+    "description": "Label of the installed app version row"
+  },
+  "settingsDemonstrationSection": "DEMONSTRATION",
+  "@settingsDemonstrationSection": {
+    "description": "Section heading for Demo Mode; kept in capitals"
+  },
+  "settingsHelpSection": "HELP & SUPPORT",
+  "@settingsHelpSection": {
+    "description": "Section heading for help and support; kept in capitals"
+  },
+  "settingsHowToUse": "How to Use OrangeOne",
+  "@settingsHowToUse": {
+    "description": "Help row; not yet linked"
+  },
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "@settingsPrivacyPolicy": {
+    "description": "Help row; not yet linked"
+  },
+  "settingsContactSupport": "Contact Support",
+  "@settingsContactSupport": {
+    "description": "Help row; not yet linked"
+  },
+  "settingsAboutSection": "ABOUT",
+  "@settingsAboutSection": {
+    "description": "Section heading for information about the app; kept in capitals"
+  },
+  "settingsAbout": "About OrangeOne",
+  "@settingsAbout": {
+    "description": "About row; not yet linked"
+  },
+  "settingsDeveloperSection": "DEVELOPMENT ONLY",
   "@settingsDeveloperSection": {
     "description": "Heading of the development-only tools"
   },
@@ -953,10 +989,6 @@
   "settingsCrashButton": "Trigger the Crash",
   "@settingsCrashButton": {
     "description": "Button that crashes the development app on purpose"
-  },
-  "settingsCrashHelper": "Closes the app and sends a test crash to the development Firebase project. Open the app again afterwards so the report uploads.",
-  "@settingsCrashHelper": {
-    "description": "Explains the crash test button"
   },
   "settingsCrashConfirmTitle": "Trigger a test crash?",
   "@settingsCrashConfirmTitle": {
@@ -985,10 +1017,6 @@
   "demoModeTitle": "Demo Mode",
   "@demoModeTitle": {
     "description": "Demo Mode of the settings switch"
-  },
-  "demoModeDescription": "Explore OrangeONE with sample products. Sign in with a sample QR code; nothing is sent to a server and no real data is used.",
-  "@demoModeDescription": {
-    "description": "Explains what Demo Mode does"
   },
   "demoModeLocked": "Demo Mode can only be changed while you are signed out.",
   "@demoModeLocked": {
