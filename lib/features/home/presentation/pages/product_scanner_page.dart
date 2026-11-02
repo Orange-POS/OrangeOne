@@ -11,6 +11,7 @@ import 'package:orange_one/features/home/presentation/widgets/product_camera.dar
 import 'package:orange_one/features/home/presentation/widgets/product_result_panel.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/demo_badge.dart';
 import 'package:orange_one/shared/widgets/scan_frame.dart';
 
 class ProductScannerPage extends ConsumerStatefulWidget {
@@ -143,13 +144,17 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                             ),
                           ),
                           Expanded(
-                            child: Text(
-                              l10n.scannerTitle,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                            child: Center(
+                              child: TitleWithDemoBadge(
+                                title: Text(
+                                  l10n.scannerTitle,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ),
                           ),

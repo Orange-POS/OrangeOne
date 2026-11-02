@@ -1026,13 +1026,9 @@
   "@demoModeLocked": {
     "description": "Shown when Demo Mode cannot be changed"
   },
-  "demoBannerText": "Demo Mode · sample data only",
-  "@demoBannerText": {
-    "description": "Banner shown on every screen while Demo Mode runs"
-  },
-  "demoBannerSettings": "Settings",
-  "@demoBannerSettings": {
-    "description": "Banner button that opens Settings"
+  "demoBadge": "Demo",
+  "@demoBadge": {
+    "description": "Small badge beside the navigation title while Demo Mode runs"
   },
   "demoSignInTitle": "Demo sign-in",
   "@demoSignInTitle": {

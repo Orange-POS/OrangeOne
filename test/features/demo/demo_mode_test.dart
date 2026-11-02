@@ -393,7 +393,7 @@ void main() {
       tester,
     ) async {
       final (container, auth) = await open(tester);
-      expect(find.byKey(const Key('demo-banner')), findsNothing);
+      expect(find.byKey(const Key('demo-badge')), findsNothing);
 
       await tester.tap(find.byKey(const Key('settings-button')));
       await tester.pumpAndSettle();
@@ -408,17 +408,19 @@ void main() {
       // Turning it on does not sign in: the QR login screen is next.
       expect(container.read(demoLoginProvider), isNull);
       expect(find.byKey(const Key('scan-login-button')), findsOneWidget);
-      expect(find.byKey(const Key('demo-banner')), findsOneWidget);
-      expect(find.text('Demo Mode · sample data only'), findsOneWidget);
+      // A small badge beside the title replaces the full-width banner.
+      expect(find.byKey(const Key('demo-badge')), findsOneWidget);
+      expect(find.text('Demo'), findsOneWidget);
+      expect(find.text('Demo Mode · sample data only'), findsNothing);
 
-      await tester.tap(find.byKey(const Key('demo-banner-settings')));
+      await tester.tap(find.byKey(const Key('settings-button')));
       await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(tile).value, isTrue);
       await tester.tap(tile);
       await tester.pumpAndSettle();
       expect(container.read(demoModeProvider), isNull);
       expect(find.byKey(const Key('scan-login-button')), findsOneWidget);
-      expect(find.byKey(const Key('demo-banner')), findsNothing);
+      expect(find.byKey(const Key('demo-badge')), findsNothing);
       expect(auth.signIns + auth.tokenRequests, 0);
     });
 
@@ -449,16 +451,24 @@ void main() {
       await openSampleLogin(tester, 'manager');
       expect(container.read(demoLoginProvider)?.sample, DemoSample.manager);
       expect(find.byKey(const Key('logout-button')), findsOneWidget);
-      expect(find.byKey(const Key('demo-banner')), findsOneWidget);
+      expect(find.byKey(const Key('demo-badge')), findsOneWidget);
 
       // Sample barcodes replace the camera in the scanner.
       unawaited(
         container.read(routerProvider).pushNamed<bool>('productScanner'),
       );
       await tester.pumpAndSettle();
+      expect(find.byKey(const Key('demo-badge')), findsOneWidget);
+      // Small enough to sit in the title row without adding height.
+      expect(
+        tester.getSize(find.byKey(const Key('demo-badge'))).height,
+        lessThan(24),
+      );
       await tester.tap(find.byKey(const Key('demo-barcode-$_water')));
       await tester.pumpAndSettle();
       expect(find.text('Sparkling Water 1L'), findsWidgets);
+      // Product screens carry the same badge in their navigation title.
+      expect(find.byKey(const Key('demo-badge')), findsOneWidget);
 
       final repository = container.read(productDetailsRepositoryProvider);
       final product = (await repository.load(_water)).product!;

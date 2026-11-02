@@ -18,8 +18,11 @@ screen offline with sample data. It is built into every flavor
      disabled like a user without permissions.
 3. Choosing one opens the normal navigation (Home → scanner → details → edit,
    price, stock) with sample data. The scanner lists the **sample barcodes**
-   (tap = the normal lookup), the **Demo Mode banner** is shown on every
-   screen, and its **Settings** button opens the switch.
+   (tap = the normal lookup; the camera is never started) and a small
+   **Demo** badge sits beside the navigation title of every screen
+   (`shared/widgets/demo_badge.dart`, set by `App` through `DemoScope`; no
+   extra bar or height). The switch is in Settings, opened from the login
+   gear.
 4. **Logout** leaves the sample session and discards its changes, recent scans
    and success toast; Demo Mode stays on for another sample login, which
    starts from the same sample data. Turning the switch off ends Demo Mode

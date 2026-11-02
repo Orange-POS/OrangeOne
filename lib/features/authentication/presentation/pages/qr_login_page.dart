@@ -12,6 +12,7 @@ import 'package:orange_one/features/authentication/presentation/widgets/qr_camer
 import 'package:orange_one/features/authentication/presentation/widgets/scan_frame.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/demo_badge.dart';
 
 class QrLoginPage extends ConsumerStatefulWidget {
   const new({this.demoSamples, super.key});
@@ -87,13 +88,17 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                         ),
                       ),
                       Expanded(
-                        child: Text(
-                          l10n.scanTitle,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                        child: Center(
+                          child: TitleWithDemoBadge(
+                            title: Text(
+                              l10n.scanTitle,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
                       ),
