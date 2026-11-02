@@ -289,7 +289,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.operation == 'distribute_existing'
     environment: ios-production
     runs-on: macos-26
-    timeout-minutes: 30
+    # Longer than the 30-minute wait for Apple's processing, so a timeout is reported.
+    timeout-minutes: 45
     permissions:
       contents: read
     env:

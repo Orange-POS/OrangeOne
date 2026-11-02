@@ -309,8 +309,13 @@ existing pinned Spaceship client for Apple's official App Store Connect API:
 - Resolve the production app and the one exact allowlisted group; missing,
   duplicate or automatic/all-build groups fail preflight before upload.
 - Query builds by that app ID, iOS platform, marketing version and build number.
-  Wait up to 15 minutes for that exact build and testing eligibility; never use
+  Wait up to 30 minutes for that exact build and testing eligibility; never use
   an unrelated latest build. Invalid, failed, expired or ambiguous builds fail.
+  When Apple's processing outlasts the wait, the upload stays valid: the run
+  reports a pending distribution naming the last state (not yet listed, still
+  processing, not yet ready for testing, or assignment not yet confirmed) and
+  the exact `distribute_existing` resume. Do not re-run the delivery job; it
+  would export again and then stop because the build number is already used.
 - Export compliance comes from the reviewed `ITSAppUsesNonExemptEncryption`
   declaration in the production Info.plist (see "Encryption declaration" below),
   so new builds need no manual answer. If Apple still reports missing compliance

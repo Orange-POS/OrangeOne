@@ -472,6 +472,26 @@ class ChannelLaneTest < Minitest::Test
     ENV.delete('GITHUB_STEP_SUMMARY')
   end
 
+  def test_a_processing_timeout_after_upload_reports_the_resume_and_never_uploads_again
+    ENV.update('DRY_RUN' => 'false', 'TESTFLIGHT_CD_ENABLED' => 'true')
+    @distribution.define_singleton_method(:distribute) do |**|
+      raise OrangeoneTestflight::ProcessingTimeout, 'The exact build was still processing after 30 minutes.'
+    end
+    Tempfile.create('summary') do |file|
+      ENV['GITHUB_STEP_SUMMARY'] = file.path
+      output, = capture_io { run_with_ipa(:testflight_channel) }
+      assert_match(/::warning/, output)
+      text = File.read(file.path)
+      assert_includes text, 'still processing'
+      assert_includes text, 'operation distribute_existing'
+      assert_includes text, 'version 1.1.0, build 36 and target group dev'
+    end
+    assert_equal 1, @harness.calls.count { |call| call.first == :testflight }
+    refute @harness.calls.assoc(:assign)
+  ensure
+    ENV.delete('GITHUB_STEP_SUMMARY')
+  end
+
   def test_the_resume_lane_still_fails_while_compliance_is_pending
     ENV.update('GITHUB_REF' => 'refs/heads/main', 'GITHUB_EVENT_NAME' => 'workflow_dispatch',
                'TARGET_GROUP' => 'dev', 'RELEASE_BUILD_NUMBER' => '36')
