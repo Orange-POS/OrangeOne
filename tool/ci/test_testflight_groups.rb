@@ -131,6 +131,7 @@ class TestflightGroupsTest < Minitest::Test
       @api.snapshots = [snapshot]
       error = assert_raises(OrangeoneTestflight::ProcessingTimeout) { distribute }
       assert_kind_of OrangeoneTestflight::Pending, error
+      assert_includes error.message, 'Timed out'
       assert_includes error.message, stage
       assert_includes error.message, 'distribute_existing'
       assert_includes error.message, 'no latest-build fallback'

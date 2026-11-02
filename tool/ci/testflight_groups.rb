@@ -183,7 +183,11 @@ class OrangeoneTestflight
   end
 
   def timed_out
-    raise ProcessingTimeout, "The exact build was #{@stage} after #{(@timeout / 60.0).ceil} minutes; no latest-build fallback is allowed. "                              'Run distribute_existing for this same version/build once App Store Connect shows it as ready; do not reupload.'
+    minutes = (@timeout / 60.0).ceil
+    raise ProcessingTimeout,
+          "Timed out after #{minutes} minute#{'s' unless minutes == 1}: the exact uploaded build was #{@stage}; " \
+          'no latest-build fallback is allowed. Run distribute_existing for this same version/build ' \
+          'once App Store Connect shows it as ready; do not reupload.'
   end
 
   def request
