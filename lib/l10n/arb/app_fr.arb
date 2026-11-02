@@ -185,6 +185,7 @@
   "settingsTitle": "Paramètres",
   "settingsOpenTooltip": "Ouvrir les paramètres",
   "settingsApplicationSection": "APPLICATION",
+  "settingsLanguageLabel": "Langue",
   "settingsAppVersionLabel": "Version de l’app",
   "settingsDemonstrationSection": "DÉMONSTRATION",
   "settingsHelpSection": "AIDE ET ASSISTANCE",

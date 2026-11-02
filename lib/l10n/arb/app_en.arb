@@ -946,6 +946,10 @@
   "@settingsApplicationSection": {
     "description": "Section heading for application information; kept in capitals"
   },
+  "settingsLanguageLabel": "Language",
+  "@settingsLanguageLabel": {
+    "description": "Label of the Settings language row; the value shows the greeting of the current language"
+  },
   "settingsAppVersionLabel": "App Version",
   "@settingsAppVersionLabel": {
     "description": "Label of the installed app version row"

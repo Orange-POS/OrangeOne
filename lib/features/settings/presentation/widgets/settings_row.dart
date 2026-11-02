@@ -12,6 +12,7 @@ class SettingsRow extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.height = 56,
+    this.verticalPadding = 12,
     super.key,
   });
 
@@ -22,12 +23,19 @@ class SettingsRow extends StatelessWidget {
   final VoidCallback? onTap;
   final double height;
 
+  /// Rows whose trailing control is a 48-point touch target use less padding
+  /// so they keep the designed height.
+  final double verticalPadding;
+
   @override
   Widget build(BuildContext context) {
     final content = ConstrainedBox(
       constraints: BoxConstraints(minHeight: height),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: verticalPadding,
+        ),
         child: Row(
           children: [
             settingsIcon(icon),

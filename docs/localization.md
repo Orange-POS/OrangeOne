@@ -33,8 +33,15 @@ defaults for them (labels are passed in by localized screens). Sending `Accept-L
 `LanguageSelector` (`features/authentication/presentation/widgets`) is the white
 pill under the login subtitle. It shows a greeting in the current language
 (Hello, Hallo, Bonjour, Ciao, Merhaba, வணக்கம்); tapping it opens a menu of the
-six greetings. A choice applies immediately to the Login and QR scanner
-screens. The visible pill is 40 points high inside a 48 point touch target;
+six greetings. A choice applies immediately to every screen.
+
+Settings show the same choice in the **Language** row (greeting and a
+chevron). Both open the one shared menu (`shared/widgets/language_menu.dart`,
+`LanguageMenu`) and change the one `LocaleController` selection; neither keeps
+its own copy, so the login pill and Settings always show the same language
+(`test/features/settings/settings_language_test.dart`). The Settings labels
+are localized; their section headings are stored in capitals for each language
+because Dart's `toUpperCase` is not locale-aware (Turkish dotted İ). The visible pill is 40 points high inside a 48 point touch target;
 screen readers announce "Language: <name>" and read the menu entries by the
 language's own name (English, Nederlands, Français, Italiano, Türkçe, தமிழ்).
 

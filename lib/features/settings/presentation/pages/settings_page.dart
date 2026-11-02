@@ -12,6 +12,7 @@ import 'package:orange_one/features/settings/presentation/widgets/company_footer
 import 'package:orange_one/features/settings/presentation/widgets/settings_row.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/language_menu.dart';
 
 /// Settings in every flavor: application facts, the [demoSection] supplied by
 /// app composition, help and about entries, and the Crashlytics verification
@@ -32,6 +33,8 @@ class SettingsPage extends ConsumerWidget {
     final developerTools = ref.watch(crashTestControlsProvider);
     final l10n = context.l10n;
     final environment = developerTools ? ref.watch(environmentProvider) : null;
+    // The one app-wide language: the same selection as the login pill.
+    final language = currentAppLanguage(context);
     final insets = MediaQuery.paddingOf(context);
     // The gradient spans the header and the corners of the panel below it,
     // so it runs from dark to light across the header as designed.
@@ -113,6 +116,43 @@ class SettingsPage extends ConsumerWidget {
                     ),
                     children: [
                       SettingsSectionHeading(l10n.settingsApplicationSection),
+                      SettingsRow(
+                        height: 58,
+                        verticalPadding: 5,
+                        icon: 'assets/icons/settings_language.svg',
+                        label: l10n.settingsLanguageLabel,
+                        trailing: LanguageMenu(
+                          key: const Key('settings-language'),
+                          tooltip: l10n.languageSelectorTooltip,
+                          child: Semantics(
+                            label: l10n.languageSelectorSemantics(
+                              language.name,
+                            ),
+                            excludeSemantics: true,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 48),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    language.greeting,
+                                    style: const TextStyle(
+                                      color: OrangeTheme.action,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  settingsIcon(
+                                    'assets/icons/settings_chevron_down.svg',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
                       SettingsRow(
                         key: const Key('settings-app-version'),
                         height: 58,
