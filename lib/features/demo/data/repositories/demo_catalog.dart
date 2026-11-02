@@ -75,12 +75,15 @@ class DemoCatalog {
       );
     }
     final id = _nextId++;
+    // Like the backend, a new product is tracked and has nothing on hand
+    // until its first count; the app shows that as "Not Set", never a count.
     final record = _DemoRecord(
       id: id,
       name: name,
       barcode: barcode,
       price: price,
-      stock: stock,
+      stock: stock ?? 0,
+      tracked: true,
       categoryId: categoryId,
       taxIds: List.of(taxIds),
       reference: 'DEMO-$id',
@@ -171,7 +174,7 @@ class DemoCatalog {
       currency: 'CHF',
       category: category,
       version: record.version.toString(),
-      stockAdjustable: record.stock != null,
+      stockAdjustable: record.tracked,
       stockLocationId: 1,
       quantityDecimals: 0,
     );
@@ -185,6 +188,7 @@ class _DemoRecord {
     required this.barcode,
     required this.price,
     required this.stock,
+    required this.tracked,
     required this.categoryId,
     required this.taxIds,
     required this.reference,
@@ -196,6 +200,7 @@ class _DemoRecord {
     barcode: seed.barcode,
     price: seed.price,
     stock: seed.stock,
+    tracked: seed.tracked,
     categoryId: seed.categoryId,
     taxIds: List.of(seed.taxIds),
     reference: 'DEMO-${seed.id}',
@@ -204,6 +209,9 @@ class _DemoRecord {
   final int id;
   final String barcode;
   final String reference;
+
+  /// Whether stock is tracked and can be counted, independent of a quantity.
+  final bool tracked;
   String name;
   double price;
   double? stock;
@@ -220,8 +228,9 @@ class _Seed {
     this.price,
     this.stock,
     this.categoryId,
-    this.taxIds,
-  );
+    this.taxIds, {
+    this.tracked = true,
+  });
   final int id;
   final String name;
   final String barcode;
@@ -229,6 +238,7 @@ class _Seed {
   final double? stock;
   final int? categoryId;
   final List<int> taxIds;
+  final bool tracked;
 }
 
 /// Fictional products; the barcodes are not assigned to real goods.
@@ -244,5 +254,14 @@ const _seeds = [
   _Seed(9, 'Spaghetti 500g', '2000000000097', 2.30, 80, 4, [2]),
   _Seed(10, 'Olive Oil 750ml', '2000000000103', 11.90, 14, 4, [2]),
   _Seed(11, 'Dark Chocolate 100g', '2000000000110', 2.95, 60, 4, [1]),
-  _Seed(12, 'Reusable Shopping Bag', '2000000000127', 3, null, null, []),
+  _Seed(
+    12,
+    'Reusable Shopping Bag',
+    '2000000000127',
+    3,
+    null,
+    null,
+    [],
+    tracked: false,
+  ),
 ];

@@ -172,7 +172,9 @@ void main() {
         ),
       );
       expect(created.category?.name, 'Frozen');
-      expect(created.stock, isNull);
+      // Nothing on hand yet, as on the backend; the app shows it as Not Set.
+      expect(created.stock, 0);
+      expect(created.stockAdjustable, isTrue);
       await expectLater(
         repository.createProduct(
           NewProduct(
@@ -198,10 +200,30 @@ void main() {
       );
     });
 
+    test('a product created without stock gets its first count', () async {
+      final repository = container.read(productDetailsRepositoryProvider);
+      final created = await repository.createProduct(
+        NewProduct(
+          barcode: '4001',
+          name: 'Oat Drink 1L',
+          price: ChfPrice.parse('2.50'),
+          taxIds: const [1],
+        ),
+      );
+      expect(created.stockAdjustable, isTrue);
+      final counted = await repository.adjustStock(
+        created,
+        StockCount.parse('12'),
+      );
+      expect(counted.newQuantity, 12);
+      expect((await repository.load('4001')).product?.stock, 12);
+    });
+
     test('an untracked product cannot be counted', () async {
       final repository = container.read(productDetailsRepositoryProvider);
       final bag = (await repository.load('2000000000127')).product!;
       expect(bag.stock, isNull);
+      expect(bag.stockAdjustable, isFalse);
       await expectLater(
         repository.adjustStock(bag, StockCount.parse('5')),
         throwsA(isA<AppFailure>()),
@@ -474,6 +496,44 @@ void main() {
       container.read(routerProvider).pop();
       await tester.pumpAndSettle();
       expect(productCameraBuilds, 0);
+    });
+
+    testWidgets('a product created without stock shows Not Set, then counts', (
+      tester,
+    ) async {
+      final (container, _) = await open(tester);
+      await openSampleLogin(tester, 'manager');
+      final created = await container
+          .read(productDetailsRepositoryProvider)
+          .createProduct(
+            NewProduct(
+              barcode: '4002',
+              name: 'Rice Cakes',
+              price: ChfPrice.parse('1.90'),
+              taxIds: const [1],
+            ),
+          );
+      // What the creation screen records when the quantity is left blank.
+      container
+          .read(unsetStockProvider.notifier)
+          .mark(created.id, scope: container.read(unsetStockScopeProvider));
+      container
+          .read(routerProvider)
+          .goNamed('productStock', queryParameters: {'barcode': '4002'});
+      await tester.pumpAndSettle();
+      expect(find.text('Not Set'), findsWidgets);
+
+      await tester.enterText(find.byKey(const Key('stock-count-input')), '9');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Update Stock'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      final stored = await container
+          .read(productDetailsRepositoryProvider)
+          .load('4002');
+      expect(stored.product?.stock, 9);
+      expect(container.read(unsetStockProvider), isNot(contains(created.id)));
     });
 
     testWidgets('the read-only sample signs in with restricted access', (
