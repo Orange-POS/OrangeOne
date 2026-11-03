@@ -66,10 +66,16 @@ class TutorialPage extends ConsumerWidget {
               if (videos.isNotEmpty) {
                 return [
                   for (final video in videos) ...[
-                    TutorialVideoCard(
-                      key: Key('tutorial-${video.id}'),
-                      video: video,
-                      onWatch: () => _watch(context, ref, video),
+                    // Full width on phones; a readable width on tablets.
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: TutorialVideoCard(
+                          key: Key('tutorial-${video.id}'),
+                          video: video,
+                          onWatch: () => _watch(context, ref, video),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 15),
                   ],

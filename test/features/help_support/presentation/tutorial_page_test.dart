@@ -174,6 +174,19 @@ void main() {
     expect(find.text('How to Login'), findsNothing);
   });
 
+  testWidgets('cards keep a readable width on tablets', (tester) async {
+    tester.view.physicalSize = const Size(1024, 1366);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpApp(tester);
+    await openTutorial(tester);
+    await showVideos(tester, _catalog());
+    final card = tester.getRect(find.byKey(const Key('tutorial-stock')));
+    expect(card.width, 560);
+    expect(card.center.dx, closeTo(512, 1));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('titles follow the selected app language', (tester) async {
     await pumpApp(tester);
     await container

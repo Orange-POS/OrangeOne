@@ -26,6 +26,10 @@ screens the same header and panel. Opening apps goes through the injectable
 - The query asks only for `published == true` (what the rules allow); the app
   sorts by `sortOrder`. A published document without `sortOrder` is therefore
   still shown (last) instead of disappearing, and no composite index is needed.
+- Each video is a vertical card: the thumbnail (2:1) with the YouTube badge,
+  then the title, the full description and **Watch video**. Titles and
+  descriptions are never shortened; the card grows with them. On tablets the
+  cards stay at most 560 pt wide.
 - **Watch video** (the whole card) opens
   `https://www.youtube.com/watch?v=<id>` only in a non-browser app, which is
   the YouTube app (`LaunchMode.externalNonBrowserApplication`). The video never

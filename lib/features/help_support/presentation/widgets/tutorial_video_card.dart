@@ -4,8 +4,10 @@ import 'package:orange_one/features/help_support/domain/entities/tutorial_video.
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
-/// One tutorial: thumbnail, title, description, the YouTube badge and the
-/// "Watch video" action. The whole card opens the video.
+/// One tutorial as a vertical card: the thumbnail with the YouTube badge on
+/// top, then the title, the full description and "Watch video". The height
+/// follows the content, so long titles and descriptions are never cut. The
+/// whole card opens the video.
 class TutorialVideoCard extends StatelessWidget {
   const new({required this.video, required this.onWatch, super.key});
 
@@ -14,7 +16,7 @@ class TutorialVideoCard extends StatelessWidget {
 
   /// The badge color of the supplied design (YouTube red).
   static const _youtubeRed = Color(0xFFFF0000);
-  static const _cardRadius = BorderRadius.all(Radius.circular(12));
+  static const _radius = BorderRadius.all(Radius.circular(12));
 
   @override
   Widget build(BuildContext context) {
@@ -23,10 +25,11 @@ class TutorialVideoCard extends StatelessWidget {
     final title = video.title.resolve(language);
     final description = video.description.resolve(language);
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: _cardRadius,
-        boxShadow: [
+        borderRadius: _radius,
+        border: Border.all(color: OrangeTheme.actionDisabled),
+        boxShadow: const [
           BoxShadow(
             color: Color(0x33000000),
             blurRadius: 8,
@@ -36,7 +39,7 @@ class TutorialVideoCard extends StatelessWidget {
       ),
       child: Material(
         type: MaterialType.transparency,
-        borderRadius: _cardRadius,
+        borderRadius: _radius,
         clipBehavior: Clip.antiAlias,
         child: Semantics(
           button: true,
@@ -44,95 +47,80 @@ class TutorialVideoCard extends StatelessWidget {
           excludeSemantics: true,
           child: InkWell(
             onTap: onWatch,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(4, 9, 12, 9),
-              child: Row(
-                children: [
-                  Expanded(flex: 151, child: _Thumbnail(video.thumbnail)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 181,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Stack(
+                  children: [
+                    _Thumbnail(video.thumbnail),
+                    Positioned(
+                      top: 7,
+                      right: 10,
+                      child: _Badge(
+                        label: l10n.tutorialYoutubeBadge,
+                        color: _youtubeRed,
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(13, 20, 13, 9),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        key: const Key('tutorial-card-title'),
+                        style: const TextStyle(
+                          color: OrangeTheme.ink,
+                          fontSize: 15,
+                          height: 1.3,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (description.isNotEmpty) ...[
+                        const SizedBox(height: 6),
                         Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          description,
+                          key: const Key('tutorial-card-description'),
                           style: const TextStyle(
-                            color: OrangeTheme.ink,
-                            fontSize: 15,
+                            color: OrangeTheme.secondary,
+                            fontSize: 12,
                             height: 1.3,
-                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        if (description.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: OrangeTheme.secondary,
-                              fontSize: 12,
-                              height: 16 / 12,
+                      ],
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          SvgPicture.asset(
+                            'assets/icons/tutorial_play.svg',
+                            width: 16,
+                            height: 16,
+                            colorFilter: const ColorFilter.mode(
+                              OrangeTheme.action,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              l10n.tutorialWatchVideo,
+                              style: const TextStyle(
+                                color: OrangeTheme.action,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: const BoxDecoration(
-                            color: _youtubeRed,
-                            borderRadius: BorderRadius.all(Radius.circular(10)),
-                          ),
-                          child: Text(
-                            l10n.tutorialYoutubeBadge,
-                            maxLines: 1,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              height: 16 / 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            SvgPicture.asset(
-                              'assets/icons/tutorial_play.svg',
-                              width: 16,
-                              height: 16,
-                              colorFilter: const ColorFilter.mode(
-                                OrangeTheme.action,
-                                BlendMode.srcIn,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                l10n.tutorialWatchVideo,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: OrangeTheme.action,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -141,22 +129,47 @@ class TutorialVideoCard extends StatelessWidget {
   }
 }
 
-/// 16:9 preview inside the orange outline of the design; the outline alone
-/// shows while loading or when the image is unavailable.
+class _Badge extends StatelessWidget {
+  const new({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: const BorderRadius.all(Radius.circular(10)),
+    ),
+    child: Text(
+      label,
+      maxLines: 1,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        height: 16 / 12,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+/// The preview across the full card width (2:1, as designed) inside a thin
+/// outline; the outline alone shows while loading or without an image.
 class _Thumbnail extends StatelessWidget {
   const new(this.url);
   final Uri url;
 
-  static const _radius = BorderRadius.all(Radius.circular(16));
+  static const _radius = BorderRadius.all(Radius.circular(12));
 
   @override
   Widget build(BuildContext context) => AspectRatio(
-    aspectRatio: 149 / 90,
+    aspectRatio: 2,
     child: DecoratedBox(
       position: DecorationPosition.foreground,
       decoration: BoxDecoration(
         borderRadius: _radius,
-        border: Border.all(color: OrangeTheme.actionPressed),
+        border: Border.all(color: OrangeTheme.actionDisabled),
       ),
       child: ClipRRect(
         borderRadius: _radius,
