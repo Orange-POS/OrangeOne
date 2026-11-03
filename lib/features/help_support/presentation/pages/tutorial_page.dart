@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/help_support/domain/entities/tutorial_video.dart';
 import 'package:orange_one/features/help_support/presentation/providers/help_support_providers.dart';
 import 'package:orange_one/features/help_support/presentation/widgets/tutorial_video_card.dart';
@@ -51,37 +52,65 @@ class TutorialPage extends ConsumerWidget {
             error: (error, stack) => [
               _Message(
                 key: const Key('tutorial-error'),
-                text: l10n.tutorialError,
+                text: _withReference(
+                  l10n.tutorialError,
+                  error is AppFailure ? error.errorReference : null,
+                ),
                 onRetry: () => ref.invalidate(tutorialCatalogProvider),
               ),
             ],
-            data: (catalog) => catalog.videos.isEmpty
-                ? [
-                    _Message(
-                      key: const Key('tutorial-empty'),
-                      text: catalog.fromCache
-                          ? l10n.tutorialOffline
-                          : l10n.tutorialEmpty,
-                      onRetry: catalog.fromCache
-                          ? () => ref.invalidate(tutorialCatalogProvider)
-                          : null,
+            data: (catalog) {
+              final videos = catalog.forLanguage(
+                Localizations.localeOf(context).languageCode,
+              );
+              if (videos.isNotEmpty) {
+                return [
+                  for (final video in videos) ...[
+                    TutorialVideoCard(
+                      key: Key('tutorial-${video.id}'),
+                      video: video,
+                      onWatch: () => _watch(context, ref, video),
                     ),
-                  ]
-                : [
-                    for (final video in catalog.videos) ...[
-                      TutorialVideoCard(
-                        key: Key('tutorial-${video.id}'),
-                        video: video,
-                        onWatch: () => _watch(context, ref, video),
-                      ),
-                      const SizedBox(height: 15),
-                    ],
+                    const SizedBox(height: 15),
                   ],
+                ];
+              }
+              // Published documents exist but none can be shown: a data
+              // problem (already reported), never "no tutorials".
+              if (catalog.hasUnusableDocuments) {
+                return [
+                  _Message(
+                    key: const Key('tutorial-error'),
+                    text: _withReference(
+                      l10n.tutorialError,
+                      catalog.errorReference,
+                    ),
+                    onRetry: () => ref.invalidate(tutorialCatalogProvider),
+                  ),
+                ];
+              }
+              return [
+                _Message(
+                  key: const Key('tutorial-empty'),
+                  text: catalog.fromCache
+                      ? l10n.tutorialOffline
+                      : l10n.tutorialEmpty,
+                  onRetry: catalog.fromCache
+                      ? () => ref.invalidate(tutorialCatalogProvider)
+                      : null,
+                ),
+              ];
+            },
           ),
         ],
       ),
     );
   }
+
+  /// The message with the `OO-` reference of a reported failure, written
+  /// like the app's other reported errors.
+  static String _withReference(String text, String? reference) =>
+      reference == null ? text : '$text (Ref: $reference)';
 
   /// Opens the YouTube app. When it is missing, the browser is offered and
   /// used only if the user chooses it.

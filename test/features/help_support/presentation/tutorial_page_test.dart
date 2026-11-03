@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/app/app.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
+import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/platform/external_launcher.dart';
 import 'package:orange_one/core/storage/secret_store.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
@@ -29,18 +30,18 @@ TutorialCatalog _catalog({bool fromCache = false, int count = 2}) =>
           {
             'title': {'en': 'How to Adjust Stock', 'nl': 'Voorraad aanpassen'},
             'description': 'Learn how to manage product stock in OrangeOne.',
-            'youtube_url': 'https://youtu.be/$_id',
+            'youtubeVideoId': _id,
             'published': true,
-            'order': 1,
+            'sortOrder': 1,
           },
         ),
         (
           'login',
           {
             'title': 'How to Login',
-            'youtube_url': _id,
+            'youtubeVideoId': _id,
             'published': true,
-            'order': 2,
+            'sortOrder': 2,
           },
         ),
       ].take(count).toList(),
@@ -245,6 +246,106 @@ void main() {
     expect(repository.controllers, hasLength(2));
     await showVideos(tester, _catalog());
     expect(find.text('How to Adjust Stock'), findsOneWidget);
+  });
+
+  testWidgets('the getting-started document of the console is shown', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await openTutorial(tester);
+    await showVideos(
+      tester,
+      catalogFrom([
+        (
+          'getting-started-001',
+          {
+            'title': 'Getting started',
+            'description': 'Your first steps with OrangeOne.',
+            'category': 'basics',
+            'language': 'en',
+            'published': true,
+            'sortOrder': 1,
+            'youtubeVideoId': _id,
+            'thumbnailUrl': 'https://cdn.example.ch/getting-started.jpg',
+          },
+        ),
+      ]),
+    );
+    expect(find.text('Getting started'), findsOneWidget);
+    expect(find.text('Your first steps with OrangeOne.'), findsOneWidget);
+    expect(find.text('No tutorials are available yet.'), findsNothing);
+  });
+
+  testWidgets('videos of another language are left out', (tester) async {
+    await pumpApp(tester);
+    await openTutorial(tester);
+    await showVideos(
+      tester,
+      catalogFrom([
+        (
+          'en',
+          {
+            'title': 'English video',
+            'language': 'en',
+            'published': true,
+            'sortOrder': 1,
+            'youtubeVideoId': _id,
+          },
+        ),
+        (
+          'nl',
+          {
+            'title': 'Nederlandse video',
+            'language': 'nl',
+            'published': true,
+            'sortOrder': 2,
+            'youtubeVideoId': _id,
+          },
+        ),
+      ]),
+    );
+    expect(find.text('English video'), findsOneWidget);
+    expect(find.text('Nederlandse video'), findsNothing);
+  });
+
+  testWidgets('unusable published documents are an error, not "empty"', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await openTutorial(tester);
+    await showVideos(
+      tester,
+      catalogFrom([
+        (
+          'getting-started-001',
+          {'title': 'Broken', 'published': true, 'sortOrder': 1},
+        ),
+      ]).withReference('OO-ABC123'),
+    );
+    expect(find.text('No tutorials are available yet.'), findsNothing);
+    expect(
+      find.text('The tutorials could not be loaded. (Ref: OO-ABC123)'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('tutorial-retry')), findsOneWidget);
+  });
+
+  testWidgets('a reported Firestore failure shows its reference', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await openTutorial(tester);
+    repository.latest.addError(
+      const AppFailure(
+        FailureKind.configuration,
+        'The support videos could not be loaded.',
+      ).withReference('OO-XYZ789'),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('The tutorials could not be loaded. (Ref: OO-XYZ789)'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('without Firebase the screen reports unavailable tutorials', (

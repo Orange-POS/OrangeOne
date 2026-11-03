@@ -12,6 +12,8 @@ class TutorialVideo {
     required this.youtubeVideoId,
     required this.thumbnail,
     required this.order,
+    this.category,
+    this.language,
   });
 
   final String id;
@@ -20,8 +22,15 @@ class TutorialVideo {
   final String youtubeVideoId;
   final Uri thumbnail;
 
-  /// Display position; lower comes first.
+  /// Display position (`sortOrder`); lower comes first.
   final num order;
+
+  /// Grouping for a future support library; not shown yet.
+  final String? category;
+
+  /// Primary language code of the video (`en`, `nl`, …); null when the video
+  /// suits every language.
+  final String? language;
 
   /// The canonical page the YouTube app opens.
   Uri get watchUrl =>

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orange_one/core/monitoring/crash_reporter.dart';
 import 'package:orange_one/core/platform/external_launcher.dart';
 import 'package:orange_one/features/help_support/data/repositories/firestore_tutorial_repository.dart';
 import 'package:orange_one/features/help_support/domain/entities/tutorial_catalog.dart';
@@ -12,7 +13,10 @@ import 'package:orange_one/features/help_support/domain/repositories/tutorial_re
 final tutorialRepositoryProvider = Provider<TutorialRepository>(
   (ref) => Firebase.apps.isEmpty
       ? const UnavailableTutorialRepository()
-      : FirestoreTutorialRepository(FirebaseFirestore.instance),
+      : FirestoreTutorialRepository(
+          () => publishedSupportVideos(FirebaseFirestore.instance),
+          ref.watch(crashReporterProvider),
+        ),
   name: 'tutorialRepositoryProvider',
 );
 
