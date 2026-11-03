@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/features/help_support/data/models/tutorial_video_model.dart';
 import 'package:orange_one/features/help_support/data/repositories/firestore_tutorial_repository.dart';
@@ -12,6 +15,22 @@ void main() {
     'order': 1,
     ...changes,
   };
+
+  test('code, security rules and index use the same collection', () {
+    expect(TutorialFields.collection, 'support_videos');
+    final rules = File('firebase/firestore.rules').readAsStringSync();
+    expect(rules, contains('match /support_videos/{video}'));
+    final indexes = jsonDecode(
+      File('firebase/firestore.indexes.json').readAsStringSync(),
+    ) as Map<String, Object?>;
+    expect(
+      [
+        for (final index in indexes['indexes']! as List)
+          (index as Map)['collectionGroup'],
+      ],
+      ['support_videos'],
+    );
+  });
 
   test('maps a complete published document', () {
     final video = tutorialFromDocument('stock', doc())!;

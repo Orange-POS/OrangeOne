@@ -1,9 +1,9 @@
 import 'package:orange_one/features/help_support/domain/entities/localized_text.dart';
 import 'package:orange_one/features/help_support/domain/entities/tutorial_video.dart';
 
-/// Firestore document fields of a tutorial (collection `tutorials`).
+/// Firestore document fields of a tutorial (collection `support_videos`).
 abstract final class TutorialFields {
-  static const collection = 'tutorials';
+  static const collection = 'support_videos';
   static const title = 'title';
   static const description = 'description';
   static const youtubeUrl = 'youtube_url';

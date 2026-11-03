@@ -1,7 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "tutorials",
+      "collectionGroup": "support_videos",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "published", "order": "ASCENDING" },

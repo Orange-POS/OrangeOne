@@ -5,7 +5,7 @@ rules_version = '2';
 // console (console edits are not limited by these rules).
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /tutorials/{tutorial} {
+    match /support_videos/{video} {
       allow get, list: if resource.data.published == true;
       allow create, update, delete: if false;
     }

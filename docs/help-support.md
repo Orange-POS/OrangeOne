@@ -51,7 +51,7 @@ project separately (for example test in Development, then add to Production).
 
 ## Firestore data
 
-Collection `tutorials`, one document per video (document ID is free, for
+Collection `support_videos`, one document per video (document ID is free, for
 example `adjust-stock`):
 
 | Field | Type | Required | Example |
@@ -78,11 +78,11 @@ Repeat for `orangeone-development` and `orangeone-production`:
    [`firebase/firestore.rules`](../firebase/firestore.rules) and **Publish**.
    They allow reading published tutorials only; nothing can be written by the
    app.
-3. **Indexes › Composite › Create index**: collection `tutorials`, fields
+3. **Indexes › Composite › Create index**: collection `support_videos`, fields
    `published` Ascending and `order` Ascending, query scope Collection
    (also in [`firebase/firestore.indexes.json`](../firebase/firestore.indexes.json)).
    Wait until it is *Enabled*. Without it the screen shows the load error.
-4. **Data › Start collection** `tutorials`, then add one document per video
+4. **Data › Start collection** `support_videos`, then add one document per video
    with the fields above.
 5. Open Settings › OrangeOne Tutorial on a CI-built app of that environment
    and check the list and **Watch video**.
