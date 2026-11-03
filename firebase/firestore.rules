@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// OrangeONE mobile app: read-only access to published tutorials.
+// The app has no Firebase sign-in; tutorials are managed in the Firebase
+// console (console edits are not limited by these rules).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /tutorials/{tutorial} {
+      allow get, list: if resource.data.published == true;
+      allow create, update, delete: if false;
+    }
+
+    // Everything else stays closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

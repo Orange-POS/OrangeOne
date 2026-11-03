@@ -189,7 +189,7 @@
   "settingsAppVersionLabel": "Uygulama Sürümü",
   "settingsDemonstrationSection": "TANITIM",
   "settingsHelpSection": "YARDIM VE DESTEK",
-  "settingsHowToUse": "OrangeOne Nasıl Kullanılır",
+  "settingsTutorial": "OrangeOne Eğitimi",
   "settingsPrivacyPolicy": "Gizlilik Politikası",
   "settingsContactSupport": "Destekle İletişime Geç",
   "settingsAboutSection": "HAKKINDA",
@@ -212,5 +212,17 @@
   "demoSampleManagerBody": "Ürünleri görüntüleyebilir ve düzenleyebilir, fiyatları değiştirebilir, stok sayabilir.",
   "demoSampleViewerTitle": "Salt okunur kasa",
   "demoSampleViewerBody": "Ürünleri görüntüleyebilir ancak hiçbir şeyi değiştiremez.",
-  "demoSampleBarcodesTitle": "Örnek barkodlar"
+  "demoSampleBarcodesTitle": "Örnek barkodlar",
+  "tutorialTitle": "Eğitim",
+  "tutorialYoutubeGuides": "YouTube Rehberleri",
+  "tutorialYoutubeBadge": "YouTube videosu",
+  "tutorialWatchVideo": "Videoyu izle",
+  "tutorialWatchSemantics": "Videoyu izle: {title}",
+  "tutorialEmpty": "Henüz eğitim videosu yok.",
+  "tutorialOffline": "Eğitimleri yüklemek için internete bağlanın.",
+  "tutorialError": "Eğitimler yüklenemedi.",
+  "tutorialRetry": "Tekrar dene",
+  "tutorialYoutubeMissing": "YouTube uygulaması yüklü değil.",
+  "tutorialOpenInBrowser": "Tarayıcıda aç",
+  "tutorialOpenFailed": "Video açılamadı."
 }

@@ -962,9 +962,9 @@
   "@settingsHelpSection": {
     "description": "Section heading for help and support; kept in capitals"
   },
-  "settingsHowToUse": "How to Use OrangeOne",
-  "@settingsHowToUse": {
-    "description": "Help row; not yet linked"
+  "settingsTutorial": "OrangeOne Tutorial",
+  "@settingsTutorial": {
+    "description": "Help row that opens the tutorial videos"
   },
   "settingsPrivacyPolicy": "Privacy Policy",
   "@settingsPrivacyPolicy": {
@@ -1057,5 +1057,58 @@
   "demoSampleBarcodesTitle": "Sample barcodes",
   "@demoSampleBarcodesTitle": {
     "description": "Heading of the sample barcode list on the scanner"
+  },
+  "tutorialTitle": "Tutorial",
+  "@tutorialTitle": {
+    "description": "Title of the Help & Support tutorial screen"
+  },
+  "tutorialYoutubeGuides": "YouTube Guides",
+  "@tutorialYoutubeGuides": {
+    "description": "Section heading above the YouTube tutorial videos"
+  },
+  "tutorialYoutubeBadge": "YouTube video",
+  "@tutorialYoutubeBadge": {
+    "description": "Red badge marking a tutorial as a YouTube video"
+  },
+  "tutorialWatchVideo": "Watch video",
+  "@tutorialWatchVideo": {
+    "description": "Action that opens the tutorial in the YouTube app"
+  },
+  "tutorialWatchSemantics": "Watch video: {title}",
+  "@tutorialWatchSemantics": {
+    "description": "Screen-reader label of a tutorial card; {title} is the video title",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "tutorialEmpty": "No tutorials are available yet.",
+  "@tutorialEmpty": {
+    "description": "Shown when no tutorial is published"
+  },
+  "tutorialOffline": "Connect to the internet to load the tutorials.",
+  "@tutorialOffline": {
+    "description": "Shown when tutorials were never loaded and the device is offline"
+  },
+  "tutorialError": "The tutorials could not be loaded.",
+  "@tutorialError": {
+    "description": "Shown when the tutorials could not be loaded"
+  },
+  "tutorialRetry": "Try again",
+  "@tutorialRetry": {
+    "description": "Button to load the tutorials again"
+  },
+  "tutorialYoutubeMissing": "The YouTube app is not installed.",
+  "@tutorialYoutubeMissing": {
+    "description": "Snackbar when the YouTube app is not installed"
+  },
+  "tutorialOpenInBrowser": "Open in browser",
+  "@tutorialOpenInBrowser": {
+    "description": "Snackbar action: open the video in the browser instead"
+  },
+  "tutorialOpenFailed": "The video could not be opened.",
+  "@tutorialOpenFailed": {
+    "description": "Snackbar when even the browser could not open the video"
   }
 }

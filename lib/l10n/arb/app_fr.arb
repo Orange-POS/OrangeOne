@@ -189,7 +189,7 @@
   "settingsAppVersionLabel": "Version de l’app",
   "settingsDemonstrationSection": "DÉMONSTRATION",
   "settingsHelpSection": "AIDE ET ASSISTANCE",
-  "settingsHowToUse": "Comment utiliser OrangeOne",
+  "settingsTutorial": "Tutoriel OrangeOne",
   "settingsPrivacyPolicy": "Politique de confidentialité",
   "settingsContactSupport": "Contacter l’assistance",
   "settingsAboutSection": "À PROPOS",
@@ -212,5 +212,17 @@
   "demoSampleManagerBody": "Peut consulter et modifier les produits, changer les prix et compter le stock.",
   "demoSampleViewerTitle": "Caisse en lecture seule",
   "demoSampleViewerBody": "Peut consulter les produits mais ne peut rien modifier.",
-  "demoSampleBarcodesTitle": "Codes-barres d’exemple"
+  "demoSampleBarcodesTitle": "Codes-barres d’exemple",
+  "tutorialTitle": "Tutoriel",
+  "tutorialYoutubeGuides": "Guides YouTube",
+  "tutorialYoutubeBadge": "Vidéo YouTube",
+  "tutorialWatchVideo": "Regarder la vidéo",
+  "tutorialWatchSemantics": "Regarder la vidéo : {title}",
+  "tutorialEmpty": "Aucun tutoriel n’est encore disponible.",
+  "tutorialOffline": "Connectez-vous à Internet pour charger les tutoriels.",
+  "tutorialError": "Impossible de charger les tutoriels.",
+  "tutorialRetry": "Réessayer",
+  "tutorialYoutubeMissing": "L’application YouTube n’est pas installée.",
+  "tutorialOpenInBrowser": "Ouvrir dans le navigateur",
+  "tutorialOpenFailed": "Impossible d’ouvrir la vidéo."
 }

@@ -13,6 +13,7 @@ import 'package:orange_one/features/demo/presentation/providers/demo_providers.d
 import 'package:orange_one/features/demo/presentation/widgets/demo_mode_section.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_sample_barcodes.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_sample_qr_list.dart';
+import 'package:orange_one/features/help_support/presentation/pages/tutorial_page.dart';
 import 'package:orange_one/features/home/presentation/pages/home_page.dart';
 import 'package:orange_one/features/home/presentation/pages/product_scanner_page.dart';
 import 'package:orange_one/features/initialization/presentation/pages/initialization_page.dart';
@@ -167,6 +168,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             );
           },
         ),
+        routes: [
+          // Help & Support: the remotely managed tutorial videos.
+          GoRoute(
+            name: 'tutorial',
+            path: 'tutorial',
+            builder: (context, state) => const TutorialPage(),
+          ),
+        ],
       ),
       if (ref.watch(developmentDiagnosticsProvider))
         GoRoute(

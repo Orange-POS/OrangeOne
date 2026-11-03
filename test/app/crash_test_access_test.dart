@@ -118,7 +118,7 @@ void main() {
         for (final key in [
           'settings-app-version',
           'demo-mode-switch',
-          'settings-how-to-use',
+          'settings-tutorial',
           'settings-privacy-policy',
           'settings-contact-support',
           'settings-about',
