@@ -1,0 +1,14 @@
+{
+  "name": "orangeone-youtube-tutorial",
+  "private": true,
+  "type": "module",
+  "description": "Renders the Getting Started with OrangeOne tutorial (MP4) and thumbnail (PNG).",
+  "scripts": {
+    "render": "node render.mjs",
+    "thumbnail": "node render.mjs --thumbnail"
+  },
+  "devDependencies": {
+    "ffmpeg-static": "5.2.0",
+    "puppeteer-core": "24.10.0"
+  }
+}

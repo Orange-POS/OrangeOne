@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Getting Started with OrangeOne — thumbnail</title>
+<style>
+  @font-face { font-family: 'Inter'; src: url('../../../assets/fonts/Inter.ttf') format('truetype'); font-weight: 100 900; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 720px; overflow: hidden; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  #stage { position: relative; width: 1280px; height: 720px; overflow: hidden;
+    background: linear-gradient(118deg, #BE4602 8%, #FF8A33 94%); }
+  .orb { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.18), rgba(255,255,255,0) 70%); }
+  .logo { position: absolute; left: 72px; top: 70px; width: 104px; height: 104px; border-radius: 28px; background: #fff;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 16px 34px rgba(90,30,0,.3); }
+  .logo img { width: 88px; height: 88px; }
+  .kicker { position: absolute; left: 72px; top: 232px; font-size: 54px; font-weight: 700; letter-spacing: -1px; text-shadow: 0 4px 18px rgba(110,35,0,.35); }
+  .name { position: absolute; left: 66px; top: 290px; font-size: 128px; font-weight: 800; letter-spacing: -4px; line-height: 1;
+    text-shadow: 0 8px 30px rgba(110,35,0,.4); }
+  .chip { position: absolute; left: 72px; top: 482px; padding: 16px 30px; border-radius: 999px; background: #fff; color: #BE4602;
+    font-size: 34px; font-weight: 800; letter-spacing: .5px; box-shadow: 0 12px 30px rgba(90,30,0,.3); }
+  .steps { position: absolute; left: 76px; top: 588px; font-size: 30px; font-weight: 600; opacity: .95; letter-spacing: .5px; }
+  .phone { position: absolute; width: 300px; height: 630px; border-radius: 44px; padding: 10px;
+    background: linear-gradient(145deg, #3a3a3e, #121214 40%, #2a2a2e); box-shadow: 0 30px 60px rgba(60,15,0,.45); }
+  .phone .screen { width: 280px; height: 610px; border-radius: 35px; overflow: hidden; position: relative; }
+  .phone img { width: 280px; height: 606px; display: block; }
+  .island { position: absolute; top: 9px; left: 50%; width: 90px; height: 26px; margin-left: -45px; background: #000; border-radius: 13px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="orb" style="width:900px;height:900px;left:-300px;top:-420px"></div>
+  <div class="orb" style="width:700px;height:700px;left:760px;top:260px"></div>
+  <div class="logo"><img src="../brand/logo_mark_500.png" alt=""></div>
+  <div class="kicker">Getting Started with</div>
+  <div class="name">OrangeOne</div>
+  <div class="chip">BEGINNER TUTORIAL</div>
+  <div class="steps">Sign in · Scan · Edit · Price · Stock</div>
+  <div class="phone" style="left:815px;top:62px;transform:rotate(-7deg)">
+    <div class="screen"><img src="../shots/scanner.png" alt=""><div class="island"></div></div>
+  </div>
+  <div class="phone" style="left:985px;top:40px;transform:rotate(6deg)">
+    <div class="screen"><img src="../shots/details_after_price.png" alt=""><div class="island"></div></div>
+  </div>
+</div>
+<script>
+  window.ready = (async () => {
+    await document.fonts.load('800 100px Inter');
+    await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
+    return true;
+  })();
+</script>
+</body>
+</html>

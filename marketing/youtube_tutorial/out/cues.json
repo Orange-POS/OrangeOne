@@ -1,0 +1,274 @@
+[
+ {
+  "t": 0.4,
+  "kind": "riser"
+ },
+ {
+  "t": 14.6,
+  "kind": "whoosh"
+ },
+ {
+  "t": 20,
+  "kind": "tap"
+ },
+ {
+  "t": 20.2,
+  "kind": "whoosh"
+ },
+ {
+  "t": 24.6,
+  "kind": "scan"
+ },
+ {
+  "t": 27.5,
+  "kind": "success"
+ },
+ {
+  "t": 37.6,
+  "kind": "tap"
+ },
+ {
+  "t": 37.8,
+  "kind": "whoosh"
+ },
+ {
+  "t": 42.6,
+  "kind": "scan"
+ },
+ {
+  "t": 43,
+  "kind": "whoosh"
+ },
+ {
+  "t": 51.3,
+  "kind": "pop"
+ },
+ {
+  "t": 53.6,
+  "kind": "pop"
+ },
+ {
+  "t": 55.7,
+  "kind": "pop"
+ },
+ {
+  "t": 58.6,
+  "kind": "pop"
+ },
+ {
+  "t": 64.2,
+  "kind": "tap"
+ },
+ {
+  "t": 64.4,
+  "kind": "whoosh"
+ },
+ {
+  "t": 65.9,
+  "kind": "tap"
+ },
+ {
+  "t": 66.04,
+  "kind": "key"
+ },
+ {
+  "t": 66.15,
+  "kind": "key"
+ },
+ {
+  "t": 66.26,
+  "kind": "key"
+ },
+ {
+  "t": 66.64,
+  "kind": "key"
+ },
+ {
+  "t": 66.75,
+  "kind": "key"
+ },
+ {
+  "t": 66.86,
+  "kind": "key"
+ },
+ {
+  "t": 67.34,
+  "kind": "key"
+ },
+ {
+  "t": 67.45,
+  "kind": "key"
+ },
+ {
+  "t": 67.56,
+  "kind": "key"
+ },
+ {
+  "t": 69.4,
+  "kind": "tap"
+ },
+ {
+  "t": 71,
+  "kind": "tap"
+ },
+ {
+  "t": 73.2,
+  "kind": "tap"
+ },
+ {
+  "t": 75.4,
+  "kind": "tap"
+ },
+ {
+  "t": 75.6,
+  "kind": "whoosh"
+ },
+ {
+  "t": 75.9,
+  "kind": "success"
+ },
+ {
+  "t": 81,
+  "kind": "tap"
+ },
+ {
+  "t": 81.2,
+  "kind": "whoosh"
+ },
+ {
+  "t": 82.8,
+  "kind": "tap"
+ },
+ {
+  "t": 82.84,
+  "kind": "key"
+ },
+ {
+  "t": 82.95,
+  "kind": "key"
+ },
+ {
+  "t": 83.06,
+  "kind": "key"
+ },
+ {
+  "t": 83.34,
+  "kind": "key"
+ },
+ {
+  "t": 83.45,
+  "kind": "key"
+ },
+ {
+  "t": 83.56,
+  "kind": "key"
+ },
+ {
+  "t": 83.84,
+  "kind": "key"
+ },
+ {
+  "t": 83.95,
+  "kind": "key"
+ },
+ {
+  "t": 84.06,
+  "kind": "key"
+ },
+ {
+  "t": 86,
+  "kind": "tap"
+ },
+ {
+  "t": 88.2,
+  "kind": "tap"
+ },
+ {
+  "t": 88.4,
+  "kind": "whoosh"
+ },
+ {
+  "t": 88.7,
+  "kind": "success"
+ },
+ {
+  "t": 95,
+  "kind": "tap"
+ },
+ {
+  "t": 95.2,
+  "kind": "whoosh"
+ },
+ {
+  "t": 97.4,
+  "kind": "tap"
+ },
+ {
+  "t": 98.9,
+  "kind": "tap"
+ },
+ {
+  "t": 98.94,
+  "kind": "key"
+ },
+ {
+  "t": 99.05,
+  "kind": "key"
+ },
+ {
+  "t": 99.16,
+  "kind": "key"
+ },
+ {
+  "t": 99.44,
+  "kind": "key"
+ },
+ {
+  "t": 99.55,
+  "kind": "key"
+ },
+ {
+  "t": 99.66,
+  "kind": "key"
+ },
+ {
+  "t": 101,
+  "kind": "swish"
+ },
+ {
+  "t": 102,
+  "kind": "pop"
+ },
+ {
+  "t": 103.8,
+  "kind": "tap"
+ },
+ {
+  "t": 106,
+  "kind": "tap"
+ },
+ {
+  "t": 106.2,
+  "kind": "whoosh"
+ },
+ {
+  "t": 106.5,
+  "kind": "success"
+ },
+ {
+  "t": 110.6,
+  "kind": "pop"
+ },
+ {
+  "t": 113.6,
+  "kind": "pop"
+ },
+ {
+  "t": 116,
+  "kind": "whoosh"
+ },
+ {
+  "t": 116.5,
+  "kind": "riser"
+ }
+]
