@@ -1057,5 +1057,23 @@
   "demoSampleBarcodesTitle": "Sample barcodes",
   "@demoSampleBarcodesTitle": {
     "description": "Heading of the sample barcode list on the scanner"
+  },
+  "demoExistingProductBarcode": "Existing product · {barcode}",
+  "@demoExistingProductBarcode": {
+    "description": "Sample barcode on the demo scanner of a sample product, so it opens its details",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "demoNewProductBarcode": "New product · {barcode}",
+  "@demoNewProductBarcode": {
+    "description": "Sample barcode on the demo scanner that no product uses, so it opens product creation",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -212,5 +212,7 @@
   "demoSampleManagerBody": "தயாரிப்புகளைப் பார்க்கவும் திருத்தவும், விலைகளை மாற்றவும், இருப்பை எண்ணவும் முடியும்.",
   "demoSampleViewerTitle": "படிக்க மட்டும் கவுண்டர்",
   "demoSampleViewerBody": "தயாரிப்புகளைப் பார்க்கலாம், ஆனால் எதையும் மாற்ற முடியாது.",
-  "demoSampleBarcodesTitle": "மாதிரி பார்கோடுகள்"
+  "demoSampleBarcodesTitle": "மாதிரி பார்கோடுகள்",
+  "demoExistingProductBarcode": "இருக்கும் பொருள் · {barcode}",
+  "demoNewProductBarcode": "புதிய பொருள் · {barcode}"
 }

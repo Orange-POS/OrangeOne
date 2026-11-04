@@ -28,6 +28,7 @@ import '../../support/wifi_fakes.dart';
 
 const _water = '2000000000011';
 const _yogurt = '2000000000073';
+const _newProduct = '2000000000992';
 
 ProviderContainer _container({FakeAuthRepository? auth}) =>
     ProviderContainer.test(
@@ -506,6 +507,117 @@ void main() {
       container.read(routerProvider).pop();
       await tester.pumpAndSettle();
       expect(productCameraBuilds, 0);
+    });
+
+    testWidgets('a manager creates a product from the new-product sample', (
+      tester,
+    ) async {
+      final (container, auth) = await open(tester);
+      await openSampleLogin(tester, 'manager');
+      await tester.tap(find.byKey(const Key('scan-product-button')));
+      await tester.pumpAndSettle();
+
+      // Exactly two sample barcodes: an existing and a new product.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('demo-sample-barcodes')),
+          matching: find.byType(ActionChip),
+        ),
+        findsNWidgets(2),
+      );
+      expect(find.text('Existing product · $_water'), findsOneWidget);
+      expect(find.text('New product · $_newProduct'), findsOneWidget);
+
+      // The existing sample opens its details; Open Scanner returns.
+      await tester.tap(find.byKey(const Key('demo-barcode-$_water')));
+      await tester.pumpAndSettle();
+      expect(find.text('Sparkling Water 1L'), findsWidgets);
+      await tester.tap(find.byTooltip('Open Scanner'));
+      await tester.pumpAndSettle();
+
+      // The new sample is unknown, so it opens product creation.
+      await tester.tap(find.byKey(const Key('demo-barcode-$_newProduct')));
+      await tester.pumpAndSettle();
+      expect(find.text('Create New Product'), findsOneWidget);
+      expect(find.text(_newProduct), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('create-product-name')),
+        'Rice Cakes',
+      );
+      await tester.enterText(find.byKey(const Key('new-price-input')), '1.90');
+      await tester.ensureVisible(find.byKey(const Key('create-product-tax')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('create-product-tax')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('8.1%').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('create-product-category')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('create-product-category')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pantry').last);
+      await tester.pumpAndSettle();
+
+      // Nothing is created before Confirm.
+      await tester.tap(find.widgetWithText(FilledButton, 'Create Product'));
+      await tester.pumpAndSettle();
+      expect(
+        (await container
+                .read(productDetailsRepositoryProvider)
+                .load(_newProduct))
+            .product,
+        isNull,
+      );
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      // Product Details of the new product, with the success toast.
+      expect(find.text('Create New Product'), findsNothing);
+      expect(find.text('Rice Cakes'), findsWidgets);
+      expect(find.text('Pantry'), findsWidgets);
+      expect(find.byTooltip('Open Scanner'), findsOneWidget);
+      expect(container.read(productSuccessProvider), isNotNull);
+      final stored =
+          (await container
+                  .read(productDetailsRepositoryProvider)
+                  .load(_newProduct))
+              .product;
+      expect(stored?.name, 'Rice Cakes');
+      expect(stored?.price, 1.9);
+
+      // Demo only: no camera, no real sign-in, token or session.
+      expect(productCameraBuilds, 0);
+      expect(auth.signIns + auth.tokenRequests, 0);
+      expect(container.read(activeSessionProvider), isNull);
+    });
+
+    testWidgets('the read-only sample cannot create the new-product sample', (
+      tester,
+    ) async {
+      final (container, _) = await open(tester);
+      await openSampleLogin(tester, 'viewer');
+      await tester.tap(find.byKey(const Key('scan-product-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('demo-barcode-$_newProduct')));
+      await tester.pumpAndSettle();
+      expect(find.text('Create New Product'), findsOneWidget);
+      expect(
+        find.text('You do not have permission to create products.'),
+        findsOneWidget,
+      );
+      final create = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Create Product'),
+      );
+      expect(create.onPressed, isNull);
+      expect(
+        (await container
+                .read(productDetailsRepositoryProvider)
+                .load(_newProduct))
+            .product,
+        isNull,
+      );
     });
 
     testWidgets('a product created without stock shows Not Set, then counts', (

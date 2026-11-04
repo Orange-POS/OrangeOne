@@ -212,5 +212,7 @@
   "demoSampleManagerBody": "Kan producten bekijken en bewerken, prijzen wijzigen en voorraad tellen.",
   "demoSampleViewerTitle": "Kassa met alleen-lezen",
   "demoSampleViewerBody": "Kan producten bekijken maar niets wijzigen.",
-  "demoSampleBarcodesTitle": "Voorbeeldbarcodes"
+  "demoSampleBarcodesTitle": "Voorbeeldbarcodes",
+  "demoExistingProductBarcode": "Bestaand product · {barcode}",
+  "demoNewProductBarcode": "Nieuw product · {barcode}"
 }

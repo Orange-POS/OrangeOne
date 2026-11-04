@@ -33,11 +33,6 @@ class DemoCatalog {
   var _nextId = 1000;
   var _nextCategoryId = 100;
 
-  /// The barcode of every sample product.
-  List<String> get sampleBarcodes => [
-    for (final record in _records) record.barcode,
-  ];
-
   ProductDetails? byBarcode(String barcode) {
     for (final record in _records) {
       if (record.barcode == barcode) return _details(record);
@@ -241,7 +236,8 @@ class _Seed {
   final bool tracked;
 }
 
-/// Fictional products; the barcodes are not assigned to real goods.
+/// Fictional products; the barcodes are not assigned to real goods. The first
+/// is `DemoBarcodes.existingProduct`; none may use `DemoBarcodes.newProduct`.
 const _seeds = [
   _Seed(1, 'Sparkling Water 1L', '2000000000011', 1.20, 120, 1, [1]),
   _Seed(2, 'Orange Juice 1L', '2000000000028', 3.50, 48, 1, [1]),

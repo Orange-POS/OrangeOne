@@ -212,5 +212,7 @@
   "demoSampleManagerBody": "Peut consulter et modifier les produits, changer les prix et compter le stock.",
   "demoSampleViewerTitle": "Caisse en lecture seule",
   "demoSampleViewerBody": "Peut consulter les produits mais ne peut rien modifier.",
-  "demoSampleBarcodesTitle": "Codes-barres d’exemple"
+  "demoSampleBarcodesTitle": "Codes-barres d’exemple",
+  "demoExistingProductBarcode": "Produit existant · {barcode}",
+  "demoNewProductBarcode": "Nouveau produit · {barcode}"
 }

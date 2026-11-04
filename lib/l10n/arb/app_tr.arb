@@ -212,5 +212,7 @@
   "demoSampleManagerBody": "Ürünleri görüntüleyebilir ve düzenleyebilir, fiyatları değiştirebilir, stok sayabilir.",
   "demoSampleViewerTitle": "Salt okunur kasa",
   "demoSampleViewerBody": "Ürünleri görüntüleyebilir ancak hiçbir şeyi değiştiremez.",
-  "demoSampleBarcodesTitle": "Örnek barkodlar"
+  "demoSampleBarcodesTitle": "Örnek barkodlar",
+  "demoExistingProductBarcode": "Mevcut ürün · {barcode}",
+  "demoNewProductBarcode": "Yeni ürün · {barcode}"
 }
