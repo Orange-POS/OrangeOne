@@ -1,11 +1,15 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/app/app.dart';
+import 'package:orange_one/app/providers/product_dependencies.dart';
 import 'package:orange_one/app/router/app_router.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/authenticated_mobile_api.dart';
+import 'package:orange_one/core/network/mobile_api_client.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
@@ -15,6 +19,7 @@ import 'package:orange_one/features/products/presentation/providers/product_succ
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 import '../../support/auth_fakes.dart';
+import '../../support/backend_features_fakes.dart';
 import '../../support/product_details_fakes.dart';
 
 class _Unset extends UnsetStockController {
@@ -28,6 +33,7 @@ void main() {
     WidgetTester tester, {
     FakeDetailsRepository? repository,
     bool direct = false,
+    bool stockMovements = true,
     List<Override> more = const [],
   }) async {
     tester.view
@@ -43,6 +49,7 @@ void main() {
           ),
           utcNowProvider.overrideWithValue(() => testNow),
           productDetailsRepositoryProvider.overrideWithValue(repo),
+          if (stockMovements) stockMovementsBackend,
           ...more,
         ],
         child: const App(),
@@ -374,4 +381,93 @@ void main() {
     expect(tile.onTap, isNull);
     expect(repo.writes, 0);
   });
+
+  testWidgets('an older shop counts with Update only; no Add or Remove', (
+    tester,
+  ) async {
+    final repo = await openStock(tester, stockMovements: false);
+    expect(find.byKey(const Key('stock-operation-add')), findsNothing);
+    expect(find.byKey(const Key('stock-operation-remove')), findsNothing);
+    expect(find.byKey(const Key('stock-operation-update')), findsNothing);
+    // Counting works exactly as before.
+    await tester.enterText(find.byKey(const Key('stock-count-input')), '40');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Update Stock'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+    expect(repo.writes, 1);
+    expect(repo.writtenOperation, StockOperation.update);
+    expect(repo.writtenCount?.quantity, 40);
+  });
+
+  testWidgets('a newer shop offers Update, Add and Remove', (tester) async {
+    await openStock(tester);
+    for (final operation in StockOperation.values) {
+      expect(
+        find.byKey(Key('stock-operation-${operation.name}')),
+        findsOneWidget,
+      );
+    }
+  });
+
+  testWidgets('Add and Remove appear once the shop answers after a failure', (
+    tester,
+  ) async {
+    final meta = _FlakyMeta();
+    await openStock(
+      tester,
+      stockMovements: false,
+      more: [
+        backendFeaturesOverride,
+        authenticatedMobileApiProvider.overrideWith((ref) => meta),
+      ],
+    );
+    // Product Details asked first and failed; the Stock screen above it asked
+    // once more and now has the shop's answer.
+    expect(meta.calls, 2);
+    expect(find.byKey(const Key('stock-operation-add')), findsOneWidget);
+    expect(find.byKey(const Key('stock-operation-remove')), findsOneWidget);
+
+    // Confirmed features are kept: opening Stock again does not ask again.
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Update stock'));
+    await tester.pumpAndSettle();
+    expect(meta.calls, 2);
+    expect(find.byKey(const Key('stock-operation-add')), findsOneWidget);
+  });
+}
+
+/// GET /meta that fails once (offline) and then advertises stock movements.
+class _FlakyMeta implements AuthenticatedMobileApi {
+  int calls = 0;
+
+  @override
+  Uri get apiBase => testApiBase;
+
+  @override
+  Future<MobileApiResponse> send(
+    MobileApiMethod method,
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+    String? language,
+    String? idempotencyKey,
+    String? ifMatchVersion,
+    String? ifNoneMatch,
+    CancelToken? cancelToken,
+  }) async {
+    expect(path, '/meta');
+    if (++calls == 1) {
+      throw const AppFailure(FailureKind.network, 'offline');
+    }
+    return const MobileApiResponse(
+      statusCode: 200,
+      data: {
+        'api_version': '1.0.0',
+        'features': ['stock_adjustments', 'stock_movements'],
+      },
+    );
+  }
 }
