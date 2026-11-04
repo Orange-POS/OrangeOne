@@ -125,6 +125,42 @@ void main() {
     },
   );
 
+  test('a malformed video link is skipped; valid tutorials stay', () async {
+    final catalogs = <TutorialCatalog>[];
+    final errors = <Object>[];
+    final subscription = repository.watchPublished().listen(
+      catalogs.add,
+      onError: errors.add,
+    );
+    const pathLink = 'https://www.youtube.com/%FF';
+    const queryLink = 'https://www.youtube.com/watch?v=%FF';
+    snapshots.add(
+      snapshot([
+        ('getting-started-001', _doc()),
+        ('broken-path', _doc({'youtubeVideoId': pathLink, 'sortOrder': 2})),
+        ('broken-query', _doc({'youtubeVideoId': queryLink, 'sortOrder': 3})),
+      ]),
+    );
+    await pumpEventQueue();
+    expect(errors, isEmpty);
+    expect(catalogs.single.videos.map((v) => v.id), ['getting-started-001']);
+    expect(catalogs.single.issues, [
+      TutorialIssue.invalidVideoId,
+      TutorialIssue.invalidVideoId,
+    ]);
+    expect(catalogs.single.errorReference, 'OO-TEST1');
+    final (failure, operation) = reporter.failures.single;
+    expect(failure.code, 'INVALID_VIDEO_ID');
+    expect(operation, 'FIRESTORE support_videos');
+    // Neither the link nor document data reaches monitoring.
+    for (final text in [failure.message, failure.code ?? '', operation]) {
+      expect(text, isNot(contains('%FF')));
+      expect(text, isNot(contains('youtube')));
+      expect(text, isNot(contains('broken')));
+    }
+    await subscription.cancel();
+  });
+
   test(
     'Firestore errors are classified and reported like API errors',
     () async {

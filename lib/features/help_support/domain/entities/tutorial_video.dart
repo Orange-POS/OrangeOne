@@ -57,18 +57,29 @@ class TutorialVideo {
     if (uri == null || !const {'https', 'http'}.contains(uri.scheme)) {
       return null;
     }
-    String? id;
+    // Path segments and query parameters are decoded on access, which throws
+    // for malformed percent-encoded UTF-8 (`%FF`): such a link is no video.
+    try {
+      final id = _idFrom(uri);
+      return id != null && _videoId.hasMatch(id) ? id : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  static String? _idFrom(Uri uri) {
     final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
     if (uri.host == 'youtu.be' && segments.length == 1) {
-      id = segments.single;
-    } else if (_hosts.contains(uri.host)) {
-      if (segments.length == 1 && segments.single == 'watch') {
-        id = uri.queryParameters['v'];
-      } else if (segments.length == 2 &&
-          const {'shorts', 'embed', 'live'}.contains(segments.first)) {
-        id = segments.last;
-      }
+      return segments.single;
     }
-    return id != null && _videoId.hasMatch(id) ? id : null;
+    if (!_hosts.contains(uri.host)) return null;
+    if (segments.length == 1 && segments.single == 'watch') {
+      return uri.queryParameters['v'];
+    }
+    if (segments.length == 2 &&
+        const {'shorts', 'embed', 'live'}.contains(segments.first)) {
+      return segments.last;
+    }
+    return null;
   }
 }

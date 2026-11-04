@@ -40,6 +40,24 @@ void main() {
     }
   });
 
+  test('rejects malformed percent-encoding instead of throwing', () {
+    for (final value in [
+      'https://www.youtube.com/%FF',
+      'https://youtu.be/%FF',
+      'https://www.youtube.com/shorts/%FF',
+      'https://www.youtube.com/watch?v=%FF',
+      'https://www.youtube.com/watch?v=$id&x=%FF',
+      'https://m.youtube.com/watch?v=%C3%28',
+    ]) {
+      expect(TutorialVideo.videoIdFrom(value), isNull, reason: value);
+    }
+    // Valid encodings still work.
+    expect(
+      TutorialVideo.videoIdFrom('https://www.youtube.com/watch?v=$id'),
+      id,
+    );
+  });
+
   test('always opens the canonical YouTube page and preview', () {
     expect(
       TutorialVideo(
