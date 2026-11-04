@@ -8,8 +8,10 @@ import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/logging/app_logger.dart';
+import 'package:orange_one/core/monitoring/crash_reporter.dart';
+import 'package:orange_one/core/monitoring/firebase_crash_reporter.dart';
 
-void bootstrap(AppEnvironment environment) {
+Future<void> bootstrap(AppEnvironment environment) async {
   WidgetsFlutterBinding.ensureInitialized();
   if (appFlavor != environment.name) {
     runApp(const ConfigurationErrorApp());
@@ -28,10 +30,20 @@ void bootstrap(AppEnvironment environment) {
     enabled: settings.loggingEnabled,
     debugBuild: kDebugMode,
   );
-  // Never pass raw framework errors, exceptions or stacks to an output sink.
-  FlutterError.onError = (_) => logger.event(LogEvent.frameworkFailure);
+  // Firebase failures fall back to a no-op reporter; the app always starts.
+  final reporter = await initializeCrashReporting(
+    environment: environment,
+    logger: logger,
+  );
+  // Output sinks and the logger never see raw errors; the reporter sends
+  // only the error type and the stack trace.
+  FlutterError.onError = (details) {
+    logger.event(LogEvent.frameworkFailure);
+    reporter.recordFatal(details.exception, details.stack ?? StackTrace.empty);
+  };
   PlatformDispatcher.instance.onError = (error, stack) {
     logger.event(LogEvent.platformFailure);
+    reporter.recordFatal(error, stack);
     return true;
   };
   logger.event(LogEvent.startup);
@@ -44,6 +56,8 @@ void bootstrap(AppEnvironment environment) {
           settings.diagnosticsEnabled,
         ),
         appLoggerProvider.overrideWithValue(logger),
+        crashReporterProvider.overrideWithValue(reporter),
+        crashTestControlsProvider.overrideWithValue(settings.crashTestEnabled),
         readCacheOverride,
         unsetStockScopeOverride,
         recentScansRepositoryOverride,

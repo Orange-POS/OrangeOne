@@ -95,7 +95,7 @@ Fastlane actions; they never sign, upload, contact Apple or access credentials.
 
 Keep the independent native flavor builds and license workflow required statuses.
 Only the legacy quality status is replaced by **Format, analyze and test**.
-`ios-release.yaml`, `android-release.yaml`, `release_tags.py` and `android_apk.py` are covered by `tool/ci/test_release_pipeline.py`; pending export compliance is covered in `test_fastlane.rb`. `ios-testflight.yaml` (DEV/STG delivery) is covered by `tool/ci/test_testflight_cd.py`, `test_testflight_build_number.rb` and the channel lane tests in `test_fastlane.rb`. The workflows are linted with actionlint, and `tool/ci/test_workflows.py` and
+`ios-release.yaml`, `android-release.yaml`, `release_tags.py` and `android_apk.py` are covered by `tool/ci/test_release_pipeline.py`; pending export compliance is covered in `test_fastlane.rb`. `firebase_config.py`, `upload_flutter_symbols.py` and the Crashlytics wiring of the workflows, Xcode project and Gradle files are covered by `tool/ci/test_firebase.py` (see `docs/firebase-crashlytics.md`). `ios-testflight.yaml` (DEV/STG delivery) is covered by `tool/ci/test_testflight_cd.py`, `test_testflight_build_number.rb` and the channel lane tests in `test_fastlane.rb`. The workflows are linted with actionlint, and `tool/ci/test_workflows.py` and
 `test_versioning.py` guard triggers, secrets, signing protections and the app
 version (see "Stage 1 CI foundation" in [Deployment](deployment.md)).
 Environment protection rules (reviewers) still require owner configuration.

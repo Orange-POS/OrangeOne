@@ -98,7 +98,7 @@ with `flutter test tool/generate_brand_background_test.dart` after theme changes
 The OS-controlled Android 12 splash permits a solid endpoint only; following
 native/Flutter backgrounds use the shared gradient. See docs/brand-gradient.md.
 
-Localization and login: the app supports English, Dutch, French, Italian,
+Localization and login: the app supports English, German, French, Italian,
 Turkish and Tamil via the Very Good CLI l10n setup (`lib/l10n/arb`, generated
 code is git-ignored). Add texts to all six ARB files and read them with
 `context.l10n`; `test/l10n` fails when a language misses a message. The login

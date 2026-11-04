@@ -1,0 +1,76 @@
+name: OrangeONE Android Development
+# Development APK of the develop branch with the Development Firebase project, for
+# testers and for verifying Crashlytics. Debug-signed, kept as a private workflow
+# artifact. It never uses the release keystore or Production Firebase: the
+# android-development environment holds only the Development Firebase
+# configuration, and the build refuses a production project.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-development-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Wait for every required check of this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: python3 tool/ci/wait_for_checks.py
+
+  apk:
+    needs: checks
+    if: github.ref == 'refs/heads/develop'
+    environment: android-development
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      # Firebase client configuration of the android-development environment
+      # (project identifiers that ship inside the APK, not credentials).
+      FIREBASE_CONFIG_BASE64: ${{ vars.FIREBASE_CONFIG_BASE64 }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
+      # A build without its Firebase configuration fails instead of skipping it.
+      FIREBASE_CONFIG_REQUIRED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: false
+      - run: flutter pub get --enforce-lockfile
+      - name: Write the Development Firebase configuration
+        run: python3 tool/ci/firebase_config.py write android development
+      - name: Build the development APK
+        run: flutter build apk --debug --flavor development --target lib/main_development.dart --dart-define-from-file=config/development.example.json
+      - name: Confirm the APK carries the Development Firebase project
+        run: python3 tool/ci/firebase_config.py verify-android build/app/outputs/flutter-apk/app-development-debug.apk development
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-development-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-development-debug.apk
+          if-no-files-found: error
+          retention-days: 7

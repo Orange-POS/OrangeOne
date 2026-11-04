@@ -28,6 +28,7 @@ PR #19 into main.
 | `ios-testflight.yaml` | Push to `develop` (DEV) or `staging` (STG); manual dispatch on those branches (dry run by default) | Waits for the required CI checks, allocates the build number, compiles the flavor secret-free, signs and (only when enabled) uploads to that channel's one tester group. See Stage 2 below |
 | `ios-release.yaml` | Published GitHub Release of a `vX.Y.Z` tag only | Validates the tag, waits for the required checks, builds production, signs and (only when enabled) uploads to Production Testers |
 | `android-release.yaml` | Published GitHub Release of a `vX.Y.Z` tag only | Builds the production APK signed with the existing release keystore, verifies it and keeps it as a private artifact |
+| `android-development.yaml` | Push to `develop` | Debug-signed development APK with the Development Firebase project (environment `android-development`); see `docs/firebase-crashlytics.md` |
 | `license_check.yaml` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues, manual | Flutter dependency license policy |
 
 A merge into an integration branch triggers push checks. Workflows use read-only repository access;
@@ -308,8 +309,13 @@ existing pinned Spaceship client for Apple's official App Store Connect API:
 - Resolve the production app and the one exact allowlisted group; missing,
   duplicate or automatic/all-build groups fail preflight before upload.
 - Query builds by that app ID, iOS platform, marketing version and build number.
-  Wait up to 15 minutes for that exact build and testing eligibility; never use
+  Wait up to 30 minutes for that exact build and testing eligibility; never use
   an unrelated latest build. Invalid, failed, expired or ambiguous builds fail.
+  When Apple's processing outlasts the wait, the upload stays valid: the run
+  reports a pending distribution naming the last state (not yet listed, still
+  processing, not yet ready for testing, or assignment not yet confirmed) and
+  the exact `distribute_existing` resume. Do not re-run the delivery job; it
+  would export again and then stop because the build number is already used.
 - Export compliance comes from the reviewed `ITSAppUsesNonExemptEncryption`
   declaration in the production Info.plist (see "Encryption declaration" below),
   so new builds need no manual answer. If Apple still reports missing compliance
@@ -361,7 +367,7 @@ pending/rejected review, compliance and terminal failures stop with manual guida
 Unknown external states fail closed. No absent external-readiness method is called. Hosted
 macOS verification is still required for real signing, API permissions, group
 eligibility/processing, TestFlight installation and protected-environment rules.
-Firebase is not integrated by this change.
+Firebase Crashlytics configuration, symbols and the DEV verification control are described in `docs/firebase-crashlytics.md`.
 
 
 ### Recover assignment without another upload
@@ -616,7 +622,7 @@ production group.
 - every required CI check of the tagged commit passed (`wait_for_checks.py`).
 
 Approval itself is a person publishing the Release plus the protected
-environment (`ios-production`, `android-release`) with required reviewers.
+environment (`ios-production`, `android-production`) with required reviewers.
 
 ### iOS: Production Testers
 
@@ -683,7 +689,7 @@ with `--build-name` from the tag and `--build-number` as the version code.
 1. Environment `ios-production`: allow deployment from release tags matching
    `v*` (it allows `main` today) and keep required reviewers; the signing secrets
    already live there.
-2. Create environment `android-release` (tags `v*`, required reviewers) with secrets
+2. Create environment `android-production` (tags `v*`, required reviewers) with secrets
    `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEYSTORE_ALIAS`,
    `ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD` and `ANDROID_SIGNING_CERT_SHA256` (the
    SHA-256 of the existing release certificate; `keytool -list -v` shows it). Use the

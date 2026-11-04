@@ -177,6 +177,10 @@
   "@scannerLookingUp": {
     "description": "Shown while a scanned barcode is looked up"
   },
+  "scannerDemoSamples": "Demo Mode · choose a sample barcode below",
+  "@scannerDemoSamples": {
+    "description": "Product scanner status in Demo Mode, where sample barcodes replace the camera"
+  },
   "scannerPaused": "Scan paused · Review the result below",
   "@scannerPaused": {
     "description": "Scanner status while a result is shown"
@@ -929,5 +933,200 @@
   "mockDiscountNote": "Preview only. This does not change product prices.",
   "@mockDiscountNote": {
     "description": "Note of the discount preview"
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Title of the Settings screen"
+  },
+  "settingsOpenTooltip": "Open settings",
+  "@settingsOpenTooltip": {
+    "description": "Tooltip of the Settings gear on the login screen"
+  },
+  "settingsApplicationSection": "APPLICATION",
+  "@settingsApplicationSection": {
+    "description": "Section heading for application information; kept in capitals"
+  },
+  "settingsLanguageLabel": "Language",
+  "@settingsLanguageLabel": {
+    "description": "Label of the Settings language row; the value shows the greeting of the current language"
+  },
+  "settingsAppVersionLabel": "App Version",
+  "@settingsAppVersionLabel": {
+    "description": "Label of the installed app version row"
+  },
+  "settingsDemonstrationSection": "DEMONSTRATION",
+  "@settingsDemonstrationSection": {
+    "description": "Section heading for Demo Mode; kept in capitals"
+  },
+  "settingsHelpSection": "HELP & SUPPORT",
+  "@settingsHelpSection": {
+    "description": "Section heading for help and support; kept in capitals"
+  },
+  "settingsTutorial": "OrangeOne Tutorial",
+  "@settingsTutorial": {
+    "description": "Help row that opens the tutorial videos"
+  },
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "@settingsPrivacyPolicy": {
+    "description": "Help row; not yet linked"
+  },
+  "settingsContactSupport": "Contact Support",
+  "@settingsContactSupport": {
+    "description": "Help row; not yet linked"
+  },
+  "settingsAboutSection": "ABOUT",
+  "@settingsAboutSection": {
+    "description": "Section heading for information about the app; kept in capitals"
+  },
+  "settingsAbout": "About OrangeOne",
+  "@settingsAbout": {
+    "description": "About row; not yet linked"
+  },
+  "settingsDeveloperSection": "DEVELOPMENT ONLY",
+  "@settingsDeveloperSection": {
+    "description": "Heading of the development-only tools"
+  },
+  "settingsEnvironmentLabel": "Environment",
+  "@settingsEnvironmentLabel": {
+    "description": "Label of the build environment row"
+  },
+  "settingsCrashButton": "Trigger the Crash",
+  "@settingsCrashButton": {
+    "description": "Button that crashes the development app on purpose"
+  },
+  "settingsCrashConfirmTitle": "Trigger a test crash?",
+  "@settingsCrashConfirmTitle": {
+    "description": "Title of the crash test confirmation"
+  },
+  "settingsCrashConfirmBody": "The app will close immediately. This is only for verifying crash reporting.",
+  "@settingsCrashConfirmBody": {
+    "description": "Body of the crash test confirmation"
+  },
+  "settingsCrashConfirm": "Crash the app",
+  "@settingsCrashConfirm": {
+    "description": "Confirm button of the crash test"
+  },
+  "settingsCancel": "Cancel",
+  "@settingsCancel": {
+    "description": "Cancel button of the crash test confirmation"
+  },
+  "settingsNonFatalButton": "Send test error report",
+  "@settingsNonFatalButton": {
+    "description": "Button that sends a non-fatal test report"
+  },
+  "settingsNonFatalSent": "Test error report sent.",
+  "@settingsNonFatalSent": {
+    "description": "Confirmation after the non-fatal test report"
+  },
+  "demoModeTitle": "Demo Mode",
+  "@demoModeTitle": {
+    "description": "Demo Mode of the settings switch"
+  },
+  "demoModeLocked": "Demo Mode can only be changed while you are signed out.",
+  "@demoModeLocked": {
+    "description": "Shown when Demo Mode cannot be changed"
+  },
+  "demoBadge": "Demo",
+  "@demoBadge": {
+    "description": "Small badge beside the navigation title while Demo Mode runs"
+  },
+  "demoSignInTitle": "Demo sign-in",
+  "@demoSignInTitle": {
+    "description": "Title of the sample QR code list on the QR login screen"
+  },
+  "demoSignInBody": "Choose a sample QR code to sign in. No camera, network or server is used.",
+  "@demoSignInBody": {
+    "description": "Explains the sample QR codes"
+  },
+  "demoSampleManagerTitle": "Store manager",
+  "@demoSampleManagerTitle": {
+    "description": "Sample QR code with full access"
+  },
+  "demoSampleManagerBody": "Can look up products, edit them, change prices and count stock.",
+  "@demoSampleManagerBody": {
+    "description": "What the full-access sample may do"
+  },
+  "demoSampleViewerTitle": "Read-only counter",
+  "@demoSampleViewerTitle": {
+    "description": "Sample QR code with read-only access"
+  },
+  "demoSampleViewerBody": "Can look up products but cannot change anything.",
+  "@demoSampleViewerBody": {
+    "description": "What the read-only sample may do"
+  },
+  "demoSampleBarcodesTitle": "Sample barcodes",
+  "@demoSampleBarcodesTitle": {
+    "description": "Heading of the sample barcode list on the scanner"
+  },
+  "tutorialTitle": "Tutorial",
+  "@tutorialTitle": {
+    "description": "Title of the Help & Support tutorial screen"
+  },
+  "tutorialYoutubeGuides": "YouTube Guides",
+  "@tutorialYoutubeGuides": {
+    "description": "Section heading above the YouTube tutorial videos"
+  },
+  "tutorialYoutubeBadge": "YouTube video",
+  "@tutorialYoutubeBadge": {
+    "description": "Red badge marking a tutorial as a YouTube video"
+  },
+  "tutorialWatchVideo": "Watch video",
+  "@tutorialWatchVideo": {
+    "description": "Action that opens the tutorial in the YouTube app"
+  },
+  "tutorialWatchSemantics": "Watch video: {title}",
+  "@tutorialWatchSemantics": {
+    "description": "Screen-reader label of a tutorial card; {title} is the video title",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "tutorialEmpty": "No tutorials are available yet.",
+  "@tutorialEmpty": {
+    "description": "Shown when no tutorial is published"
+  },
+  "tutorialOffline": "Connect to the internet to load the tutorials.",
+  "@tutorialOffline": {
+    "description": "Shown when tutorials were never loaded and the device is offline"
+  },
+  "tutorialError": "The tutorials could not be loaded.",
+  "@tutorialError": {
+    "description": "Shown when the tutorials could not be loaded"
+  },
+  "tutorialRetry": "Try again",
+  "@tutorialRetry": {
+    "description": "Button to load the tutorials again"
+  },
+  "tutorialYoutubeMissing": "The YouTube app is not installed.",
+  "@tutorialYoutubeMissing": {
+    "description": "Snackbar when the YouTube app is not installed"
+  },
+  "tutorialOpenInBrowser": "Open in browser",
+  "@tutorialOpenInBrowser": {
+    "description": "Snackbar action: open the video in the browser instead"
+  },
+  "tutorialOpenFailed": "The video could not be opened.",
+  "@tutorialOpenFailed": {
+    "description": "Snackbar when even the browser could not open the video"
+  },
+  "demoExistingProductBarcode": "Existing product · {barcode}",
+  "@demoExistingProductBarcode": {
+    "description": "Sample barcode on the demo scanner of a sample product, so it opens its details",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "demoNewProductBarcode": "New product · {barcode}",
+  "@demoNewProductBarcode": {
+    "description": "Sample barcode on the demo scanner that no product uses, so it opens product creation",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
   }
 }

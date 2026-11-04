@@ -48,7 +48,7 @@ jobs:
 
   apk:
     needs: [plan, checks]
-    environment: android-release
+    environment: android-production
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
@@ -60,6 +60,13 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD }}
       ANDROID_SIGNING_CERT_SHA256: ${{ secrets.ANDROID_SIGNING_CERT_SHA256 }}
+      # Firebase client configuration of the android-production environment
+      # (project identifiers that ship inside the APK, not credentials).
+      FIREBASE_CONFIG_BASE64: ${{ vars.FIREBASE_CONFIG_BASE64 }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
+      # A release without its Firebase configuration fails instead of skipping it.
+      FIREBASE_CONFIG_REQUIRED: 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,8 +91,16 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
           python3 tool/ci/android_apk.py keystore
+      - name: Write the production Firebase configuration
+        run: python3 tool/ci/firebase_config.py write android production
       - name: Build the signed production APK
-        run: flutter build apk --release --flavor production --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$ANDROID_VERSION_CODE"
+        run: flutter build apk --release --flavor production --split-debug-info="$GITHUB_WORKSPACE/build/symbols/android" --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$ANDROID_VERSION_CODE"
+      - name: Confirm the APK carries the production Firebase project
+        run: python3 tool/ci/firebase_config.py verify-android build/app/outputs/flutter-apk/app-production-release.apk production
+      - name: Upload the Dart symbols to the production Crashlytics project
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: python3 tool/ci/upload_flutter_symbols.py build/symbols/android android/app/src/production/google-services.json
       - name: Verify signature, identity and version
         run: |
           tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)

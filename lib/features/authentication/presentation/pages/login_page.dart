@@ -11,6 +11,7 @@ import 'package:orange_one/features/authentication/presentation/widgets/brand_ma
 import 'package:orange_one/features/authentication/presentation/widgets/language_selector.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/demo_badge.dart';
 
 class LoginPage extends ConsumerWidget {
   const new({this.sessionExpired = false, super.key});
@@ -43,7 +44,25 @@ class LoginPage extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        const BrandMark(),
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const TitleWithDemoBadge(title: BrandMark()),
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: IconButton(
+                                key: const Key('settings-button'),
+                                tooltip: l10n.settingsOpenTooltip,
+                                icon: const Icon(
+                                  Icons.settings,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () =>
+                                    context.pushNamed<void>('settings'),
+                              ),
+                            ),
+                          ],
+                        ),
                         const Spacer(),
                         Semantics(
                           button: true,

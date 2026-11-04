@@ -6,6 +6,8 @@ import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_version.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/logging/app_logger.dart';
+import 'package:orange_one/core/monitoring/crash_reporter.dart';
+import 'package:orange_one/core/monitoring/reportable_failure.dart';
 import 'package:orange_one/core/network/dio_provider.dart';
 
 final mobileApiClientProvider = Provider<MobileApiClient>(
@@ -14,6 +16,7 @@ final mobileApiClientProvider = Provider<MobileApiClient>(
     ref.watch(apiConfigurationProvider),
     logger: ref.watch(appLoggerProvider),
     appVersion: ref.watch(appVersionProvider),
+    crashReporter: ref.watch(crashReporterProvider),
   ),
   name: 'mobileApiClientProvider',
 );
@@ -59,11 +62,20 @@ class MobileApiResponse {
 /// bearer token on each request, so token refresh can be added around this
 /// client without rebuilding it.
 class MobileApiClient {
-  new(this._dio, this._configuration, {this._logger, this._appVersion});
+  new(
+    this._dio,
+    this._configuration, {
+    this._logger,
+    this._appVersion,
+    this._crashReporter,
+  });
 
   final Dio _dio;
   final ApiConfiguration _configuration;
   final AppLogger? _logger;
+
+  /// Reports technical failures (never expected business outcomes).
+  final CrashReporter? _crashReporter;
 
   /// Sent as `X-App-Version` on every request: the backend's minimum-version
   /// gate reads this header (not `device.app_version`). Null sends none.
@@ -116,6 +128,11 @@ class MobileApiClient {
         elapsedMs: timer.elapsedMilliseconds,
         failure: failure.kind,
       );
+      final reference = _crashReporter?.recordFailure(
+        failure,
+        operation: operationLabel(method.name, path),
+      );
+      if (reference != null) throw failure.withReference(reference);
       rethrow;
     } catch (_) {
       _logger?.event(

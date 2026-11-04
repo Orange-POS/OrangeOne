@@ -183,17 +183,17 @@ void main() {
   testWidgets('the message and status follow the selected language', (
     tester,
   ) async {
-    store.values[localeStorageKey] = 'nl';
+    store.values[localeStorageKey] = 'de';
     wifi.add(false);
     await pumpScanner(tester);
     expect(
       find.text(
-        'Maak verbinding met hetzelfde wifi-netwerk als het POS-systeem '
-        'om de QR-code te scannen.',
+        'Verbinden Sie sich mit demselben WLAN wie das POS-System, '
+        'um den QR-Code zu scannen.',
       ),
       findsOneWidget,
     );
-    expect(find.text('Scanner uit · Wifi vereist'), findsOneWidget);
+    expect(find.text('Scanner aus · WLAN erforderlich'), findsOneWidget);
     expect(find.text(_wifiMessage), findsNothing);
   });
 

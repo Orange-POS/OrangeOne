@@ -38,6 +38,7 @@ class AppFailure implements Exception {
     this.retryable = false,
     this.retryAfter,
     this.requestId,
+    this.errorReference,
   });
 
   final FailureKind kind;
@@ -51,6 +52,22 @@ class AppFailure implements Exception {
 
   /// Server request id for support correlation; not a secret.
   final String? requestId;
+
+  /// User-visible `OO-XXXXXX` reference when this failure was reported to
+  /// monitoring; support finds the report with it.
+  final String? errorReference;
+
+  /// The same failure with a reference appended to the message the user sees.
+  AppFailure withReference(String reference) => AppFailure(
+    kind,
+    '$message (Ref: $reference)',
+    code: code,
+    fieldErrors: fieldErrors,
+    retryable: retryable,
+    retryAfter: retryAfter,
+    requestId: requestId,
+    errorReference: reference,
+  );
 
   @override
   String toString() => 'AppFailure(${kind.name})';
