@@ -37,6 +37,22 @@ class _ProductStockUpdatePageState
   bool _confirming = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Add and Remove depend on the shop's features. When they are only the
+    // fallback (an earlier GET /meta failed, possibly while Product Details
+    // still listens), ask the shop once more for this screen. Bounded: one
+    // read per opening; never repeated and never a write.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final features = ref.read(backendFeaturesProvider).value;
+      if (features != null && !features.confirmed) {
+        ref.invalidate(backendFeaturesProvider);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _text.dispose();
     _focus.dispose();

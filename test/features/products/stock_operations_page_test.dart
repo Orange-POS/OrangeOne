@@ -1,11 +1,15 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/app/app.dart';
+import 'package:orange_one/app/providers/product_dependencies.dart';
 import 'package:orange_one/app/router/app_router.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/authenticated_mobile_api.dart';
+import 'package:orange_one/core/network/mobile_api_client.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
@@ -406,4 +410,64 @@ void main() {
       );
     }
   });
+
+  testWidgets('Add and Remove appear once the shop answers after a failure', (
+    tester,
+  ) async {
+    final meta = _FlakyMeta();
+    await openStock(
+      tester,
+      stockMovements: false,
+      more: [
+        backendFeaturesOverride,
+        authenticatedMobileApiProvider.overrideWith((ref) => meta),
+      ],
+    );
+    // Product Details asked first and failed; the Stock screen above it asked
+    // once more and now has the shop's answer.
+    expect(meta.calls, 2);
+    expect(find.byKey(const Key('stock-operation-add')), findsOneWidget);
+    expect(find.byKey(const Key('stock-operation-remove')), findsOneWidget);
+
+    // Confirmed features are kept: opening Stock again does not ask again.
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Update stock'));
+    await tester.pumpAndSettle();
+    expect(meta.calls, 2);
+    expect(find.byKey(const Key('stock-operation-add')), findsOneWidget);
+  });
+}
+
+/// GET /meta that fails once (offline) and then advertises stock movements.
+class _FlakyMeta implements AuthenticatedMobileApi {
+  int calls = 0;
+
+  @override
+  Uri get apiBase => testApiBase;
+
+  @override
+  Future<MobileApiResponse> send(
+    MobileApiMethod method,
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+    String? language,
+    String? idempotencyKey,
+    String? ifMatchVersion,
+    String? ifNoneMatch,
+    CancelToken? cancelToken,
+  }) async {
+    expect(path, '/meta');
+    if (++calls == 1) {
+      throw const AppFailure(FailureKind.network, 'offline');
+    }
+    return const MobileApiResponse(
+      statusCode: 200,
+      data: {
+        'api_version': '1.0.0',
+        'features': ['stock_adjustments', 'stock_movements'],
+      },
+    );
+  }
 }

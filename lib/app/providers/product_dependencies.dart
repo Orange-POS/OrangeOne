@@ -86,9 +86,10 @@ final Override authenticatedMobileApiOverride = authenticatedMobileApiProvider
 
 /// The signed-in shop's features from its own `GET /meta`, read once per
 /// session: another QR sign-in (another shop or session) reads them again,
-/// so shops never share features. A failure falls back to the baseline and
-/// is read again the next time it is needed; MobileApiClient reports it as
-/// for any API call. Demo Mode supports every feature it implements.
+/// so shops never share features. A failure falls back to the unconfirmed
+/// baseline; a screen that gates a feature reads again when it opens (even
+/// while an earlier screen still listens). MobileApiClient reports failures
+/// as for any API call. Demo Mode supports every feature it implements.
 final Override backendFeaturesOverride = backendFeaturesProvider.overrideWith((
   ref,
 ) async {
@@ -96,7 +97,7 @@ final Override backendFeaturesOverride = backendFeaturesProvider.overrideWith((
     return BackendFeatures({
       ...BackendFeatures.baseline.names,
       BackendFeatures.stockMovements,
-    });
+    }, confirmed: true);
   }
   final session = ref.watch(activeSessionProvider);
   if (session == null) return BackendFeatures.baseline;
