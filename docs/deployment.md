@@ -174,7 +174,12 @@ existing App Store Connect binary, performs prechecks and submits for Apple revi
 it neither rebuilds a potentially different binary nor uploads one.
 
 `automatic_release: false` keeps the approved build pending developer release.
-`phased_release: true` then releases it to automatic updates over seven days
+Before submitting, the lane turns on **phased release** for the exact App Store
+version and reads it back (`tool/ci/phased_release.rb`); if it cannot be
+confirmed, nothing is submitted. deliver's own `phased_release` option is not
+used: with `skip_metadata: true` (existing metadata stays untouched) fastlane
+2.241.1 skips it (`tool/ci/test_phased_release.rb` checks the pinned code).
+After the manual release, automatic updates then reach iPhones over seven days
 (1%, 2%, 5%, 10%, 20%, 50%, 100%); the release owner can pause the rollout in
 App Store Connect when Crashlytics shows a problem (up to 30 days) or release
 to everyone at once. Users who update manually get the new version at once.

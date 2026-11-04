@@ -4,6 +4,7 @@ require 'minitest/mock'
 require 'tempfile'
 require_relative 'test_testflight_groups'
 require_relative 'test_testflight_build_number'
+require_relative 'test_phased_release'
 
 class FastfileHarness
   attr_reader :lanes, :calls
@@ -231,7 +232,7 @@ class FastfileTest < Minitest::Test
     assert_raises(ArgumentError) { @harness.lanes[:submit].call }
     assert_empty @harness.calls
     ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
-    @harness.lanes[:submit].call
+    run_submit
     submit = @harness.calls.assoc(:submit).last
     assert_equal 'ch.orangepos.productscanner', submit[:app_identifier]
     assert_equal '1.0.0', submit[:app_version]
@@ -239,8 +240,42 @@ class FastfileTest < Minitest::Test
     assert submit[:skip_binary_upload]
     assert submit[:submit_for_review]
     refute submit[:automatic_release]
-    assert submit[:phased_release]
     refute @harness.calls.assoc(:build)
+  end
+
+  # deliver (fastlane 2.241.1) applies phased_release inside its metadata
+  # upload, which skip_metadata skips; the lane must not rely on that option.
+  def test_submit_confirms_phased_release_itself_because_metadata_is_skipped
+    ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
+    run_submit
+    submit = @harness.calls.assoc(:submit).last
+    assert submit[:skip_metadata], 'existing metadata stays untouched'
+    refute submit.key?(:phased_release), 'deliver would ignore it with skip_metadata'
+    assert_equal [:key, :phased_release, :submit], @harness.calls.map(&:first)
+    assert_equal [:phased_release, '1.0.0'], @harness.calls.assoc(:phased_release)
+  end
+
+  def test_submit_stops_before_review_when_phased_release_is_not_confirmed
+    ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
+    phased = Object.new
+    phased.define_singleton_method(:enable) do |**|
+      raise OrangeonePhasedRelease::Error, 'Phased release could not be confirmed'
+    end
+    error = assert_raises(ArgumentError) do
+      OrangeonePhasedRelease.stub(:new, phased) { @harness.lanes[:submit].call }
+    end
+    assert_includes error.message, 'could not be confirmed'
+    refute @harness.calls.assoc(:submit)
+  end
+
+  def run_submit
+    calls = @harness.calls
+    phased = Object.new
+    phased.define_singleton_method(:enable) do |version:|
+      calls << [:phased_release, version]
+      'INACTIVE'
+    end
+    OrangeonePhasedRelease.stub(:new, phased) { @harness.lanes[:submit].call }
   end
 end
 
