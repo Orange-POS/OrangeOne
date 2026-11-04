@@ -239,6 +239,7 @@ class FastfileTest < Minitest::Test
     assert submit[:skip_binary_upload]
     assert submit[:submit_for_review]
     refute submit[:automatic_release]
+    assert submit[:phased_release]
     refute @harness.calls.assoc(:build)
   end
 end

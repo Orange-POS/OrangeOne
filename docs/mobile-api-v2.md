@@ -47,8 +47,32 @@ fallback). Server messages up to 500 characters are shown; traces never are.
 | Create category | `POST /categories` | `{name}` with `Idempotency-Key`; needs `category_create`; the created category is selected in the form |
 | Offline sync | `GET /products/changes` | `since`, `limit`; see [offline data](offline-data.md) |
 
-Not used yet: `GET /meta` (minimum app version, feature flags),
-`GET /products/{id}/history`, `POST /telemetry/events`.
+Not used yet: `GET /products/{id}/history`, `POST /telemetry/events`.
+
+## Backend features and backward compatibility
+
+Shops run different addon versions; one app version serves them all.
+
+- **One API path.** `/api/orangeone/mobile/v1` only grows: the backend adds
+  endpoints and fields, never renames or removes them. The app ignores unknown
+  fields and features.
+- **Feature detection, not version checks.** After a QR sign-in (and a
+  restored session) the app reads the shop's `GET /meta` once per session
+  (`backendFeaturesProvider`, filled in app composition by
+  `backendFeaturesOverride`) and shows a capability only when its feature is
+  listed. User permissions still decide whether it can be used.
+- **Baseline.** Until `/meta` answers, and when it cannot be read, the app
+  assumes `BackendFeatures.baseline`: the features of the oldest supported
+  addon (`mupi_mobile_pos_api` 19.0.2.0.0). A failure is not kept; the next
+  screen asks again. Another sign-in (another shop or session) reads again, so
+  shops never share features. Demo Mode supports its own features offline.
+- **Gated today.** `stock_movements` → stock **Add** and **Remove**. Without it
+  the stock screen counts with **Update** only (`stock_adjustments`, every
+  supported addon).
+- **Adding a backend feature.** List it in the addon's `_get_features()`, add
+  a constant in `BackendFeatures`, gate the screen on it, and add the
+  endpoint to `tool/e2e/tests/backend-compat.spec.ts`. Raise the addon's
+  `API_VERSION` minor version for additive changes.
 `POST /auth/qr-challenges` is called by the Odoo POS UI, not the app.
 
 ## Concurrency and duplicate protection

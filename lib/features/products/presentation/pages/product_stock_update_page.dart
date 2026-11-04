@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/presentation/product_tax_label.dart';
@@ -123,6 +124,12 @@ class _ProductStockUpdatePageState
     final view = async.isLoading || async.hasError ? null : async.value;
     final product = view?.details.product;
     final busy = view?.busy ?? false;
+    // Only operations the shop's backend supports; Update always exists.
+    final features =
+        ref.watch(backendFeaturesProvider).value ?? BackendFeatures.baseline;
+    final operations = features.supports(BackendFeatures.stockMovements)
+        ? StockOperation.values
+        : const [StockOperation.update];
     final saved = view?.phase == StockUpdatePhase.saved;
     final uncertain = view?.phase == StockUpdatePhase.uncertain;
     ref.listen(provider, (previous, next) {
@@ -263,16 +270,20 @@ class _ProductStockUpdatePageState
                                   ),
                           ),
                           const Divider(color: Color(0xFFDADCE0), height: 24),
-                          StockOperationSelector(
-                            selected: value.operation,
-                            onChanged: ref
-                                .read(provider.notifier)
-                                .changeOperation,
-                            enabled:
-                                value.permitted &&
-                                !value.busy &&
-                                value.phase == StockUpdatePhase.editing,
-                          ),
+                          // Add and Remove need a backend with stock
+                          // movements; older shops count with Update only.
+                          if (operations.length > 1)
+                            StockOperationSelector(
+                              selected: value.operation,
+                              operations: operations,
+                              onChanged: ref
+                                  .read(provider.notifier)
+                                  .changeOperation,
+                              enabled:
+                                  value.permitted &&
+                                  !value.busy &&
+                                  value.phase == StockUpdatePhase.editing,
+                            ),
                           const Divider(color: Color(0xFFDADCE0), height: 24),
                           Padding(
                             padding: const EdgeInsets.symmetric(

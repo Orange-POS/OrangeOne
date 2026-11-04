@@ -8,6 +8,7 @@ import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/authenticated_mobile_api.dart';
+import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/network/mobile_api_client.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
@@ -82,6 +83,37 @@ final Override authenticatedMobileApiOverride = authenticatedMobileApiProvider
         tokens: _SessionTokens(ref.read(sessionControllerProvider.notifier)),
       );
     });
+
+/// The signed-in shop's features from its own `GET /meta`, read once per
+/// session: another QR sign-in (another shop or session) reads them again,
+/// so shops never share features. A failure falls back to the baseline and
+/// is read again the next time it is needed; MobileApiClient reports it as
+/// for any API call. Demo Mode supports every feature it implements.
+final Override backendFeaturesOverride = backendFeaturesProvider.overrideWith((
+  ref,
+) async {
+  if (ref.watch(demoLoginProvider) != null) {
+    return BackendFeatures({
+      ...BackendFeatures.baseline.names,
+      BackendFeatures.stockMovements,
+    });
+  }
+  final session = ref.watch(activeSessionProvider);
+  if (session == null) return BackendFeatures.baseline;
+  final cancel = CancelToken();
+  ref.onDispose(cancel.cancel);
+  try {
+    final response = await ref
+        .watch(authenticatedMobileApiProvider)
+        .send(MobileApiMethod.get, '/meta', cancelToken: cancel);
+    final features = BackendFeatures.fromMeta(response.data);
+    // Keep the answer for the rest of this session.
+    ref.keepAlive();
+    return features;
+  } on AppFailure {
+    return BackendFeatures.baseline;
+  }
+});
 
 final Override productDetailsRepositoryOverride =
     productDetailsRepositoryProvider.overrideWith((ref) {

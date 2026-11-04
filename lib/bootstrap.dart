@@ -62,6 +62,7 @@ Future<void> bootstrap(AppEnvironment environment) async {
         unsetStockScopeOverride,
         recentScansRepositoryOverride,
         authenticatedMobileApiOverride,
+        backendFeaturesOverride,
         productRepositoryOverride,
         productDetailsRepositoryOverride,
       ],

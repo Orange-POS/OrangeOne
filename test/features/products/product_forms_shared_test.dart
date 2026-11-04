@@ -12,6 +12,7 @@ import 'package:orange_one/features/products/presentation/widgets/product_succes
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/l10n/locale_controller.dart';
 
+import '../../support/backend_features_fakes.dart';
 import '../../support/product_details_fakes.dart';
 import '../../support/product_router.dart';
 
@@ -48,6 +49,7 @@ void main() {
         locale: locale,
         overrides: [
           productDetailsRepositoryProvider.overrideWithValue(repo),
+          stockMovementsBackend,
           ...more,
         ],
       ),
