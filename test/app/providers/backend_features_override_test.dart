@@ -167,4 +167,36 @@ void main() {
     expect((await features()).supports('stock_movements'), isTrue);
     expect(calls, isEmpty);
   });
+
+  test('only answers from the shop or Demo Mode are confirmed', () async {
+    expect(BackendFeatures.baseline.confirmed, isFalse);
+    signIn(_at(_newer, 'b'));
+    expect((await features()).confirmed, isTrue);
+  });
+
+  test(
+    'with Product Details still listening, the Stock screen recovers',
+    () async {
+      shops[_newer] = const AppFailure(FailureKind.network, 'offline');
+      signIn(_at(_newer, 'b'));
+      // Product Details: attached first, stays mounted under the Stock screen.
+      final details = container.listen(backendFeaturesProvider, (_, _) {});
+      addTearDown(details.close);
+      final fallback = await container.read(backendFeaturesProvider.future);
+      expect(fallback.confirmed, isFalse);
+      expect(fallback.supports('stock_movements'), isFalse);
+
+      // Connectivity returns; the Stock screen opens above Product Details and
+      // asks again because the features are unconfirmed.
+      shops[_newer] = _meta(['stock_movements']);
+      final stock = container.listen(backendFeaturesProvider, (_, _) {});
+      addTearDown(stock.close);
+      container.invalidate(backendFeaturesProvider);
+      final recovered = await container.read(backendFeaturesProvider.future);
+      expect(recovered.confirmed, isTrue);
+      expect(recovered.supports('stock_movements'), isTrue);
+      expect(details.read().value?.supports('stock_movements'), isTrue);
+      expect(calls, [_newer, _newer]);
+    },
+  );
 }

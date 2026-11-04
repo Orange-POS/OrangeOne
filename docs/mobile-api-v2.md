@@ -63,14 +63,20 @@ Shops run different addon versions; one app version serves them all.
   listed. User permissions still decide whether it can be used.
 - **Baseline.** Until `/meta` answers, and when it cannot be read, the app
   assumes `BackendFeatures.baseline`: the features of the oldest supported
-  addon (`mupi_mobile_pos_api` 19.0.2.0.0). A failure is not kept; the next
-  screen asks again. Another sign-in (another shop or session) reads again, so
-  shops never share features. Demo Mode supports its own features offline.
+  addon (`mupi_mobile_pos_api` 19.0.2.0.0), marked unconfirmed
+  (`BackendFeatures.confirmed`). A screen that gates a feature asks once more
+  when it opens with unconfirmed features, even while an earlier screen (such
+  as Product Details below Stock) still listens; confirmed answers are kept
+  for the session and never asked again. Retries are reads only, one per
+  opening; writes are never retried. Another sign-in (another shop or session)
+  reads again, so shops never share features. Demo Mode supports its own
+  features offline.
 - **Gated today.** `stock_movements` → stock **Add** and **Remove**. Without it
   the stock screen counts with **Update** only (`stock_adjustments`, every
   supported addon).
 - **Adding a backend feature.** List it in the addon's `_get_features()`, add
-  a constant in `BackendFeatures`, gate the screen on it, and add the
+  a constant in `BackendFeatures`, gate the screen on it (asking again on open
+  when unconfirmed, like the stock screen), and add the
   endpoint to `tool/e2e/tests/backend-compat.spec.ts`. Raise the addon's
   `API_VERSION` minor version for additive changes.
 `POST /auth/qr-challenges` is called by the Odoo POS UI, not the app.

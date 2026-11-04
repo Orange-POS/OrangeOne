@@ -6,7 +6,7 @@ import 'package:orange_one/core/errors/app_failure.dart';
 /// app shows a capability only when the shop advertises it; user permissions
 /// still decide whether it can be used.
 class BackendFeatures {
-  const new(this.names, {this.apiVersion});
+  const new(this.names, {this.apiVersion, this.confirmed = false});
 
   /// Parses `GET /meta` `data`; anything unexpected is a protocol failure.
   factory fromMeta(Object? data) {
@@ -16,9 +16,11 @@ class BackendFeatures {
       throw invalidResponse;
     }
     final version = data['api_version'];
-    return BackendFeatures({
-      for (final name in features) name as String,
-    }, apiVersion: version is String ? version : null);
+    return BackendFeatures(
+      {for (final name in features) name as String},
+      apiVersion: version is String ? version : null,
+      confirmed: true,
+    );
   }
 
   /// Feature names as sent by the backend (`stock_movements`, …).
@@ -26,6 +28,11 @@ class BackendFeatures {
 
   /// `api_version` of `GET /meta`, when known.
   final String? apiVersion;
+
+  /// True when the list came from the shop (or Demo Mode); false for the
+  /// [baseline] used while detection is pending or failed. Screens that gate
+  /// a feature read the features again when they open unconfirmed.
+  final bool confirmed;
 
   /// `POST /products/{id}/stock-movements` (stock Add and Remove).
   static const stockMovements = 'stock_movements';
