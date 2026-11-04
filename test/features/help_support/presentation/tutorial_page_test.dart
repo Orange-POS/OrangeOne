@@ -28,7 +28,7 @@ TutorialCatalog _catalog({bool fromCache = false, int count = 2}) =>
         (
           'stock',
           {
-            'title': {'en': 'How to Adjust Stock', 'nl': 'Voorraad aanpassen'},
+            'title': {'en': 'How to Adjust Stock', 'de': 'Bestand anpassen'},
             'description': 'Learn how to manage product stock in OrangeOne.',
             'youtubeVideoId': _id,
             'published': true,
@@ -191,14 +191,14 @@ void main() {
     await pumpApp(tester);
     await container
         .read(localeControllerProvider.notifier)
-        .select(const Locale('nl'));
+        .select(const Locale('de'));
     await tester.pumpAndSettle();
     await openTutorial(tester);
     await showVideos(tester, _catalog());
-    expect(find.text('Voorraad aanpassen'), findsOneWidget);
+    expect(find.text('Bestand anpassen'), findsOneWidget);
     // Untranslated titles fall back to English.
     expect(find.text('How to Login'), findsOneWidget);
-    expect(find.text('YouTube-handleidingen'), findsOneWidget);
+    expect(find.text('YouTube-Anleitungen'), findsOneWidget);
   });
 
   testWidgets('Watch video opens the YouTube app with the canonical link', (
@@ -306,10 +306,10 @@ void main() {
           },
         ),
         (
-          'nl',
+          'de',
           {
-            'title': 'Nederlandse video',
-            'language': 'nl',
+            'title': 'Deutsches Video',
+            'language': 'de',
             'published': true,
             'sortOrder': 2,
             'youtubeVideoId': _id,
@@ -318,7 +318,7 @@ void main() {
       ]),
     );
     expect(find.text('English video'), findsOneWidget);
-    expect(find.text('Nederlandse video'), findsNothing);
+    expect(find.text('Deutsches Video'), findsNothing);
   });
 
   testWidgets('unusable published documents are an error, not "empty"', (
