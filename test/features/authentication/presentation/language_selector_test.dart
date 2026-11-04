@@ -100,7 +100,7 @@ void main() {
     ) async {
       await pumpLogin(tester);
       // Start from a different language so every choice is a real change.
-      if (code == 'en') await choose(tester, 'nl');
+      if (code == 'en') await choose(tester, 'de');
       await choose(tester, code);
       final l10n = await strings(code);
       expect(find.text(l10n.loginScanTitle), findsOneWidget);
@@ -118,10 +118,10 @@ void main() {
     tester,
   ) async {
     await pumpLogin(tester);
-    await choose(tester, 'nl');
+    await choose(tester, 'de');
     await tester.tap(find.byKey(const Key('scan-login-button')));
     await tester.pumpAndSettle();
-    final l10n = await strings('nl');
+    final l10n = await strings('de');
     expect(find.text(l10n.scanTitle), findsOneWidget);
     expect(find.text(l10n.scanHeading), findsOneWidget);
     expect(find.text(l10n.scanInstruction), findsOneWidget);
@@ -189,7 +189,7 @@ void main() {
     expect(find.bySemanticsLabel(RegExp('Dil: Türkçe')), findsWidgets);
     await tester.tap(selector());
     await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('Nederlands'), findsOneWidget);
+    expect(find.bySemanticsLabel('Deutsch'), findsOneWidget);
     expect(find.bySemanticsLabel('தமிழ்'), findsOneWidget);
     handle.dispose();
   });

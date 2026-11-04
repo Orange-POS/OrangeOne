@@ -153,6 +153,7 @@ ios/config/*/GoogleService-Info.plist
 
 #  Marketing
 marketing/onboarding_video
+marketing/youtube_tutorial
 .agents/skills/animate
 skills-lock.json
 

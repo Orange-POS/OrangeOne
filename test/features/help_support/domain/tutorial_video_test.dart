@@ -77,8 +77,8 @@ void main() {
   });
 
   test('text follows the app language, then English, then any text', () {
-    const text = LocalizedText({'en': 'Hello', 'nl': 'Hallo', 'fr': ' '});
-    expect(text.resolve('nl'), 'Hallo');
+    const text = LocalizedText({'en': 'Hello', 'de': 'Hallo', 'fr': ' '});
+    expect(text.resolve('de'), 'Hallo');
     expect(text.resolve('fr'), 'Hello');
     expect(text.resolve('ta'), 'Hello');
     expect(const LocalizedText({'it': 'Ciao'}).resolve('tr'), 'Ciao');

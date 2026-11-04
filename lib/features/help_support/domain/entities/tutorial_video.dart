@@ -28,7 +28,7 @@ class TutorialVideo {
   /// Grouping for a future support library; not shown yet.
   final String? category;
 
-  /// Primary language code of the video (`en`, `nl`, …); null when the video
+  /// Primary language code of the video (`en`, `de`, …); null when the video
   /// suits every language.
   final String? language;
 
