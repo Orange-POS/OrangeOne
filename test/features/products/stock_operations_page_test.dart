@@ -15,6 +15,7 @@ import 'package:orange_one/features/products/presentation/providers/product_succ
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
 import '../../support/auth_fakes.dart';
+import '../../support/backend_features_fakes.dart';
 import '../../support/product_details_fakes.dart';
 
 class _Unset extends UnsetStockController {
@@ -28,6 +29,7 @@ void main() {
     WidgetTester tester, {
     FakeDetailsRepository? repository,
     bool direct = false,
+    bool stockMovements = true,
     List<Override> more = const [],
   }) async {
     tester.view
@@ -43,6 +45,7 @@ void main() {
           ),
           utcNowProvider.overrideWithValue(() => testNow),
           productDetailsRepositoryProvider.overrideWithValue(repo),
+          if (stockMovements) stockMovementsBackend,
           ...more,
         ],
         child: const App(),
@@ -373,5 +376,34 @@ void main() {
     );
     expect(tile.onTap, isNull);
     expect(repo.writes, 0);
+  });
+
+  testWidgets('an older shop counts with Update only; no Add or Remove', (
+    tester,
+  ) async {
+    final repo = await openStock(tester, stockMovements: false);
+    expect(find.byKey(const Key('stock-operation-add')), findsNothing);
+    expect(find.byKey(const Key('stock-operation-remove')), findsNothing);
+    expect(find.byKey(const Key('stock-operation-update')), findsNothing);
+    // Counting works exactly as before.
+    await tester.enterText(find.byKey(const Key('stock-count-input')), '40');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Update Stock'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+    expect(repo.writes, 1);
+    expect(repo.writtenOperation, StockOperation.update);
+    expect(repo.writtenCount?.quantity, 40);
+  });
+
+  testWidgets('a newer shop offers Update, Add and Remove', (tester) async {
+    await openStock(tester);
+    for (final operation in StockOperation.values) {
+      expect(
+        find.byKey(Key('stock-operation-${operation.name}')),
+        findsOneWidget,
+      );
+    }
   });
 }

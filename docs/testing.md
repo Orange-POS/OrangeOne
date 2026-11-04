@@ -118,6 +118,32 @@ Orange-POS/odoo_addons PR #192):
 
 Never run these checks against staging or production data.
 
+### Backward compatibility before every mobile release
+
+One app version must work with every supported addon version (shops upgrade
+their POS backend on their own schedule; an iPhone cannot be downgraded).
+
+1. CI: `test/core/network/backend_features_test.dart` (the real `/meta` replies
+   of an older and a newer shop), `test/app/providers/backend_features_override_test.dart`
+   (per-session features, shop switching, failure fallback, Demo Mode) and the
+   stock screen tests for both kinds of shop.
+2. Read-only contract checks against **each** supported backend (no login, no
+   data changes); `backend-compat.spec.ts` checks the app baseline and that
+   every advertised feature's endpoint exists (and is missing when not
+   advertised):
+
+   ```sh
+   cd tool/e2e
+   ODOO_URL=http://localhost npx playwright test --project=public            # newer addons
+   ODOO_URL=https://<older-pos> ODOO_INSECURE_TLS=1 npx playwright test --project=public   # self-signed POS
+   ```
+3. Device journey on a TestFlight/APK build against an older **and** a newer
+   shop: QR login, scan, details, edit, price, stock Update (Add/Remove only on
+   the newer shop), create, offline read, restart, logout, then sign in to the
+   other shop and check that its features apply.
+4. After release, watch Crashlytics during the phased rollout and pause it if
+   needed (`docs/deployment.md`).
+
 ## Adding a feature or fixing a regression
 
 1. Identify domain boundaries, failure paths and affected UI states.

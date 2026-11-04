@@ -3,15 +3,18 @@ import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
-/// The Update, Add and Remove choice of the stock screen.
+/// The Update, Add and Remove choice of the stock screen; [operations] are
+/// the ones the shop's backend supports.
 class StockOperationSelector extends StatelessWidget {
   const new({
     required this.selected,
     required this.onChanged,
     required this.enabled,
+    this.operations = StockOperation.values,
     super.key,
   });
   final StockOperation selected;
+  final List<StockOperation> operations;
   final ValueChanged<StockOperation> onChanged;
   final bool enabled;
 
@@ -34,7 +37,7 @@ class StockOperationSelector extends StatelessWidget {
       child: Row(
         spacing: 8,
         children: [
-          for (final operation in StockOperation.values)
+          for (final operation in operations)
             Expanded(
               child: _OperationTile(
                 key: Key('stock-operation-${operation.name}'),

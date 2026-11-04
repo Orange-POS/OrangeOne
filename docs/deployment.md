@@ -174,6 +174,10 @@ existing App Store Connect binary, performs prechecks and submits for Apple revi
 it neither rebuilds a potentially different binary nor uploads one.
 
 `automatic_release: false` keeps the approved build pending developer release.
+`phased_release: true` then releases it to automatic updates over seven days
+(1%, 2%, 5%, 10%, 20%, 50%, 100%); the release owner can pause the rollout in
+App Store Connect when Crashlytics shows a problem (up to 30 days) or release
+to everyone at once. Users who update manually get the new version at once.
 After Apple approval, the release owner checks the selected build in App Store
 Connect and chooses **Release This Version** manually. This final public-release
 step deliberately remains outside automated jobs. Stop/reject a pending approval

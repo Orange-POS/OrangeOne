@@ -188,6 +188,9 @@ platform :ios do
       skip_screenshots: true,
       submit_for_review: true,
       automatic_release: false,
+      # Automatic updates reach iPhones over seven days and can be paused if
+      # monitoring shows a problem; users can still update manually.
+      phased_release: true,
       precheck_include_in_app_purchases: false,
       force: true
     )
