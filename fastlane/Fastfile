@@ -55,7 +55,7 @@ def distribute_or_report(distribution, version:, number:, group:)
   distribution.distribute(version: version, number: number)
   true
 rescue OrangeoneTestflight::Pending => error
-  text = "Build #{version} (#{number}) is uploaded but not yet in the #{group} group: #{error.message} "          "Resume without rebuilding or uploading: run the iOS workflow operation distribute_existing "          "with version #{version}, build #{number} and target group #{group}."
+  text = "Build #{version} (#{number}) is uploaded but not yet in the #{group} group: #{error.message} "          "Resume without rebuilding or uploading: run the OrangeONE iOS workflow from main with operation distribute_existing "          "with version #{version}, build #{number} and target group #{group}."
   UI.important(text)
   puts "::warning title=TestFlight distribution pending::#{text}"
   summary = ENV.fetch('GITHUB_STEP_SUMMARY', '')

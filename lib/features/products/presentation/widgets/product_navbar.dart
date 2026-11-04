@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/demo_badge.dart';
 
 class ProductNavbar extends StatelessWidget implements PreferredSizeWidget {
   const new({
@@ -51,13 +52,17 @@ class ProductNavbar extends StatelessWidget implements PreferredSizeWidget {
           else
             const SizedBox(width: 48),
           Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            child: Center(
+              child: TitleWithDemoBadge(
+                title: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ),

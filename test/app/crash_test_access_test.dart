@@ -97,7 +97,8 @@ void main() {
   for (final environment in AppEnvironment.values) {
     final development = environment == AppEnvironment.development;
     testWidgets(
-      '${environment.name}: settings route and gear exist=$development',
+      '${environment.name}: Settings open everywhere, crash tools only in '
+      'development=$development',
       (tester) async {
         final container = _container(environment, _SpyReporter());
         final paths = container
@@ -106,21 +107,43 @@ void main() {
             .routes
             .whereType<GoRoute>()
             .map((route) => route.path);
-        expect(paths.contains('/settings'), development);
+        expect(paths.contains('/settings'), isTrue);
 
         await _mount(tester, container, '/login');
-        expect(
-          find.byKey(const Key('settings-button')),
-          development ? findsOneWidget : findsNothing,
-        );
+        expect(find.byKey(const Key('settings-button')), findsOneWidget);
         expect(find.byKey(const Key('scan-login-button')), findsOneWidget);
 
         await _mount(tester, container, '/settings');
+        // Every regular entry exists in every flavor.
+        for (final key in [
+          'settings-app-version',
+          'demo-mode-switch',
+          'settings-how-to-use',
+          'settings-privacy-policy',
+          'settings-contact-support',
+          'settings-about',
+          'company-footer',
+        ]) {
+          await tester.scrollUntilVisible(find.byKey(Key(key)), 200);
+          expect(find.byKey(Key(key)), findsOneWidget, reason: key);
+        }
+        // The exact company name, with "IT" highlighted.
+        expect(find.text('Swiss Alps IT Services'), findsOneWidget);
+        // The list ends with the footer; the development tools sit just
+        // above it, so they are built (if they exist) after the scroll.
         expect(
-          find.byKey(const Key('trigger-crash-button')),
+          find.byKey(const Key('trigger-crash-button'), skipOffstage: false),
           development ? findsOneWidget : findsNothing,
         );
-        if (!development) expect(find.text('Page not found'), findsOneWidget);
+        expect(
+          find.byKey(const Key('send-test-report-button'), skipOffstage: false),
+          development ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byKey(const Key('settings-environment'), skipOffstage: false),
+          development ? findsOneWidget : findsNothing,
+        );
+        expect(find.text('Page not found'), findsNothing);
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
@@ -135,6 +158,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('settings-button')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('send-test-report-button')),
+      200,
+    );
     expect(find.byKey(const Key('settings-environment')), findsOneWidget);
     expect(find.text('Environment: development'), findsOneWidget);
 

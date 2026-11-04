@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/brand_mark.dart';
+import 'package:orange_one/shared/widgets/demo_badge.dart';
 
 /// Authenticated entry to the Home scanner and lookup feature.
 class HomePage extends StatelessWidget {
@@ -66,7 +67,7 @@ class HomePage extends StatelessWidget {
                           child: Center(
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: BrandMark(),
+                              child: TitleWithDemoBadge(title: BrandMark()),
                             ),
                           ),
                         ),

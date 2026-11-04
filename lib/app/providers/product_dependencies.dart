@@ -13,6 +13,7 @@ import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
+import 'package:orange_one/features/demo/presentation/providers/demo_providers.dart';
 import 'package:orange_one/features/home/data/data_sources/product_remote_data_source.dart';
 import 'package:orange_one/features/home/data/repositories/odoo_product_repository.dart';
 import 'package:orange_one/features/home/data/repositories/recent_scans_repositories.dart';
@@ -52,7 +53,9 @@ final readCacheIdentityProvider = Provider<String?>((ref) {
 /// Unset-stock flags belong to the session identity: logout, expiry,
 /// authentication rejection or a replacement session resets them.
 final Override unsetStockScopeOverride = unsetStockScopeProvider.overrideWith(
-  (ref) => ref.watch(readCacheIdentityProvider),
+  (ref) =>
+      ref.watch(demoLoginProvider)?.scope ??
+      ref.watch(readCacheIdentityProvider),
 );
 
 /// Reads tokens from the session controller at request time.
@@ -82,6 +85,10 @@ final Override authenticatedMobileApiOverride = authenticatedMobileApiProvider
 
 final Override productDetailsRepositoryOverride =
     productDetailsRepositoryProvider.overrideWith((ref) {
+      // A Demo Mode sign-in never reaches the session, network or cache.
+      if (ref.watch(demoLoginProvider) != null) {
+        return ref.watch(demoProductDetailsRepositoryProvider);
+      }
       final session = ref.watch(activeSessionProvider);
       if (session == null) throw invalidSession;
       final cancel = CancelToken();
@@ -104,6 +111,9 @@ final Override productDetailsRepositoryOverride =
 /// Cross-feature composition belongs to app, not either feature's internals.
 final Override productRepositoryOverride = productRepositoryProvider
     .overrideWith((ref) {
+      if (ref.watch(demoLoginProvider) != null) {
+        return ref.watch(demoProductRepositoryProvider);
+      }
       final session = ref.watch(activeSessionProvider);
       if (session == null) throw invalidSession;
       final cancel = CancelToken();
@@ -128,7 +138,9 @@ final Override productRepositoryOverride = productRepositoryProvider
 /// and are isolated per session. The cache is null while signed out.
 final Override recentScansRepositoryOverride = recentScansRepositoryProvider
     .overrideWith(
-      (ref) => CachedRecentScansRepository(ref.watch(readCacheProvider)),
+      (ref) => ref.watch(demoLoginProvider) != null
+          ? ref.watch(demoRecentScansRepositoryProvider)
+          : CachedRecentScansRepository(ref.watch(readCacheProvider)),
     );
 
 /// Network interface changes (`true` when any interface is connected).

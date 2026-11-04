@@ -1,73 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/l10n/l10n.dart';
-import 'package:orange_one/l10n/locale_controller.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/language_menu.dart';
 
-/// White pill showing a greeting in the current language; tapping it opens a
-/// menu of the six supported languages. The choice applies immediately and
-/// is remembered by [LocaleController].
-class LanguageSelector extends ConsumerWidget {
+/// White pill showing a greeting in the current language; tapping it opens
+/// the shared [LanguageMenu]. The choice applies immediately everywhere and
+/// is remembered by `LocaleController`.
+class LanguageSelector extends StatelessWidget {
   const new({super.key});
 
-  static const _menuColor = Color(0xFFF7F2FA);
-  static const _divider = Color(0xFFCAC4D0);
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final current =
-        appLanguageFor(Localizations.localeOf(context).languageCode) ??
-        appLanguages.first;
-    return PopupMenuButton<AppLanguage>(
+    final current = currentAppLanguage(context);
+    return LanguageMenu(
       key: const Key('language-selector'),
       tooltip: l10n.languageSelectorTooltip,
-      color: _menuColor,
-      elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      constraints: const BoxConstraints(minWidth: 168),
-      menuPadding: const EdgeInsets.symmetric(vertical: 4),
-      position: PopupMenuPosition.under,
-      onSelected: (language) =>
-          ref.read(localeControllerProvider.notifier).select(language.locale),
-      itemBuilder: (context) => [
-        for (final (index, language) in appLanguages.indexed)
-          PopupMenuItem<AppLanguage>(
-            key: Key('language-${language.locale.languageCode}'),
-            value: language,
-            padding: EdgeInsets.zero,
-            child: Semantics(
-              selected: language == current,
-              child: Container(
-                width: double.infinity,
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: index == appLanguages.length - 1
-                        ? null
-                        : const Border(bottom: BorderSide(color: _divider)),
-                  ),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 4),
-                      child: Text(
-                        language.greeting,
-                        semanticsLabel: language.name,
-                        style: const TextStyle(
-                          color: OrangeTheme.action,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
       // The visible pill is 40 high; the padding keeps a 48 touch target.
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),

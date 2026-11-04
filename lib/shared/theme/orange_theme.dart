@@ -9,6 +9,9 @@ abstract final class OrangeTheme {
   static const camera = Color(0xFF1B120B);
   static const pale = Color(0xFFFFF3E8);
   static const secondary = Color(0xFF5F6368);
+
+  /// Primary text on white surfaces.
+  static const ink = Color(0xFF202124);
   // Supplied button component colors; independent of branded backgrounds.
   static const action = Color(0xFFF56600);
   static const actionPressed = Color(0xFFC84E00);

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/authentication/presentation/pages/splash_page.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
@@ -12,6 +11,7 @@ import 'package:orange_one/features/authentication/presentation/widgets/brand_ma
 import 'package:orange_one/features/authentication/presentation/widgets/language_selector.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/demo_badge.dart';
 
 class LoginPage extends ConsumerWidget {
   const new({this.sessionExpired = false, super.key});
@@ -44,28 +44,25 @@ class LoginPage extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        if (ref.watch(crashTestControlsProvider))
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const BrandMark(),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: IconButton(
-                                  key: const Key('settings-button'),
-                                  tooltip: l10n.settingsOpenTooltip,
-                                  icon: const Icon(
-                                    Icons.settings,
-                                    color: Colors.white,
-                                  ),
-                                  onPressed: () =>
-                                      context.pushNamed<void>('settings'),
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            const TitleWithDemoBadge(title: BrandMark()),
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: IconButton(
+                                key: const Key('settings-button'),
+                                tooltip: l10n.settingsOpenTooltip,
+                                icon: const Icon(
+                                  Icons.settings,
+                                  color: Colors.white,
                                 ),
+                                onPressed: () =>
+                                    context.pushNamed<void>('settings'),
                               ),
-                            ],
-                          )
-                        else
-                          const BrandMark(),
+                            ),
+                          ],
+                        ),
                         const Spacer(),
                         Semantics(
                           button: true,

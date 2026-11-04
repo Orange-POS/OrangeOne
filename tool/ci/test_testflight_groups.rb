@@ -122,6 +122,39 @@ class TestflightGroupsTest < Minitest::Test
     end
   end
 
+  def test_a_timeout_is_a_resumable_pending_state_naming_the_last_stage
+    [[[], 'not yet listed'],
+     [[Build.new(**@build.to_h.merge(processing_state: 'PROCESSING'))], 'still processing'],
+     [[Build.new(**@build.to_h.merge(build_beta_detail: detail(internal: 'PROCESSING')))], 'not yet ready for testing']
+    ].each do |snapshot, stage|
+      setup
+      @api.snapshots = [snapshot]
+      error = assert_raises(OrangeoneTestflight::ProcessingTimeout) { distribute }
+      assert_kind_of OrangeoneTestflight::Pending, error
+      assert_includes error.message, 'Timed out'
+      assert_includes error.message, stage
+      assert_includes error.message, 'distribute_existing'
+      assert_includes error.message, 'no latest-build fallback'
+      assert_empty assignments
+    end
+  end
+
+  def test_an_unconfirmed_assignment_times_out_as_pending_and_a_resume_completes_it
+    @api.assignment_visible = false
+    error = assert_raises(OrangeoneTestflight::ProcessingTimeout) { distribute }
+    assert_includes error.message, 'not yet confirmed'
+    assert_equal 1, assignments.length
+    # The resumed run sees the existing access and never assigns twice.
+    @api.already_assigned = true
+    @time = 0
+    assert_equal 'exact-build', distribute
+    assert_equal 1, assignments.length
+  end
+
+  def test_the_default_wait_covers_slow_apple_processing
+    assert_equal 1800, OrangeoneTestflight.new(api: @api).instance_variable_get(:@timeout)
+  end
+
   def test_wrong_app_platform_version_or_bundle_cannot_match
     [{app_id: 'other'}, {platform: 'MAC_OS'}, {app_version: '2.0.0'},
      {bundle_id: 'ch.orangepos.productscanner.dev'}].each do |change|
