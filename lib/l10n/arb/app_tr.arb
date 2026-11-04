@@ -224,5 +224,7 @@
   "tutorialRetry": "Tekrar dene",
   "tutorialYoutubeMissing": "YouTube uygulaması yüklü değil.",
   "tutorialOpenInBrowser": "Tarayıcıda aç",
-  "tutorialOpenFailed": "Video açılamadı."
+  "tutorialOpenFailed": "Video açılamadı.",
+  "demoExistingProductBarcode": "Mevcut ürün · {barcode}",
+  "demoNewProductBarcode": "Yeni ürün · {barcode}"
 }

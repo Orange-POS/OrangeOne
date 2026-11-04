@@ -17,8 +17,13 @@ screen offline with sample data. It is built into every flavor
    - *Read-only counter* – looks up products; every restricted action is
      disabled like a user without permissions.
 3. Choosing one opens the normal navigation (Home → scanner → details → edit,
-   price, stock) with sample data. The scanner lists the **sample barcodes**
-   (tap = the normal lookup; the camera is never started) and a small
+   price, stock) with sample data. The scanner offers exactly two **sample
+   barcodes** (`DemoBarcodes`; tap = the normal lookup; the camera is never
+   started): *Existing product* opens a sample product's details, and *New
+   product* is a barcode no sample uses, so it opens the normal product
+   creation form (form → Confirm → Product Details). Only the Store manager
+   can create; for the read-only sample the form stays disabled. A product
+   created this way lives only in that sample session. A small
    **Demo** badge sits beside the navigation title of every screen
    (`shared/widgets/demo_badge.dart`, set by `App` through `DemoScope`; no
    extra bar or height). The switch is in Settings, opened from the login

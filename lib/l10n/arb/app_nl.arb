@@ -224,5 +224,7 @@
   "tutorialRetry": "Opnieuw proberen",
   "tutorialYoutubeMissing": "De YouTube-app is niet geïnstalleerd.",
   "tutorialOpenInBrowser": "Openen in browser",
-  "tutorialOpenFailed": "De video kan niet worden geopend."
+  "tutorialOpenFailed": "De video kan niet worden geopend.",
+  "demoExistingProductBarcode": "Bestaand product · {barcode}",
+  "demoNewProductBarcode": "Nieuw product · {barcode}"
 }

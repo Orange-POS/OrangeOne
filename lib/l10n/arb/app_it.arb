@@ -224,5 +224,7 @@
   "tutorialRetry": "Riprova",
   "tutorialYoutubeMissing": "L’app YouTube non è installata.",
   "tutorialOpenInBrowser": "Apri nel browser",
-  "tutorialOpenFailed": "Impossibile aprire il video."
+  "tutorialOpenFailed": "Impossibile aprire il video.",
+  "demoExistingProductBarcode": "Prodotto esistente · {barcode}",
+  "demoNewProductBarcode": "Nuovo prodotto · {barcode}"
 }

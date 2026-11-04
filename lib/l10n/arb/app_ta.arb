@@ -224,5 +224,7 @@
   "tutorialRetry": "மீண்டும் முயலவும்",
   "tutorialYoutubeMissing": "YouTube செயலி நிறுவப்படவில்லை.",
   "tutorialOpenInBrowser": "உலாவியில் திற",
-  "tutorialOpenFailed": "காணொளியைத் திறக்க முடியவில்லை."
+  "tutorialOpenFailed": "காணொளியைத் திறக்க முடியவில்லை.",
+  "demoExistingProductBarcode": "இருக்கும் பொருள் · {barcode}",
+  "demoNewProductBarcode": "புதிய பொருள் · {barcode}"
 }

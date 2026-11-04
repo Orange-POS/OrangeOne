@@ -1110,5 +1110,23 @@
   "tutorialOpenFailed": "The video could not be opened.",
   "@tutorialOpenFailed": {
     "description": "Snackbar when even the browser could not open the video"
+  },
+  "demoExistingProductBarcode": "Existing product · {barcode}",
+  "@demoExistingProductBarcode": {
+    "description": "Sample barcode on the demo scanner of a sample product, so it opens its details",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "demoNewProductBarcode": "New product · {barcode}",
+  "@demoNewProductBarcode": {
+    "description": "Sample barcode on the demo scanner that no product uses, so it opens product creation",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
   }
 }
