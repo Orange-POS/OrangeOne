@@ -226,5 +226,19 @@
   "tutorialOpenInBrowser": "Im Browser öffnen",
   "tutorialOpenFailed": "Das Video kann nicht geöffnet werden.",
   "demoExistingProductBarcode": "Vorhandenes Produkt · {barcode}",
-  "demoNewProductBarcode": "Neues Produkt · {barcode}"
+  "demoNewProductBarcode": "Neues Produkt · {barcode}",
+  "settingsSignInSection": "ANMELDUNG",
+  "startupWorkflowQr": "QR-Code",
+  "startupWorkflowQrDescription": "Scannen Sie den QR-Code auf Ihrem POS-System.",
+  "startupWorkflowCredentials": "Benutzername und Passwort",
+  "startupWorkflowCredentialsDescription": "Melden Sie sich mit Ihrem Benutzernamen und Passwort an.",
+  "startupWorkflowUnavailable": "Noch nicht verfügbar",
+  "compatibilityUpgradeTitle": "Update erforderlich",
+  "compatibilityUpgradeBody": "Ihr Geschäft benötigt eine neuere Version von OrangeONE. Aktualisieren Sie die App, um fortzufahren.",
+  "compatibilityMaintenanceTitle": "Wartungsarbeiten",
+  "compatibilityMaintenanceBody": "Der Server Ihres Geschäfts wird gewartet. Versuchen Sie es später erneut.",
+  "compatibilityUnsupportedTitle": "Server nicht unterstützt",
+  "compatibilityUnsupportedBody": "Der Server Ihres Geschäfts ist für diese App zu alt. Bitten Sie Ihren Administrator, ihn zu aktualisieren.",
+  "compatibilityRetry": "Erneut versuchen",
+  "compatibilitySignOut": "Abmelden"
 }

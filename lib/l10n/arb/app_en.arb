@@ -1128,5 +1128,61 @@
         "type": "String"
       }
     }
+  },
+  "settingsSignInSection": "SIGN-IN",
+  "@settingsSignInSection": {
+    "description": "Section heading for the sign-in method; kept in capitals"
+  },
+  "startupWorkflowQr": "QR code",
+  "@startupWorkflowQr": {
+    "description": "Sign-in method: scanning the POS QR code"
+  },
+  "startupWorkflowQrDescription": "Scan the QR code shown on your POS.",
+  "@startupWorkflowQrDescription": {
+    "description": "Explains the QR code sign-in method"
+  },
+  "startupWorkflowCredentials": "Username and password",
+  "@startupWorkflowCredentials": {
+    "description": "Sign-in method: user name and password"
+  },
+  "startupWorkflowCredentialsDescription": "Sign in with your username and password.",
+  "@startupWorkflowCredentialsDescription": {
+    "description": "Explains the user name and password sign-in method"
+  },
+  "startupWorkflowUnavailable": "Not available yet",
+  "@startupWorkflowUnavailable": {
+    "description": "Shown under a sign-in method this app version cannot use yet"
+  },
+  "compatibilityUpgradeTitle": "Update required",
+  "@compatibilityUpgradeTitle": {
+    "description": "Title when the shop requires a newer app version"
+  },
+  "compatibilityUpgradeBody": "Your shop needs a newer version of OrangeONE. Update the app to continue.",
+  "@compatibilityUpgradeBody": {
+    "description": "Explains that the app must be updated; never names the server product"
+  },
+  "compatibilityMaintenanceTitle": "Under maintenance",
+  "@compatibilityMaintenanceTitle": {
+    "description": "Title when the shop's server is under maintenance"
+  },
+  "compatibilityMaintenanceBody": "Your shop's server is under maintenance. Try again later.",
+  "@compatibilityMaintenanceBody": {
+    "description": "Explains the maintenance state"
+  },
+  "compatibilityUnsupportedTitle": "Server not supported",
+  "@compatibilityUnsupportedTitle": {
+    "description": "Title when the shop's server is too old for this app"
+  },
+  "compatibilityUnsupportedBody": "Your shop's server is too old for this app. Ask your administrator to update it.",
+  "@compatibilityUnsupportedBody": {
+    "description": "Explains that the server must be updated; never names the server product"
+  },
+  "compatibilityRetry": "Try again",
+  "@compatibilityRetry": {
+    "description": "Button that checks the shop's server again"
+  },
+  "compatibilitySignOut": "Sign out",
+  "@compatibilitySignOut": {
+    "description": "Button that signs out from the compatibility screen"
   }
 }

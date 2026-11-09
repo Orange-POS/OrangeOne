@@ -71,11 +71,15 @@ Shops run different addon versions; one app version serves them all.
   opening; writes are never retried. Another sign-in (another shop or session)
   reads again, so shops never share features. Demo Mode supports its own
   features offline.
+- **Compatibility, permissions, contracts.** `/meta` refusals (update
+  required, maintenance) and unsupported `api_version` majors block the
+  signed-in screens; session permissions and workflow variants are resolved
+  centrally. See [bootstrap-and-capabilities.md](bootstrap-and-capabilities.md).
 - **Gated today.** `stock_movements` → stock **Add** and **Remove**. Without it
   the stock screen counts with **Update** only (`stock_adjustments`, every
   supported addon).
 - **Adding a backend feature.** List it in the addon's `_get_features()`, add
-  a constant in `BackendFeatures`, gate the screen on it (asking again on open
+  an `AppFeature` entry (Feature Resolver), gate the screen on it (asking again on open
   when unconfirmed, like the stock screen), and add the
   endpoint to `tool/e2e/tests/backend-compat.spec.ts`. Raise the addon's
   `API_VERSION` minor version for additive changes.

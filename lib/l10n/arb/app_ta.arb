@@ -226,5 +226,19 @@
   "tutorialOpenInBrowser": "உலாவியில் திற",
   "tutorialOpenFailed": "காணொளியைத் திறக்க முடியவில்லை.",
   "demoExistingProductBarcode": "இருக்கும் பொருள் · {barcode}",
-  "demoNewProductBarcode": "புதிய பொருள் · {barcode}"
+  "demoNewProductBarcode": "புதிய பொருள் · {barcode}",
+  "settingsSignInSection": "உள்நுழைவு",
+  "startupWorkflowQr": "QR குறியீடு",
+  "startupWorkflowQrDescription": "உங்கள் POS இயந்திரத்தில் காட்டப்படும் QR குறியீட்டை ஸ்கேன் செய்யவும்.",
+  "startupWorkflowCredentials": "பயனர் பெயர் மற்றும் கடவுச்சொல்",
+  "startupWorkflowCredentialsDescription": "உங்கள் பயனர் பெயர் மற்றும் கடவுச்சொல்லுடன் உள்நுழையவும்.",
+  "startupWorkflowUnavailable": "இன்னும் கிடைக்கவில்லை",
+  "compatibilityUpgradeTitle": "புதுப்பிப்பு தேவை",
+  "compatibilityUpgradeBody": "உங்கள் கடைக்கு OrangeONE-இன் புதிய பதிப்பு தேவை. தொடர செயலியைப் புதுப்பிக்கவும்.",
+  "compatibilityMaintenanceTitle": "பராமரிப்பில் உள்ளது",
+  "compatibilityMaintenanceBody": "உங்கள் கடையின் சேவையகம் பராமரிப்பில் உள்ளது. பின்னர் மீண்டும் முயற்சிக்கவும்.",
+  "compatibilityUnsupportedTitle": "சேவையகம் ஆதரிக்கப்படவில்லை",
+  "compatibilityUnsupportedBody": "உங்கள் கடையின் சேவையகம் இந்தச் செயலிக்கு மிகவும் பழையது. அதைப் புதுப்பிக்க உங்கள் நிர்வாகியிடம் கேட்கவும்.",
+  "compatibilityRetry": "மீண்டும் முயற்சிக்கவும்",
+  "compatibilitySignOut": "வெளியேறு"
 }

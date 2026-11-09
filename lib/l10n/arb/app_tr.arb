@@ -226,5 +226,19 @@
   "tutorialOpenInBrowser": "Tarayıcıda aç",
   "tutorialOpenFailed": "Video açılamadı.",
   "demoExistingProductBarcode": "Mevcut ürün · {barcode}",
-  "demoNewProductBarcode": "Yeni ürün · {barcode}"
+  "demoNewProductBarcode": "Yeni ürün · {barcode}",
+  "settingsSignInSection": "GİRİŞ",
+  "startupWorkflowQr": "QR kodu",
+  "startupWorkflowQrDescription": "POS makinenizde gösterilen QR kodunu tarayın.",
+  "startupWorkflowCredentials": "Kullanıcı adı ve şifre",
+  "startupWorkflowCredentialsDescription": "Kullanıcı adınız ve şifrenizle oturum açın.",
+  "startupWorkflowUnavailable": "Henüz kullanılamıyor",
+  "compatibilityUpgradeTitle": "Güncelleme gerekli",
+  "compatibilityUpgradeBody": "Mağazanız OrangeONE'ın daha yeni bir sürümünü gerektiriyor. Devam etmek için uygulamayı güncelleyin.",
+  "compatibilityMaintenanceTitle": "Bakımda",
+  "compatibilityMaintenanceBody": "Mağazanızın sunucusu bakımda. Daha sonra tekrar deneyin.",
+  "compatibilityUnsupportedTitle": "Sunucu desteklenmiyor",
+  "compatibilityUnsupportedBody": "Mağazanızın sunucusu bu uygulama için çok eski. Yöneticinizden sunucuyu güncellemesini isteyin.",
+  "compatibilityRetry": "Tekrar dene",
+  "compatibilitySignOut": "Çıkış yap"
 }

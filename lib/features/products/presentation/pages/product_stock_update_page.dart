@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orange_one/core/capabilities/feature_resolver.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
@@ -140,12 +141,15 @@ class _ProductStockUpdatePageState
     final view = async.isLoading || async.hasError ? null : async.value;
     final product = view?.details.product;
     final busy = view?.busy ?? false;
-    // Only operations the shop's backend supports; Update always exists.
-    final features =
-        ref.watch(backendFeaturesProvider).value ?? BackendFeatures.baseline;
-    final operations = features.supports(BackendFeatures.stockMovements)
-        ? StockOperation.values
-        : const [StockOperation.update];
+    // Only operations the shop's backend supports (Feature Resolver); Update
+    // exists in every supported backend.
+    final workflow = StockWorkflow.of(
+      ref.watch(featureAvailabilityProvider(AppFeature.stockUpdate)),
+    );
+    final operations = switch (workflow) {
+      StockWorkflow.countAddRemove => StockOperation.values,
+      StockWorkflow.countOnly => const [StockOperation.update],
+    };
     final saved = view?.phase == StockUpdatePhase.saved;
     final uncertain = view?.phase == StockUpdatePhase.uncertain;
     ref.listen(provider, (previous, next) {

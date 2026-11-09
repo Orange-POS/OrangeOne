@@ -16,10 +16,13 @@ import 'package:orange_one/shared/widgets/panel_scaffold.dart';
 /// app composition, help and about entries, and the Crashlytics verification
 /// in the development flavor only.
 class SettingsPage extends ConsumerWidget {
-  const new({this.demoSection, super.key});
+  const new({this.demoSection, this.startupSection, super.key});
 
   /// The Demo Mode switch; composed by the app, not owned by this feature.
   final Widget? demoSection;
+
+  /// The sign-in workflow choice; composed by the app.
+  final Widget? startupSection;
 
   static const _external = 'assets/icons/settings_external.svg';
 
@@ -87,6 +90,11 @@ class SettingsPage extends ConsumerWidget {
               ),
             ),
           ),
+          if (startupSection != null) ...[
+            const _Separator(),
+            SettingsSectionHeading(l10n.settingsSignInSection),
+            startupSection!,
+          ],
           if (demoSection != null) ...[
             const _Separator(),
             SettingsSectionHeading(l10n.settingsDemonstrationSection),

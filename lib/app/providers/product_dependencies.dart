@@ -4,6 +4,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
+import 'package:orange_one/core/capabilities/api_contract.dart';
+import 'package:orange_one/core/capabilities/session_permissions.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
@@ -111,10 +113,31 @@ final Override backendFeaturesOverride = backendFeaturesProvider.overrideWith((
     // Keep the answer for the rest of this session.
     ref.keepAlive();
     return features;
-  } on AppFailure {
+  } on AppFailure catch (failure) {
+    // Definitive refusals block the session's screens (compatibility
+    // check); every other failure degrades to the unconfirmed baseline.
+    if (failure.kind == FailureKind.upgradeRequired) {
+      return BackendFeatures.refused(BackendRefusal.appUpgradeRequired);
+    }
+    if (failure.code == 'MAINTENANCE') {
+      return BackendFeatures.refused(BackendRefusal.maintenance);
+    }
     return BackendFeatures.baseline;
   }
 });
+
+/// The signed-in user's permissions for the Feature Resolver. Demo Mode and
+/// a signed-out app have none to report (never restricting).
+final Override sessionPermissionsOverride = sessionPermissionsProvider
+    .overrideWith((ref) {
+      if (ref.watch(demoLoginProvider) != null) {
+        return SessionPermissions.unknown;
+      }
+      final session = ref.watch(activeSessionProvider);
+      return session == null
+          ? SessionPermissions.unknown
+          : SessionPermissions(session.permissions);
+    });
 
 final Override productDetailsRepositoryOverride =
     productDetailsRepositoryProvider.overrideWith((ref) {
@@ -126,19 +149,22 @@ final Override productDetailsRepositoryOverride =
       if (session == null) throw invalidSession;
       final cancel = CancelToken();
       ref.onDispose(cancel.cancel);
-      return OdooProductDetailsRepository(
-        ProductCatalogRemoteDataSource(
-          ref.watch(authenticatedMobileApiProvider),
-          cancelToken: cancel,
+      // Contract adapter: one data implementation per supported contract.
+      return switch (ref.watch(apiContractProvider)) {
+        ApiContract.mobileV1 => OdooProductDetailsRepository(
+          ProductCatalogRemoteDataSource(
+            ref.watch(authenticatedMobileApiProvider),
+            cancelToken: cancel,
+          ),
+          cache: ref.watch(readCacheProvider),
+          onSessionRejected: () async {
+            if (ref.mounted &&
+                identical(ref.read(sessionControllerProvider).value, session)) {
+              await ref.read(sessionControllerProvider.notifier).signOut();
+            }
+          },
         ),
-        cache: ref.watch(readCacheProvider),
-        onSessionRejected: () async {
-          if (ref.mounted &&
-              identical(ref.read(sessionControllerProvider).value, session)) {
-            await ref.read(sessionControllerProvider.notifier).signOut();
-          }
-        },
-      );
+      };
     });
 
 /// Cross-feature composition belongs to app, not either feature's internals.
@@ -151,20 +177,23 @@ final Override productRepositoryOverride = productRepositoryProvider
       if (session == null) throw invalidSession;
       final cancel = CancelToken();
       ref.onDispose(cancel.cancel);
-      return OdooProductRepository(
-        ProductRemoteDataSource(
-          ref.watch(authenticatedMobileApiProvider),
-          cancelToken: cancel,
+      // Contract adapter: one data implementation per supported contract.
+      return switch (ref.watch(apiContractProvider)) {
+        ApiContract.mobileV1 => OdooProductRepository(
+          ProductRemoteDataSource(
+            ref.watch(authenticatedMobileApiProvider),
+            cancelToken: cancel,
+          ),
+          cache: ref.watch(readCacheProvider),
+          onSessionRejected: () async {
+            if (!ref.mounted) return;
+            final current = ref.read(sessionControllerProvider).value;
+            if (identical(current, session)) {
+              await ref.read(sessionControllerProvider.notifier).signOut();
+            }
+          },
         ),
-        cache: ref.watch(readCacheProvider),
-        onSessionRejected: () async {
-          if (!ref.mounted) return;
-          final current = ref.read(sessionControllerProvider).value;
-          if (identical(current, session)) {
-            await ref.read(sessionControllerProvider.notifier).signOut();
-          }
-        },
-      );
+      };
     });
 
 /// Recent scans live in the session's encrypted cache: they survive restarts

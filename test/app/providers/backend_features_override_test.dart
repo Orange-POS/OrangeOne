@@ -155,6 +155,33 @@ void main() {
     },
   );
 
+  test('refusals are definitive answers for the compatibility check', () async {
+    shops[_newer] = const AppFailure(
+      FailureKind.upgradeRequired,
+      'Update the app.',
+      code: 'APP_UPGRADE_REQUIRED',
+    );
+    signIn(_at(_newer, 'b'));
+    final upgrade = await features();
+    expect(upgrade.refusal, BackendRefusal.appUpgradeRequired);
+    expect(upgrade.confirmed, isTrue);
+    expect(upgrade.supports('stock_movements'), isFalse);
+
+    shops[_older] = const AppFailure(
+      FailureKind.network,
+      'Maintenance.',
+      code: 'MAINTENANCE',
+    );
+    signIn(_at(_older, 'c'));
+    expect((await features()).refusal, BackendRefusal.maintenance);
+  });
+
+  test('transport failures are never refusals', () async {
+    shops[_newer] = const AppFailure(FailureKind.network, 'offline');
+    signIn(_at(_newer, 'b'));
+    expect((await features()).refusal, isNull);
+  });
+
   test('an unreadable reply is the baseline, not a crash', () async {
     shops[_newer] = {'features': 'all'};
     signIn(_at(_newer, 'b'));

@@ -226,5 +226,19 @@
   "tutorialOpenInBrowser": "Apri nel browser",
   "tutorialOpenFailed": "Impossibile aprire il video.",
   "demoExistingProductBarcode": "Prodotto esistente · {barcode}",
-  "demoNewProductBarcode": "Nuovo prodotto · {barcode}"
+  "demoNewProductBarcode": "Nuovo prodotto · {barcode}",
+  "settingsSignInSection": "ACCESSO",
+  "startupWorkflowQr": "Codice QR",
+  "startupWorkflowQrDescription": "Scansiona il codice QR mostrato sul tuo terminale POS.",
+  "startupWorkflowCredentials": "Nome utente e password",
+  "startupWorkflowCredentialsDescription": "Accedi con nome utente e password.",
+  "startupWorkflowUnavailable": "Non ancora disponibile",
+  "compatibilityUpgradeTitle": "Aggiornamento necessario",
+  "compatibilityUpgradeBody": "Il tuo negozio richiede una versione più recente di OrangeONE. Aggiorna l'app per continuare.",
+  "compatibilityMaintenanceTitle": "Manutenzione in corso",
+  "compatibilityMaintenanceBody": "Il server del tuo negozio è in manutenzione. Riprova più tardi.",
+  "compatibilityUnsupportedTitle": "Server non supportato",
+  "compatibilityUnsupportedBody": "Il server del tuo negozio è troppo vecchio per questa app. Chiedi all'amministratore di aggiornarlo.",
+  "compatibilityRetry": "Riprova",
+  "compatibilitySignOut": "Esci"
 }

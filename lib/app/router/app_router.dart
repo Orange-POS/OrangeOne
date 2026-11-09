@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orange_one/app/router/auth_redirect.dart';
+import 'package:orange_one/app/bootstrap/bootstrap_resolver.dart';
+import 'package:orange_one/core/capabilities/compatibility.dart';
 import 'package:orange_one/core/config/application_settings.dart';
+import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/features/authentication/presentation/pages/login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/qr_login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/splash_page.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
+import 'package:orange_one/features/compatibility/presentation/pages/compatibility_page.dart';
 import 'package:orange_one/features/demo/presentation/providers/demo_providers.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_mode_section.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_sample_barcodes.dart';
@@ -23,18 +26,30 @@ import 'package:orange_one/features/products/presentation/pages/product_edit_pag
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_stock_update_page.dart';
 import 'package:orange_one/features/settings/presentation/pages/settings_page.dart';
+import 'package:orange_one/features/startup/presentation/providers/startup_configuration_providers.dart';
+import 'package:orange_one/features/startup/presentation/widgets/startup_workflow_section.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
   ref
     ..listen(sessionControllerProvider, (previous, next) => refresh.value++)
-    ..listen(demoLoginProvider, (previous, next) => refresh.value++);
+    ..listen(demoLoginProvider, (previous, next) => refresh.value++)
+    ..listen(
+      startupConfigurationControllerProvider,
+      (previous, next) => refresh.value++,
+    )
+    // Listening keeps the Capability Manager's GET /meta read alive for the
+    // whole session: it runs right after sign-in or restore.
+    ..listen(compatibilityProvider, (previous, next) => refresh.value++);
   final router = GoRouter(
     initialLocation: '/startup',
     refreshListenable: refresh,
-    redirect: (context, route) => authenticationRedirect(
-      ref.read(sessionControllerProvider),
-      route.uri.path,
+    redirect: (context, route) => bootstrapRedirect(
+      session: ref.read(sessionControllerProvider),
+      path: route.uri.path,
+      startup: ref.read(startupConfigurationControllerProvider),
+
+      compatibility: ref.read(compatibilityProvider),
       demo: ref.read(demoLoginProvider) != null,
     ),
     errorBuilder: (context, state) => Scaffold(
@@ -149,6 +164,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/startup',
         builder: (context, state) => const SplashPage(),
       ),
+      GoRoute(
+        name: 'compatibility',
+        path: compatibilityPath,
+        builder: (context, state) => Consumer(
+          builder: (context, ref, child) => CompatibilityPage(
+            status: ref.watch(compatibilityProvider),
+            onRetry: () => ref.invalidate(backendFeaturesProvider),
+            onSignOut: () => unawaited(
+              ref.read(sessionControllerProvider.notifier).signOut(),
+            ),
+          ),
+        ),
+      ),
       GoRoute(path: '/', redirect: (context, state) => '/login'),
       // Settings hold Demo Mode in every flavor; the Crashlytics verification
       // inside them exists in development only.
@@ -159,6 +187,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           builder: (context, ref, child) {
             final auth = ref.watch(sessionControllerProvider);
             return SettingsPage(
+              startupSection: const StartupWorkflowSection(),
               demoSection: DemoModeSection(
                 // Never next to a real session, or while one is restored.
                 available: !auth.isLoading && auth.value == null,
