@@ -385,5 +385,16 @@
   "cameraStarting": "Kamera wird gestartet",
   "wifiChecking": "WLAN-Verbindung wird geprüft",
   "tutorialsLoading": "Anleitungen werden geladen",
-  "categoryCreating": "Kategorie wird erstellt"
+  "categoryCreating": "Kategorie wird erstellt",
+  "discountCreatedMeanwhile": "Ihr vorheriges Speichern hat diesen Rabatt erstellt, nur die Antwort ging verloren. Das Formular bearbeitet ihn jetzt mit Ihren Änderungen; nichts wurde doppelt gesendet. Prüfen und speichern.",
+  "discountConflictTitle": "Anderswo geändert",
+  "discountConflictBody": "Jemand hat diesen Rabatt gespeichert, während Sie ihn bearbeitet haben. Ihre Änderungen bleiben erhalten. Wo beide denselben Teil geändert haben, wählen Sie den Wert, übernehmen Sie und prüfen Sie vor dem Speichern.",
+  "discountConflictSaved": "Jetzt gespeichert: {value}",
+  "discountConflictYours": "Ihre Eingabe: {value}",
+  "discountConflictKeepMine": "Meine behalten",
+  "discountConflictUseSaved": "Gespeicherte nehmen",
+  "discountConflictTakenOver": "Übernommen: Sie haben dies nicht geändert.",
+  "discountConflictApply": "Übernehmen und prüfen",
+  "discountPartValue": "Rabattwert",
+  "discountArchiving": "Wird archiviert…"
 }

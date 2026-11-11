@@ -5,9 +5,9 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/preferences/time_format_controller.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
-import 'package:orange_one/features/discounts/presentation/providers/discount_details_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_form_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_conflict_panel.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_sections.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_pickers.dart';
@@ -133,55 +133,23 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     if (changed && mounted) await _controller.refreshRegularPrice();
   }
 
-  Future<void> _archive(DiscountFormState state) async {
-    final original = state.original;
-    if (original == null || state.busy) return;
-    final args = (scope: widget.scope, discountId: original.id);
-    final provider = discountDetailsControllerProvider(args);
+  /// Confirms, then archives through the form's own controller: Save,
+  /// Archive and leaving the form share its busy state, so nothing overlaps
+  /// while the archive is pending. A failure keeps the draft.
+  Future<void> _archive() async {
+    if (_confirming || !_controller.canArchive) return;
     final l10n = context.l10n;
-    // The auto-dispose details controller must stay alive for the whole
-    // archive (fresh read, confirmation, DELETE).
-    final subscription = ref.listenManual(provider, (previous, next) {});
-    DiscountDetailsState? result;
+    _confirming = true;
+    FocusScope.of(context).unfocus();
     try {
-      // The details controller reads the discount fresh before archiving.
-      await ref.read(provider.future);
-      final details = ref.read(provider.notifier);
-      if (!mounted || !details.canRun(DiscountAction.archive)) return;
       final confirmed = await DiscountConfirmDialog.show(
         context,
         title: l10n.discountConfirmArchiveTitle,
         message: l10n.discountConfirmArchiveBody,
       );
-      if (!confirmed || !mounted) return;
-      await details.run(DiscountAction.archive);
-      if (!mounted) return;
-      result = ref.read(provider).value;
-    } on AppFailure {
-      // The fresh read failed: nothing was sent.
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(l10n.discountLoadFailed)));
-      }
-      return;
+      if (confirmed && mounted) await _controller.archive();
     } finally {
-      subscription.close();
-    }
-    if (!mounted) return;
-    if (result?.completed == DiscountAction.archive) {
-      context.pop(l10n.discountArchivedDone);
-    } else if (result?.problem != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result!.problem == DiscountActionProblem.changed
-                ? l10n.discountChanged
-                : result.problem == DiscountActionProblem.uncertain
-                ? l10n.discountUncertain
-                : result.serverMessage ?? l10n.discountLoadFailed,
-          ),
-        ),
-      );
+      _confirming = false;
     }
   }
 
@@ -238,18 +206,26 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     final async = ref.watch(provider);
     final state = async.hasError ? null : async.value;
     ref.listen(provider, (previous, next) {
+      final before = previous?.value;
       final value = next.value;
-      if (value?.phase == DiscountFormPhase.saved &&
-          previous?.value?.phase != DiscountFormPhase.saved) {
-        context.pop(value!.editing ? l10n.discountSaved : l10n.discountCreated);
+      if (value == null) return;
+      if (value.phase == DiscountFormPhase.saved &&
+          before?.phase != DiscountFormPhase.saved) {
+        context.pop(value.editing ? l10n.discountSaved : l10n.discountCreated);
+      } else if (value.phase == DiscountFormPhase.archived &&
+          before?.phase != DiscountFormPhase.archived) {
+        context.pop(l10n.discountArchivedDone);
+      } else if (before?.conflict != null && value.conflict == null) {
+        // The merged values replace what the inputs show.
+        _fill(value.draft);
       }
-      // A conflict refreshes the stored version; the typed values stay.
     });
     if (state != null && !_filled) {
       _filled = true;
       _fill(state.draft);
     }
     final busy = state?.busy ?? false;
+    final saving = state?.phase == DiscountFormPhase.saving;
     final editable =
         state != null &&
         !busy &&
@@ -257,27 +233,27 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
         (state.original?.editable ?? true);
     final canSave =
         state != null && state.canSubmit && access.canWrite && !busy;
+    final canArchive = state != null && state.canArchive && access.canWrite;
+    final editingStored = state?.editing ?? widget.discountId != null;
     return PopScope(
       canPop: !busy,
       child: ProductScaffold(
         appBar: ProductNavbar(
-          title: widget.discountId == null
-              ? l10n.discountCreateTitle
-              : l10n.discountEditTitle,
+          title: editingStored
+              ? l10n.discountEditTitle
+              : l10n.discountCreateTitle,
           onBack: busy ? null : () => context.pop(),
           trailing: state?.original != null
               ? IconButton(
                   key: const Key('discount-form-archive'),
                   tooltip: l10n.discountArchive,
-                  onPressed: access.canWrite && editable
-                      ? () => _archive(state)
-                      : null,
+                  onPressed: canArchive ? _archive : null,
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.white.withValues(alpha: .2),
                     fixedSize: const Size(48, 48),
                   ),
                   icon: Opacity(
-                    opacity: access.canWrite && editable ? 1 : .5,
+                    opacity: canArchive ? 1 : .5,
                     child: const DiscountSvgIcon(
                       'assets/icons/archive.svg',
                       color: Colors.white,
@@ -292,19 +268,22 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
             key: const Key('discount-save'),
             style: FilledButton.styleFrom(
               minimumSize: const Size(double.infinity, 56),
-              disabledBackgroundColor: busy ? OrangeTheme.action : null,
-              disabledForegroundColor: busy ? Colors.white : null,
+              // Saving stays orange; while archiving Save is plainly off.
+              disabledBackgroundColor: saving ? OrangeTheme.action : null,
+              disabledForegroundColor: saving ? Colors.white : null,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
             onPressed: canSave ? () => _save(state) : null,
             child: Text(
-              busy
+              saving
                   ? l10n.discountSaving
-                  : widget.discountId == null
-                  ? l10n.discountCreateTitle
-                  : l10n.commonSaveChanges,
+                  : state?.phase == DiscountFormPhase.archiving
+                  ? l10n.discountArchiving
+                  : editingStored
+                  ? l10n.commonSaveChanges
+                  : l10n.discountCreateTitle,
             ),
           ),
         ),
@@ -402,9 +381,20 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     final preview = state.preview;
     final schedule = draft.schedule;
     final typeIcon = draft.type == null ? null : discountTypeIcon(draft.type!);
+    final merge = state.merge;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (merge != null)
+          DiscountConflictPanel(
+            merge: merge,
+            keepMine: state.conflict!.keepMine,
+            currency: currency,
+            onChoose: editable ? _controller.choose : null,
+            onApply: editable && state.conflictDecided
+                ? _controller.resolveConflict
+                : null,
+          ),
         InfoRowCard.price(
           label: l10n.discountsRegularPrice,
           value: state.regularPrice.display,
@@ -618,16 +608,23 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
           DiscountNotice(message: l10n.discountReadOnly)
         else if (state.limitReached && !state.editing)
           DiscountNotice(message: l10n.discountLimitReached),
-        if (state.problem != null)
+        // The conflict panel at the top already explains a conflict.
+        if (state.problem != null && merge == null)
           DiscountNotice(
             key: const Key('discount-form-problem'),
-            error: state.problem != DiscountFormProblem.changed,
+            error: switch (state.problem!) {
+              DiscountFormProblem.changed ||
+              DiscountFormProblem.createdMeanwhile => false,
+              _ => true,
+            },
             message: switch (state.problem!) {
               DiscountFormProblem.notAllowed =>
                 access.offline ? l10n.discountOffline : l10n.discountReadOnly,
               DiscountFormProblem.limitReached => l10n.discountLimitReached,
               DiscountFormProblem.changed => l10n.discountChanged,
               DiscountFormProblem.uncertain => l10n.discountUncertain,
+              DiscountFormProblem.createdMeanwhile =>
+                l10n.discountCreatedMeanwhile,
               DiscountFormProblem.refused =>
                 DiscountText.rule(l10n, state.ruleCode) ??
                     state.problemMessage ??

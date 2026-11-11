@@ -1873,5 +1873,59 @@
   "categoryCreating": "Creating category",
   "@categoryCreating": {
     "description": "Loading placeholder label for screen readers"
+  },
+  "discountCreatedMeanwhile": "Your earlier save did create this discount, its answer was only lost. The form now edits it with your changes; nothing was sent twice. Review and save.",
+  "@discountCreatedMeanwhile": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictTitle": "Changed elsewhere",
+  "@discountConflictTitle": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictBody": "Someone saved this discount while you were editing. Your changes are kept. Where both of you changed the same part, choose which value to keep, then apply and review before saving.",
+  "@discountConflictBody": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictSaved": "Saved now: {value}",
+  "@discountConflictSaved": {
+    "description": "Discount form: lost create and concurrent change",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountConflictYours": "Yours: {value}",
+  "@discountConflictYours": {
+    "description": "Discount form: lost create and concurrent change",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountConflictKeepMine": "Keep mine",
+  "@discountConflictKeepMine": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictUseSaved": "Use saved",
+  "@discountConflictUseSaved": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictTakenOver": "Taken over: you did not change this.",
+  "@discountConflictTakenOver": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictApply": "Apply and review",
+  "@discountConflictApply": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountPartValue": "Discount value",
+  "@discountPartValue": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountArchiving": "Archiving…",
+  "@discountArchiving": {
+    "description": "Discount form: lost create and concurrent change"
   }
 }

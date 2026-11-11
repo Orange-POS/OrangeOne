@@ -5,6 +5,7 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
+import 'package:orange_one/features/discounts/domain/entities/discount_merge.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 
 /// A `Discount` payload of the Mobile API 1.1 contract (product 10, CHF 100).
@@ -94,12 +95,14 @@ Discount discountOf({
   bool paused = false,
   bool active = true,
   DiscountStatus status = DiscountStatus.active,
+  String percent = '20',
+  DiscountSchedule? schedule,
 }) => Discount(
   id: id,
   productId: 10,
   type: type,
   label: '20% off',
-  percent: type == DiscountType.percentage ? '20' : null,
+  percent: type == DiscountType.percentage ? percent : null,
   fixedPrice: type == DiscountType.fixedPrice
       ? const DiscountMoney(8000, 'CHF')
       : null,
@@ -113,6 +116,7 @@ Discount discountOf({
     savings: DiscountMoney(2000, 'CHF'),
     savingsPercent: '20.00',
   ),
+  schedule: schedule,
   repeat: DiscountRepeat.none,
   status: paused ? DiscountStatus.paused : status,
   appliesNow: !paused && status == DiscountStatus.active,
@@ -134,6 +138,32 @@ class FakeDiscountRepository implements DiscountRepository {
   final versions = <String>[];
   DiscountDraft? lastDraft;
   int _next = 100;
+
+  /// The next create is committed but its answer is lost (a network
+  /// failure after the server saved it). An identical retry is replayed
+  /// like the server does for the same `Idempotency-Key`.
+  bool loseCreateAnswer = false;
+  final _replay = <String, Discount>{};
+
+  /// Updates and archives with a stale version fail with
+  /// `VERSION_CONFLICT`, like the server's `If-Match` check.
+  bool checkVersions = false;
+
+  static String _fingerprint(DiscountDraft draft) =>
+      [for (final part in DiscountPart.values) draft.partKey(part)].join('|');
+
+  void _checkVersion(Discount current) {
+    if (!checkVersions) return;
+    final stored = discounts.firstWhere((d) => d.id == current.id);
+    if (stored.version != current.version) {
+      throw const AppFailure(
+        FailureKind.conflict,
+        'Changed',
+        code: 'VERSION_CONFLICT',
+      );
+    }
+  }
+
   int lists = 0;
 
   /// The product's regular price in list reads.
@@ -220,8 +250,15 @@ class FakeDiscountRepository implements DiscountRepository {
   Future<Discount> create(int productId, DiscountDraft draft) async {
     lastDraft = draft;
     await _write('create', null);
+    final replayed = _replay[_fingerprint(draft)];
+    if (replayed != null) return replayed;
     final created = _from(_next++, draft, 'v1');
     discounts = [created, ...discounts];
+    if (loseCreateAnswer) {
+      loseCreateAnswer = false;
+      _replay[_fingerprint(draft)] = created;
+      throw const AppFailure(FailureKind.network, 'Connection lost');
+    }
     return created;
   }
 
@@ -229,6 +266,7 @@ class FakeDiscountRepository implements DiscountRepository {
   Future<Discount> update(Discount current, DiscountDraft draft) async {
     lastDraft = draft;
     await _write('update', current);
+    _checkVersion(current);
     return _replace(current, _from(current.id, draft, '${current.version}+'));
   }
 
@@ -260,6 +298,7 @@ class FakeDiscountRepository implements DiscountRepository {
   @override
   Future<Discount> archive(Discount current) async {
     await _write('archive', current);
+    _checkVersion(current);
     return _replace(current, _state(current, active: false));
   }
 

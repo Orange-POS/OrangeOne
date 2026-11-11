@@ -385,5 +385,16 @@
   "cameraStarting": "Kamera başlatılıyor",
   "wifiChecking": "Wi-Fi bağlantısı kontrol ediliyor",
   "tutorialsLoading": "Eğitimler yükleniyor",
-  "categoryCreating": "Kategori oluşturuluyor"
+  "categoryCreating": "Kategori oluşturuluyor",
+  "discountCreatedMeanwhile": "Önceki kaydınız bu indirimi oluşturdu, yalnızca yanıt kayboldu. Form şimdi değişikliklerinizle onu düzenliyor; hiçbir şey iki kez gönderilmedi. Kontrol edip kaydedin.",
+  "discountConflictTitle": "Başka yerde değiştirildi",
+  "discountConflictBody": "Siz düzenlerken biri bu indirimi kaydetti. Değişiklikleriniz korunur. İkinizin de aynı bölümü değiştirdiği yerde hangi değerin kalacağını seçin, ardından uygulayıp kaydetmeden önce kontrol edin.",
+  "discountConflictSaved": "Şu an kayıtlı: {value}",
+  "discountConflictYours": "Sizinki: {value}",
+  "discountConflictKeepMine": "Benimkini koru",
+  "discountConflictUseSaved": "Kayıtlıyı kullan",
+  "discountConflictTakenOver": "Alındı: bunu siz değiştirmediniz.",
+  "discountConflictApply": "Uygula ve kontrol et",
+  "discountPartValue": "İndirim değeri",
+  "discountArchiving": "Arşivleniyor…"
 }

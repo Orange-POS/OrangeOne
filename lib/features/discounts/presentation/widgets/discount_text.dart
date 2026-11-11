@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 import 'package:orange_one/core/preferences/time_format_controller.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
+import 'package:orange_one/features/discounts/domain/entities/discount_merge.dart';
 import 'package:orange_one/l10n/l10n.dart';
 
 /// Localised texts of the discount screens. Titles are built from the typed
@@ -52,6 +53,54 @@ abstract final class DiscountText {
         ? trimmed.substring(0, trimmed.length - 1)
         : trimmed;
   }
+
+  /// The value of a draft as text ("20% off", "CHF 80.00", "5 for
+  /// CHF 400.00"); what was typed when it is not a valid amount yet.
+  static String draftValue(
+    AppLocalizations l10n,
+    DiscountDraft draft,
+    String currency,
+  ) {
+    String amount(String raw) {
+      final cents = DiscountMoney.parseCents(raw.trim());
+      return cents == null ? raw.trim() : money(cents, currency);
+    }
+
+    return switch (draft.type) {
+      null => '',
+      DiscountType.fixedPrice => amount(draft.fixedPrice),
+      DiscountType.percentage => l10n.discountPercentOff(
+        _trimPercent(draft.percent.trim()),
+      ),
+      DiscountType.collective => l10n.discountBundleOffer(
+        draft.bundleQuantity.trim(),
+        amount(draft.bundlePrice),
+      ),
+    };
+  }
+
+  /// The name of a part of a discount.
+  static String partName(AppLocalizations l10n, DiscountPart part) =>
+      switch (part) {
+        DiscountPart.value => l10n.discountPartValue,
+        DiscountPart.schedule => l10n.discountDateTime,
+        DiscountPart.repeat => l10n.discountRepeatSchedule,
+        DiscountPart.minimum => l10n.discountMinimumQuantity,
+      };
+
+  /// [part] of [draft] as text.
+  static String partValue(
+    AppLocalizations l10n,
+    String locale,
+    DiscountDraft draft,
+    DiscountPart part,
+    String currency,
+  ) => switch (part) {
+    DiscountPart.value => draftValue(l10n, draft, currency),
+    DiscountPart.schedule => schedule(l10n, locale, draft.schedule),
+    DiscountPart.repeat => repeat(l10n, locale, draft.repeat),
+    DiscountPart.minimum => minimum(l10n, draft.minimumQuantity),
+  };
 
   /// The headline of the live preview.
   static String? previewHeadline(

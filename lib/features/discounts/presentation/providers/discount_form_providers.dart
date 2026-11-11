@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
+import 'package:orange_one/features/discounts/domain/entities/discount_merge.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 
-enum DiscountFormPhase { editing, saving, saved }
+/// [saving] and [archiving] are the two writes of the form; while one runs,
+/// every other action and leaving the form are blocked.
+enum DiscountFormPhase { editing, saving, archiving, saved, archived }
 
 /// What stops or stopped saving, beyond field errors.
 enum DiscountFormProblem {
@@ -15,16 +18,36 @@ enum DiscountFormProblem {
   /// The product already has the maximum number of discounts.
   limitReached,
 
-  /// The discount was changed elsewhere (`VERSION_CONFLICT`); the form keeps
-  /// the entered values over the latest version, nothing was written.
+  /// The discount was changed elsewhere (`VERSION_CONFLICT`). The form keeps
+  /// the entered values and shows the server's values
+  /// ([DiscountFormState.conflict]); nothing is sent until the user resolves
+  /// it.
   changed,
 
   /// Sent without a confirmed answer. Saving the same values again repeats
   /// the identical request (same `Idempotency-Key`), so it is applied once.
   uncertain,
 
+  /// A create whose answer was lost did reach the server: the form now
+  /// edits that discount (with the user's changes) instead of creating a
+  /// second one. Nothing was sent.
+  createdMeanwhile,
+
   /// The server refused it (a rule about the whole discount).
   refused,
+}
+
+/// An unresolved `VERSION_CONFLICT`: the latest server version and the
+/// user's choices for parts both sides changed.
+class DiscountFormConflict {
+  const new({required this.latest, this.keepMine = const {}});
+
+  /// The latest server version; its version guards the next save once the
+  /// conflict is resolved.
+  final Discount latest;
+
+  /// Decided parts (`true` = keep the user's value).
+  final Map<DiscountPart, bool> keepMine;
 }
 
 class DiscountFormState {
@@ -40,13 +63,15 @@ class DiscountFormState {
     this.ruleCode,
     this.saved,
     this.limitReached = false,
+    this.conflict,
   });
 
   /// The product's current list price, for validation and the preview.
   final DiscountMoney regularPrice;
   final DiscountDraft draft;
 
-  /// The stored discount (edit mode), fresh from the server.
+  /// The stored discount (edit mode) the draft is based on. Its version is
+  /// sent as `If-Match`.
   final Discount? original;
   final DiscountFormPhase phase;
 
@@ -65,12 +90,16 @@ class DiscountFormState {
   /// page when known.
   final String? ruleCode;
 
-  /// The discount the server confirmed.
+  /// The discount the server confirmed (saved or archived).
   final Discount? saved;
   final bool limitReached;
 
+  /// Set while a concurrent change waits for the user's resolution.
+  final DiscountFormConflict? conflict;
+
   bool get editing => original != null;
-  bool get busy => phase == DiscountFormPhase.saving;
+  bool get busy =>
+      phase == DiscountFormPhase.saving || phase == DiscountFormPhase.archiving;
 
   /// Client checks of the current draft.
   Map<String, DiscountIssue> get issues => draft.validate(regularPrice.cents);
@@ -80,11 +109,73 @@ class DiscountFormState {
 
   DraftPreview? get preview => draft.preview(regularPrice.cents);
 
+  /// The merge of the user's draft with the latest server version, while a
+  /// conflict is open.
+  DiscountMerge? get merge {
+    final open = conflict;
+    final base = original;
+    if (open == null || base == null) return null;
+    return DiscountMerge(
+      base: DiscountDraft.fromDiscount(base),
+      mine: draft,
+      theirs: DiscountDraft.fromDiscount(open.latest),
+    );
+  }
+
+  /// Every part both sides changed is decided.
+  bool get conflictDecided {
+    final current = merge;
+    final open = conflict;
+    return current != null &&
+        open != null &&
+        current.conflicting.every(open.keepMine.containsKey);
+  }
+
   bool get canSubmit =>
       phase == DiscountFormPhase.editing &&
+      conflict == null &&
       issues.isEmpty &&
       !(limitReached && !editing) &&
       (original?.editable ?? true);
+
+  /// Archive is possible for a stored, not archived discount while nothing
+  /// else runs and no conflict is open.
+  bool get canArchive =>
+      phase == DiscountFormPhase.editing &&
+      conflict == null &&
+      original != null &&
+      !original!.archived;
+
+  DiscountFormState copy({
+    DiscountMoney? regularPrice,
+    DiscountDraft? draft,
+    Discount? original,
+    DiscountFormPhase? phase,
+    Map<String, DiscountIssue>? serverIssues,
+    Map<String, String>? serverMessages,
+    DiscountFormProblem? problem,
+    String? problemMessage,
+    String? ruleCode,
+    Discount? saved,
+    bool? limitReached,
+    DiscountFormConflict? conflict,
+    bool keepProblem = false,
+    bool keepConflict = true,
+  }) => DiscountFormState(
+    regularPrice: regularPrice ?? this.regularPrice,
+    draft: draft ?? this.draft,
+    original: original ?? this.original,
+    phase: phase ?? this.phase,
+    serverIssues: serverIssues ?? this.serverIssues,
+    serverMessages: serverMessages ?? this.serverMessages,
+    problem: problem ?? (keepProblem ? this.problem : null),
+    problemMessage:
+        problemMessage ?? (keepProblem ? this.problemMessage : null),
+    ruleCode: ruleCode ?? (keepProblem ? this.ruleCode : null),
+    saved: saved,
+    limitReached: limitReached ?? this.limitReached,
+    conflict: conflict ?? (keepConflict ? this.conflict : null),
+  );
 }
 
 typedef DiscountFormArgs = ({DiscountScope scope, int? discountId});
@@ -103,11 +194,18 @@ discountFormControllerProvider = AsyncNotifierProvider.autoDispose
 
 /// The shared Create/Edit Discount form. Saving needs the Feature Resolver's
 /// manage access, a connection and a valid draft; the server validates
-/// again and its answer is authoritative.
+/// again and its answer is authoritative. Save and Archive are the form's
+/// two writes: one at a time, each confirmed by the page and sent once.
 class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   new(this.args);
   final DiscountFormArgs args;
   int _generation = 0;
+
+  /// Discounts that existed when the create form opened.
+  Set<int> _knownIds = const {};
+
+  /// A create sent without a confirmed answer: it may exist on the server.
+  DiscountDraft? _unconfirmedCreate;
 
   @override
   Future<DiscountFormState> build() async {
@@ -118,6 +216,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     final id = args.discountId;
     if (id == null) {
       final list = await repository.list(args.scope.productId);
+      _knownIds = {for (final discount in list.discounts) discount.id};
       return DiscountFormState(
         regularPrice: list.regularPrice,
         draft: const DiscountDraft(),
@@ -144,28 +243,29 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     return current;
   }
 
-  /// Replaces the draft. Server errors of inputs that changed are dropped.
+  /// Replaces the draft. Server errors of inputs that changed are dropped;
+  /// an open conflict and an unsure outcome stay visible.
   void change(DiscountDraft Function(DiscountDraft draft) update) {
     final current = _editable;
     if (current == null) return;
     final draft = update(current.draft);
     final before = DiscountInputSnapshot(current.draft);
     final after = DiscountInputSnapshot(draft);
+    final keep = switch (current.problem) {
+      DiscountFormProblem.uncertain ||
+      DiscountFormProblem.changed ||
+      DiscountFormProblem.createdMeanwhile => true,
+      _ => false,
+    };
     state = AsyncData(
-      DiscountFormState(
-        regularPrice: current.regularPrice,
+      current.copy(
         draft: draft,
-        original: current.original,
-        limitReached: current.limitReached,
         serverIssues: {
           for (final entry in current.serverIssues.entries)
             if (before.of(entry.key) == after.of(entry.key))
               entry.key: entry.value,
         },
-        serverMessages: current.serverMessages,
-        problem: current.problem == DiscountFormProblem.uncertain
-            ? DiscountFormProblem.uncertain
-            : null,
+        keepProblem: keep,
       ),
     );
   }
@@ -244,17 +344,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         return;
       }
       state = AsyncData(
-        DiscountFormState(
-          regularPrice: list.regularPrice,
-          draft: current.draft,
-          original: current.original,
-          serverIssues: current.serverIssues,
-          serverMessages: current.serverMessages,
-          problem: current.problem,
-          problemMessage: current.problemMessage,
-          ruleCode: current.ruleCode,
-          limitReached: current.limitReached,
-        ),
+        current.copy(regularPrice: list.regularPrice, keepProblem: true),
       );
       ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
     } on AppFailure {
@@ -262,21 +352,81 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     }
   }
 
+  // --- Conflict resolution ------------------------------------------------
+
+  /// Decides a part both sides changed (`true` keeps the user's value).
+  void choose(DiscountPart part, {required bool keepMine}) {
+    final current = _editable;
+    final open = current?.conflict;
+    if (current == null || open == null) return;
+    state = AsyncData(
+      current.copy(
+        conflict: DiscountFormConflict(
+          latest: open.latest,
+          keepMine: {...open.keepMine, part: keepMine},
+        ),
+        keepProblem: true,
+      ),
+    );
+  }
+
+  /// Applies the merge once every conflicting part is decided: the draft
+  /// becomes the latest server values plus the user's own changes, and the
+  /// latest version guards the next save. Nothing is sent; the user reviews
+  /// and saves again.
+  void resolveConflict() {
+    final current = _editable;
+    final open = current?.conflict;
+    final merge = current?.merge;
+    if (current == null ||
+        open == null ||
+        merge == null ||
+        !current.conflictDecided) {
+      return;
+    }
+    state = AsyncData(
+      DiscountFormState(
+        regularPrice: open.latest.regularPrice,
+        draft: merge.resolve(open.keepMine),
+        original: open.latest,
+        limitReached: current.limitReached,
+      ),
+    );
+  }
+
+  // --- Writes ------------------------------------------------------------
+
   /// Whether a confirmation may be shown now.
   bool get canConfirm {
     final current = _editable;
     return current != null && current.canSubmit && _writable;
   }
 
+  /// Whether the archive confirmation may be shown now.
+  bool get canArchive {
+    final current = _editable;
+    return current != null && current.canArchive && _writable;
+  }
+
+  static String _fingerprint(DiscountDraft draft) =>
+      [for (final part in DiscountPart.values) draft.partKey(part)].join('|');
+
   /// Sends the confirmed draft once.
+  ///
+  /// After a create whose answer was lost, an identical retry repeats the
+  /// same request (same `Idempotency-Key`, so the server applies it once).
+  /// A changed draft is not sent until the product's discounts were read:
+  /// if the lost create did reach the server, the form switches to editing
+  /// that discount instead of creating a second one.
   Future<void> save() async {
     final current = _editable;
     if (current == null) return;
     if (!current.canSubmit || !_writable) {
       state = AsyncData(
-        _with(
-          current,
-          problem: current.limitReached && !current.editing
+        current.copy(
+          problem: current.conflict != null
+              ? DiscountFormProblem.changed
+              : current.limitReached && !current.editing
               ? DiscountFormProblem.limitReached
               : DiscountFormProblem.notAllowed,
         ),
@@ -285,15 +435,87 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     }
     final generation = ++_generation;
     final repository = ref.read(discountRepositoryProvider);
-    state = AsyncData(_with(current, phase: DiscountFormPhase.saving));
+    state = AsyncData(
+      current.copy(phase: DiscountFormPhase.saving, keepProblem: true),
+    );
     try {
       final original = current.original;
+      if (original == null) {
+        final unconfirmed = _unconfirmedCreate;
+        if (unconfirmed != null &&
+            _fingerprint(unconfirmed) != _fingerprint(current.draft)) {
+          final created = await _findUnconfirmedCreate(unconfirmed);
+          if (!ref.mounted || generation != _generation) return;
+          _unconfirmedCreate = null;
+          if (created != null) {
+            state = AsyncData(
+              DiscountFormState(
+                regularPrice: created.regularPrice,
+                draft: current.draft,
+                original: created,
+                problem: DiscountFormProblem.createdMeanwhile,
+              ),
+            );
+            ref.invalidate(
+              productDiscountsControllerProvider(args.scope.productId),
+            );
+            return;
+          }
+        }
+      }
       final saved = original == null
           ? await repository.create(args.scope.productId, current.draft)
           : await repository.update(original, current.draft);
       if (!ref.mounted || generation != _generation) return;
+      _unconfirmedCreate = null;
       state = AsyncData(
-        _with(current, phase: DiscountFormPhase.saved, saved: saved),
+        current.copy(phase: DiscountFormPhase.saved, saved: saved),
+      );
+      ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
+    } on AppFailure catch (failure) {
+      if (!ref.mounted || generation != _generation) return;
+      if (current.original == null) {
+        _unconfirmedCreate = _isUncertain(failure) ? current.draft : null;
+      }
+      await _failed(current, failure, generation);
+    }
+  }
+
+  /// A discount the lost create made: new since the form opened and equal
+  /// to what was sent. Throws when the list cannot be read (still unsure).
+  Future<Discount?> _findUnconfirmedCreate(DiscountDraft sent) async {
+    final list = await ref
+        .read(discountRepositoryProvider)
+        .list(args.scope.productId);
+    final fingerprint = _fingerprint(sent);
+    for (final discount in list.discounts) {
+      if (!_knownIds.contains(discount.id) &&
+          _fingerprint(DiscountDraft.fromDiscount(discount)) == fingerprint) {
+        return discount;
+      }
+    }
+    return null;
+  }
+
+  /// Archives the stored discount once (`DELETE /discounts/{id}` with its
+  /// version). Save and leaving the form are blocked until it is answered;
+  /// on failure the draft stays and the controls return.
+  Future<void> archive() async {
+    final current = _editable;
+    if (current == null) return;
+    if (!current.canArchive || !_writable) {
+      state = AsyncData(current.copy(problem: DiscountFormProblem.notAllowed));
+      return;
+    }
+    final generation = ++_generation;
+    state = AsyncData(current.copy(phase: DiscountFormPhase.archiving));
+    try {
+      final archived = await ref
+          .read(discountRepositoryProvider)
+          .archive(current.original!);
+      if (!ref.mounted || generation != _generation) return;
+      state = AsyncData(
+        current.copy(phase: DiscountFormPhase.archived, saved: archived),
       );
       ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
     } on AppFailure catch (failure) {
@@ -301,6 +523,9 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       await _failed(current, failure, generation);
     }
   }
+
+  static bool _isUncertain(AppFailure failure) =>
+      failure.code == null && failure.kind != FailureKind.cancelled;
 
   Future<void> _failed(
     DiscountFormState current,
@@ -313,12 +538,13 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
             .read(discountRepositoryProvider)
             .get(current.original!.id);
         if (!ref.mounted || generation != _generation) return;
+        // The draft and its base stay; the server's values are shown and
+        // nothing is sent until the user resolves the conflict.
         state = AsyncData(
-          DiscountFormState(
-            regularPrice: latest.regularPrice,
-            draft: current.draft,
-            original: latest,
+          current.copy(
+            phase: DiscountFormPhase.editing,
             problem: DiscountFormProblem.changed,
+            conflict: DiscountFormConflict(latest: latest),
           ),
         );
         return;
@@ -344,8 +570,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         messages[input] = error.message!;
       }
     }
-    final uncertain =
-        failure.code == null && failure.kind != FailureKind.cancelled;
+    final uncertain = _isUncertain(failure);
     final limit = failure.fieldErrors.any(
       (error) => error.code == 'DISCOUNT_LIMIT_REACHED',
     );
@@ -357,6 +582,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         limitReached: current.limitReached || limit,
         serverIssues: issues,
         serverMessages: messages,
+        conflict: current.conflict,
         problem: uncertain
             ? DiscountFormProblem.uncertain
             : limit
@@ -371,23 +597,6 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       ),
     );
   }
-
-  DiscountFormState _with(
-    DiscountFormState current, {
-    DiscountFormPhase? phase,
-    DiscountFormProblem? problem,
-    Discount? saved,
-  }) => DiscountFormState(
-    regularPrice: current.regularPrice,
-    draft: current.draft,
-    original: current.original,
-    phase: phase ?? current.phase,
-    serverIssues: current.serverIssues,
-    serverMessages: current.serverMessages,
-    problem: problem,
-    saved: saved,
-    limitReached: current.limitReached,
-  );
 }
 
 /// The input values of a draft, to tell which server errors are stale.

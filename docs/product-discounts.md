@@ -60,14 +60,25 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
 ## Write rules
 
 - Every write is confirmed in a dialog first and sent once; duplicate taps
-  are blocked while busy.
+  are blocked while busy. On the edit form, Save and Archive share one busy
+  state (`DiscountFormController`): while either is pending the other, the
+  inputs and leaving the form are blocked; a failure keeps the draft.
 - `Idempotency-Key` for every write (`IdempotencyKeys`): new per intent,
   reused only for the identical request after an uncertain outcome.
+- A create without a confirmed answer may exist on the server. Saving the
+  identical draft repeats the request (same key, applied once). A changed
+  draft is not sent before the product's discounts are read: a new discount
+  equal to the lost request means it landed, and the form switches to
+  editing it (`createdMeanwhile`) instead of creating a second one.
 - `If-Match` with the discount `version` of a fresh read (the edit form and
   the details screen load `GET /discounts/{id}`; the list switch uses the
   version of the online list read), never the ETag.
-- `VERSION_CONFLICT` (412) is never retried: the latest discount is read and
-  shown, the typed form values stay.
+- `VERSION_CONFLICT` (412) is never retried. The form keeps the draft and
+  the version it was based on, reads the latest discount and shows what
+  changed (`DiscountConflictPanel`). Parts (value, schedule, repeat,
+  minimum) only the server changed are taken over; parts both sides changed
+  need Keep mine or Use saved. Only "Apply and review" moves the form onto
+  the latest version (`DiscountMerge`); the user then saves again.
 - Pause/resume are not archive: a paused discount keeps all values, stays
   editable and counts towards the limit; resume does not override the
   schedule (the server returns `active`, `scheduled` or `expired`). The

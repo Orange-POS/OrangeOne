@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -729,6 +731,240 @@ void main() {
       await confirm(tester);
       expect(discounts.writes, ['archive']);
       expect(find.text('Discount archived.'), findsOneWidget);
+    });
+
+    group('review of #63', () {
+      FilledButton saveButton(WidgetTester tester) =>
+          tester.widget<FilledButton>(find.byKey(const Key('discount-save')));
+
+      Future<void> openEdit(WidgetTester tester) async {
+        await open(tester);
+        await tapKey(tester, 'discount-open');
+        await tapKey(tester, 'discount-edit-1');
+      }
+
+      Future<void> typePercent(WidgetTester tester, String value) async {
+        final field = find.byKey(const Key('discount-percent'));
+        await tester.ensureVisible(field);
+        await tester.enterText(field, value);
+        await tester.pumpAndSettle();
+      }
+
+      String percentText(WidgetTester tester) => tester
+          .widget<TextField>(find.byKey(const Key('discount-percent')))
+          .controller!
+          .text;
+
+      // P2: Save, Archive and back are blocked while a confirmed archive is
+      // pending; a failed archive restores them with the draft intact.
+      testWidgets('a pending archive blocks Save and back; failure restores', (
+        tester,
+      ) async {
+        await openEdit(tester);
+        await typePercent(tester, '25');
+        final gate = Completer<void>();
+        discounts
+          ..pendingWrite = gate
+          ..writeError = const AppFailure(FailureKind.network, 'offline');
+        await tapKey(tester, 'discount-form-archive');
+        await tester.tap(find.byKey(const Key('discount-confirm')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(discounts.writes, ['archive']);
+        // Pending: nothing else can start, and the form cannot be left.
+        expect(saveButton(tester).onPressed, isNull);
+        expect(find.text('Archiving…'), findsOneWidget);
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byKey(const Key('discount-form-archive')),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester.widget<PopScope<Object?>>(find.byType(PopScope).last).canPop,
+          isFalse,
+        );
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('discount-percent')))
+              .enabled,
+          isFalse,
+        );
+        await tester.tap(find.byKey(const Key('discount-save')));
+        await tester.pump();
+        expect(discounts.writes, ['archive']);
+        // The delayed answer is a failure: controls return, draft stays.
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(find.textContaining('could not be confirmed'), findsOneWidget);
+        expect(percentText(tester), '25');
+        expect(saveButton(tester).onPressed, isNotNull);
+        expect(
+          tester.widget<PopScope<Object?>>(find.byType(PopScope).last).canPop,
+          isTrue,
+        );
+        expect(find.text('Edit Discount'), findsOneWidget);
+      });
+
+      testWidgets('a delayed archive that succeeds closes the form', (
+        tester,
+      ) async {
+        await openEdit(tester);
+        final gate = Completer<void>();
+        discounts.pendingWrite = gate;
+        await tapKey(tester, 'discount-form-archive');
+        await tester.tap(find.byKey(const Key('discount-confirm')));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('Edit Discount'), findsOneWidget);
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(discounts.writes, ['archive']);
+        expect(find.text('Discount archived.'), findsOneWidget);
+        expect(find.text('Edit Discount'), findsNothing);
+      });
+
+      // P1: a committed create whose answer is lost, then an edited retry.
+      testWidgets('a lost create and an edited retry make one discount', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        discounts.loseCreateAnswer = true;
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.writes, ['create']);
+        expect(discounts.discounts, hasLength(1), reason: 'committed');
+        expect(find.textContaining('could not be confirmed'), findsOneWidget);
+        // The user changes the value and saves again: the form checks the
+        // server first and finds the committed discount; nothing is sent.
+        await typePercent(tester, '25');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.writes, ['create']);
+        expect(discounts.discounts, hasLength(1));
+        expect(find.textContaining('did create this discount'), findsOneWidget);
+        expect(find.text('Edit Discount'), findsOneWidget);
+        expect(percentText(tester), '25');
+        // Saving now updates that discount with the user's change.
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.writes, ['create', 'update']);
+        expect(discounts.lastDraft?.percent, '25');
+        expect(discounts.discounts, hasLength(1));
+      });
+
+      testWidgets('an identical retry after a lost create replays it', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        discounts.loseCreateAnswer = true;
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        // The same request again (same Idempotency-Key in the real
+        // repository): the server replays it, no second discount.
+        expect(discounts.writes, ['create', 'create']);
+        expect(discounts.discounts, hasLength(1));
+        expect(find.text('Discount created.'), findsOneWidget);
+      });
+
+      testWidgets('an edited retry creates when the lost create did not land', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.discounts, isEmpty);
+        discounts.writeError = null;
+        await typePercent(tester, '25');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.writes, ['create', 'create']);
+        expect(discounts.discounts.single.percent, '25');
+        expect(find.text('Discount created.'), findsOneWidget);
+      });
+
+      // P1: concurrent changes to different parts both survive.
+      testWidgets('a conflict shows the saved values; both changes survive', (
+        tester,
+      ) async {
+        discounts.checkVersions = true;
+        await openEdit(tester);
+        await typePercent(tester, '25');
+        // Meanwhile someone else adds a schedule (new version).
+        discounts.discounts = [
+          discountOf(
+            version: 'v2',
+            schedule: const DiscountSchedule(
+              startDate: LocalDate(2026, 12, 1),
+              startTime: TimeOfDayValue(9, 0),
+            ),
+          ),
+        ];
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.writes, ['update']);
+        expect(discounts.versions, ['v1']);
+        expect(find.byKey(const Key('discount-conflict')), findsOneWidget);
+        expect(
+          find.byKey(const Key('discount-conflict-saved-schedule')),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Dec 1, 2026'), findsWidgets);
+        // The draft is kept and nothing more can be sent yet.
+        expect(percentText(tester), '25');
+        expect(saveButton(tester).onPressed, isNull);
+        await tapKey(tester, 'discount-conflict-apply');
+        expect(find.byKey(const Key('discount-conflict')), findsNothing);
+        expect(percentText(tester), '25');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.writes, ['update', 'update']);
+        expect(discounts.versions, ['v1', 'v2']);
+        expect(discounts.lastDraft?.percent, '25');
+        expect(discounts.lastDraft?.schedule?.startDate.iso, '2026-12-01');
+        expect(find.text('Discount saved.'), findsOneWidget);
+      });
+
+      testWidgets('the same part changed on both sides needs a choice', (
+        tester,
+      ) async {
+        discounts.checkVersions = true;
+        await openEdit(tester);
+        await typePercent(tester, '25');
+        discounts.discounts = [discountOf(version: 'v2', percent: '30')];
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(
+          find.byKey(const Key('discount-conflict-yours-value')),
+          findsOneWidget,
+        );
+        final apply = find.byKey(const Key('discount-conflict-apply'));
+        expect(tester.widget<FilledButton>(apply).onPressed, isNull);
+        await tapKey(tester, 'discount-conflict-saved-choice-value');
+        expect(tester.widget<FilledButton>(apply).onPressed, isNotNull);
+        await tapKey(tester, 'discount-conflict-apply');
+        expect(percentText(tester), '30');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.versions, ['v1', 'v2']);
+        expect(discounts.lastDraft?.percent, '30');
+      });
     });
 
     testWidgets('edit loads the stored values and updates once', (

@@ -385,5 +385,16 @@
   "cameraStarting": "Démarrage de la caméra",
   "wifiChecking": "Vérification de la connexion Wi-Fi",
   "tutorialsLoading": "Chargement des tutoriels",
-  "categoryCreating": "Création de la catégorie"
+  "categoryCreating": "Création de la catégorie",
+  "discountCreatedMeanwhile": "Votre enregistrement précédent a bien créé cette remise, seule la réponse a été perdue. Le formulaire la modifie maintenant avec vos changements ; rien n'a été envoyé deux fois. Vérifiez et enregistrez.",
+  "discountConflictTitle": "Modifiée ailleurs",
+  "discountConflictBody": "Quelqu'un a enregistré cette remise pendant votre modification. Vos changements sont conservés. Là où vous avez tous deux modifié la même partie, choisissez la valeur, puis appliquez et vérifiez avant d'enregistrer.",
+  "discountConflictSaved": "Enregistré : {value}",
+  "discountConflictYours": "Votre saisie : {value}",
+  "discountConflictKeepMine": "Garder la mienne",
+  "discountConflictUseSaved": "Utiliser l'enregistrée",
+  "discountConflictTakenOver": "Repris : vous ne l'aviez pas modifié.",
+  "discountConflictApply": "Appliquer et vérifier",
+  "discountPartValue": "Valeur de la remise",
+  "discountArchiving": "Archivage…"
 }
