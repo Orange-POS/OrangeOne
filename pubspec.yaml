@@ -6,7 +6,7 @@ environment:
   sdk: ^3.13.0
   flutter: '>=3.47.5 <4.0.0'
 dependencies:
-  connectivity_plus: 7.0.0
+  connectivity_plus: 7.3.2
   cryptography: 2.7.0
   dio: ^5.11.1
   drift: ^2.35.2
