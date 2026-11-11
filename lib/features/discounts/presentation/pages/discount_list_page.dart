@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
-import 'package:orange_one/features/discounts/presentation/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_details_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_toggle_providers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
@@ -15,6 +15,7 @@ import 'package:orange_one/shared/widgets/orange_switch.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 /// Query parameters of the discount routes.
 Map<String, String> discountRouteQuery(
@@ -149,9 +150,30 @@ class DiscountListPage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 child: state.when(
                   skipLoadingOnRefresh: true,
-                  loading: () => Center(
-                    child: CircularProgressIndicator(
-                      semanticsLabel: l10n.discountLoading,
+                  loading: () => Skeleton(
+                    label: l10n.discountLoading,
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SkeletonCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SkeletonBox(width: 160),
+                              SizedBox(height: 16),
+                              SkeletonTiles(count: 2, height: 72),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 24),
+                        SkeletonBox(width: 180, height: 20),
+                        SizedBox(height: 12),
+                        SkeletonListTile(),
+                        SizedBox(height: 12),
+                        SkeletonListTile(),
+                        SizedBox(height: 12),
+                        SkeletonListTile(),
+                      ],
                     ),
                   ),
                   error: (error, stack) => Column(

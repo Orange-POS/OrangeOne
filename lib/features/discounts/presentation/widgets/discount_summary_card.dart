@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
-import 'package:orange_one/features/discounts/presentation/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/edit_pencil_button.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 /// The discount card on Product Details: "Discount Overview" (count and
 /// up to four discounts) or "Create New Discounts" without discounts.
@@ -39,17 +40,14 @@ class DiscountSummaryCard extends ConsumerWidget {
       child: state.when(
         skipLoadingOnRefresh: true,
         loading: () => DiscountPanel(
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: DiscountHeading(title: l10n.discountsOverviewTitle),
-              ),
-              SizedBox.square(
-                dimension: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  semanticsLabel: l10n.discountLoading,
-                ),
+              DiscountHeading(title: l10n.discountsOverviewTitle),
+              const SizedBox(height: 16),
+              Skeleton(
+                label: l10n.discountLoading,
+                child: const SkeletonTiles(count: 2, height: 72),
               ),
             ],
           ),

@@ -5,12 +5,13 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/preferences/time_format_controller.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
-import 'package:orange_one/features/discounts/presentation/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_details_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_form_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_sections.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_pickers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
@@ -19,6 +20,7 @@ import 'package:orange_one/shared/widgets/info_row_card.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 /// The shared Create/Edit Discount form. Save → confirmation → one write;
 /// on success it closes with the confirmed message, on failure it stays with
@@ -203,8 +205,10 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
       last: DateTime(now.year + 10, 12, 31),
     );
     if (picked == null || !mounted) return;
-    final date = LocalDate(picked.year, picked.month, picked.day);
-    _setSchedule(_latest ?? state, end: end, date: date);
+    _controller.setSchedulePart(
+      end: end,
+      date: LocalDate(picked.year, picked.month, picked.day),
+    );
   }
 
   Future<void> _pickTime(DiscountFormState state, {required bool end}) async {
@@ -221,45 +225,7 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
       initial: current ?? const TimeOfDayValue(9, 0),
     );
     if (picked == null || !mounted) return;
-    _setSchedule(_latest ?? state, end: end, time: picked);
-  }
-
-  /// The form state after a picker closed (the user may have typed meanwhile).
-  DiscountFormState? get _latest =>
-      ref.read(discountFormControllerProvider(_args)).value;
-
-  void _setSchedule(
-    DiscountFormState state, {
-    required bool end,
-    LocalDate? date,
-    TimeOfDayValue? time,
-  }) {
-    final old = state.draft.schedule ?? _defaultSchedule();
-    final schedule = end
-        ? DiscountSchedule(
-            startDate: old.startDate,
-            startTime: old.startTime,
-            endDate: date ?? old.endDate ?? old.startDate,
-            endTime: time ?? old.endTime ?? old.startTime,
-            timezone: old.timezone,
-          )
-        : DiscountSchedule(
-            startDate: date ?? old.startDate,
-            startTime: time ?? old.startTime,
-            endDate: old.endDate,
-            endTime: old.endTime,
-            timezone: old.timezone,
-          );
-    _controller.change((draft) => draft.withSchedule(schedule));
-  }
-
-  DiscountSchedule _defaultSchedule() {
-    final now = DateTime.now();
-    final today = LocalDate(now.year, now.month, now.day);
-    return DiscountSchedule(
-      startDate: today,
-      startTime: const TimeOfDayValue(9, 0),
-    );
+    _controller.setSchedulePart(end: end, time: picked);
   }
 
   @override
@@ -360,12 +326,21 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 child: async.when(
                   skipLoadingOnRefresh: true,
-                  loading: () => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 48),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: l10n.discountLoading,
-                      ),
+                  loading: () => Skeleton(
+                    label: l10n.discountLoading,
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SkeletonInfoRow(),
+                        SizedBox(height: 16),
+                        SkeletonCard(child: SkeletonLines(count: 3)),
+                        SizedBox(height: 20),
+                        SkeletonBox(width: 160, height: 20),
+                        SizedBox(height: 12),
+                        SkeletonTiles(),
+                        SizedBox(height: 20),
+                        SkeletonForm(fields: 1),
+                      ],
                     ),
                   ),
                   error: (error, stack) => Column(
@@ -733,17 +708,7 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
             style: const TextStyle(color: OrangeTheme.ink, fontSize: 16),
           ),
           onChanged: editable && schedule != null
-              ? (noEnd) => _controller.change(
-                  (draft) => draft.withSchedule(
-                    DiscountSchedule(
-                      startDate: schedule.startDate,
-                      startTime: schedule.startTime,
-                      endDate: noEnd == true ? null : schedule.startDate,
-                      endTime: noEnd == true ? null : schedule.startTime,
-                      timezone: schedule.timezone,
-                    ),
-                  ),
-                )
+              ? (noEnd) => _controller.setNoEndDate(noEnd: noEnd ?? false)
               : null,
         ),
         AnimatedSize(
@@ -776,10 +741,7 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
             alignment: Alignment.centerLeft,
             child: TextButton(
               key: const Key('discount-schedule-clear'),
-              onPressed: editable
-                  ? () =>
-                        _controller.change((draft) => draft.withSchedule(null))
-                  : null,
+              onPressed: editable ? _controller.clearSchedule : null,
               child: Text(l10n.discountClearDateTime),
             ),
           ),

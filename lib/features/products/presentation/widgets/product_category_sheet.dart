@@ -3,6 +3,7 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class ProductCategoryChoice {
   const new(this.id);
@@ -135,11 +136,13 @@ class _ProductCategorySheetState extends State<ProductCategorySheet> {
                     ),
                     onPressed: _creating ? null : _create,
                     icon: _creating
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                        ? Skeleton(
+                            label: context.l10n.categoryCreating,
+                            onDark: true,
+                            child: const SkeletonBox(
+                              width: 24,
+                              height: 8,
+                              radius: 4,
                             ),
                           )
                         : const Icon(Icons.add),

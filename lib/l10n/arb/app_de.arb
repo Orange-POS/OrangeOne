@@ -381,5 +381,9 @@
   "discountDecrease": "{field} verringern",
   "discountTime12": "12-Stunden-Format",
   "discountTime24Short": "24 Std.",
-  "discountMeridiem": "AM/PM"
+  "discountMeridiem": "AM/PM",
+  "cameraStarting": "Kamera wird gestartet",
+  "wifiChecking": "WLAN-Verbindung wird geprüft",
+  "tutorialsLoading": "Anleitungen werden geladen",
+  "categoryCreating": "Kategorie wird erstellt"
 }

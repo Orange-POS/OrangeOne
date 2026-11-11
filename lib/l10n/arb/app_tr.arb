@@ -381,5 +381,9 @@
   "discountDecrease": "{field} azalt",
   "discountTime12": "12 saat biçimi",
   "discountTime24Short": "24 sa",
-  "discountMeridiem": "ÖÖ/ÖS"
+  "discountMeridiem": "ÖÖ/ÖS",
+  "cameraStarting": "Kamera başlatılıyor",
+  "wifiChecking": "Wi-Fi bağlantısı kontrol ediliyor",
+  "tutorialsLoading": "Eğitimler yükleniyor",
+  "categoryCreating": "Kategori oluşturuluyor"
 }

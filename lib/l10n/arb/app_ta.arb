@@ -381,5 +381,9 @@
   "discountDecrease": "{field} குறை",
   "discountTime12": "12 மணி நேர வடிவம்",
   "discountTime24Short": "24 ம.நே",
-  "discountMeridiem": "மு.ப/பி.ப"
+  "discountMeridiem": "மு.ப/பி.ப",
+  "cameraStarting": "கேமரா தொடங்குகிறது",
+  "wifiChecking": "Wi-Fi இணைப்பு சரிபார்க்கப்படுகிறது",
+  "tutorialsLoading": "பயிற்சிகள் ஏற்றப்படுகின்றன",
+  "categoryCreating": "வகை உருவாக்கப்படுகிறது"
 }

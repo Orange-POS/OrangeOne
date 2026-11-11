@@ -12,6 +12,7 @@ import 'package:orange_one/features/authentication/presentation/widgets/language
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/demo_badge.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class LoginPage extends ConsumerWidget {
   const new({this.sessionExpired = false, super.key});
@@ -126,9 +127,13 @@ class LoginPage extends ConsumerWidget {
                         if (session.isLoading)
                           Padding(
                             padding: const EdgeInsets.all(16),
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              semanticsLabel: l10n.loginRestoringSemantics,
+                            child: Skeleton(
+                              label: l10n.loginRestoringSemantics,
+                              onDark: true,
+                              child: const SizedBox(
+                                width: 220,
+                                child: SkeletonLines(height: 12),
+                              ),
                             ),
                           ),
                         if (session.hasError)

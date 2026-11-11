@@ -18,6 +18,14 @@ abstract final class OrangeTheme {
   static const actionDisabled = Color(0xFFDADCE0);
   static const actionDisabledLabel = Color(0xFF5F6368);
 
+  /// Skeleton loading placeholders: neutral, never tinted. On white the
+  /// blocks are light gray with a lighter sweep; on the orange gradient or
+  /// the camera they are translucent white.
+  static const skeletonBase = Color(0xFFE8EAED);
+  static const skeletonHighlight = Color(0xFFF8F9FA);
+  static const skeletonOnDarkBase = Color(0x38FFFFFF);
+  static const skeletonOnDarkHighlight = Color(0x73FFFFFF);
+
   static Color _actionColor(Set<WidgetState> states) =>
       states.contains(WidgetState.pressed) ||
           states.contains(WidgetState.hovered)

@@ -1,6 +1,6 @@
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
 import 'package:orange_one/l10n/l10n.dart';
 
 /// The success toast of an edit: its title and text name only [fields], the

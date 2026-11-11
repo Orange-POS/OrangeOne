@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
@@ -15,6 +14,7 @@ import 'package:orange_one/shared/widgets/info_row_card.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
 import 'package:orange_one/shared/widgets/scan_dock_bar.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class ProductDetailsPage extends ConsumerStatefulWidget {
   const new({required this.barcode, this.discountsBuilder, super.key});
@@ -41,9 +41,6 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Read the shop's features early, so the stock screen opened from here
-    // shows its operations at once.
-    ref.watch(backendFeaturesProvider);
     final l10n = context.l10n;
     ref.watch(readCacheChangesProvider);
     final offline = ref.watch(readCacheProvider)?.offline ?? false;
@@ -122,9 +119,23 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     state.when(
                       skipLoadingOnRefresh: false,
                       skipLoadingOnReload: false,
-                      loading: () => Center(
-                        child: CircularProgressIndicator(
-                          semanticsLabel: l10n.detailsLoading,
+                      loading: () => Skeleton(
+                        label: l10n.detailsLoading,
+                        child: const Column(
+                          children: [
+                            SkeletonInfoRow(),
+                            SizedBox(height: 16),
+                            SkeletonCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SkeletonBox(width: 140),
+                                  SizedBox(height: 16),
+                                  SkeletonTiles(count: 2, height: 72),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       error: (error, stack) => Column(

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/price_update_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_change_dialog.dart';
@@ -11,11 +10,13 @@ import 'package:orange_one/features/products/presentation/widgets/price_update_c
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class ProductPriceUpdatePage extends ConsumerStatefulWidget {
   const new({required this.barcode, super.key});
@@ -192,9 +193,14 @@ class _ProductPriceUpdatePageState
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   child: async.when(
-                    loading: () => Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: l10n.priceLoading,
+                    loading: () => Skeleton(
+                      label: l10n.priceLoading,
+                      child: const Column(
+                        children: [
+                          SkeletonInfoRow(),
+                          SizedBox(height: 20),
+                          SkeletonForm(fields: 1),
+                        ],
                       ),
                     ),
                     error: (error, stack) => Column(

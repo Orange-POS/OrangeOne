@@ -8,6 +8,7 @@ import 'package:orange_one/features/help_support/presentation/widgets/tutorial_v
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/panel_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 /// Help & Support tutorials: the published YouTube guides, managed remotely.
 class TutorialPage extends ConsumerWidget {
@@ -42,10 +43,27 @@ class TutorialPage extends ConsumerWidget {
             // A refresh keeps the list on screen.
             skipLoadingOnReload: true,
             loading: () => [
-              const Padding(
-                padding: EdgeInsets.only(top: 48),
-                child: Center(
-                  child: CircularProgressIndicator(color: OrangeTheme.action),
+              Skeleton(
+                label: context.l10n.tutorialsLoading,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < 3; i++) ...[
+                      const SkeletonCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: SkeletonBox(height: double.infinity),
+                            ),
+                            SizedBox(height: 12),
+                            SkeletonLines(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
                 ),
               ),
             ],

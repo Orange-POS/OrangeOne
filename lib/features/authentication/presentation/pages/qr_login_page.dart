@@ -13,6 +13,7 @@ import 'package:orange_one/features/authentication/presentation/widgets/scan_fra
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/demo_badge.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class QrLoginPage extends ConsumerStatefulWidget {
   const new({this.demoSamples, super.key});
@@ -137,9 +138,12 @@ class _QrLoginPageState extends ConsumerState<QrLoginPage> {
                                 width: frameSize,
                                 height: frameSize,
                                 child: session.isLoading
-                                    ? const Center(
-                                        child: CircularProgressIndicator(
-                                          color: OrangeTheme.brand,
+                                    ? Skeleton(
+                                        label: l10n.scanSigningIn,
+                                        onDark: true,
+                                        child: const SkeletonBox(
+                                          height: double.infinity,
+                                          radius: 24,
                                         ),
                                       )
                                     : session.hasError
@@ -321,7 +325,11 @@ class _ScannerOff extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: checking
-        ? const CircularProgressIndicator(color: OrangeTheme.brand)
+        ? Skeleton(
+            label: context.l10n.wifiChecking,
+            onDark: true,
+            child: const SkeletonBox(height: double.infinity, radius: 24),
+          )
         : const ExcludeSemantics(
             child: Icon(
               Icons.wifi_off_rounded,

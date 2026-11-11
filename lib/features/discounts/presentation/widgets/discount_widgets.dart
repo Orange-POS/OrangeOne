@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
-import 'package:orange_one/features/discounts/presentation/discount_text.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/tag_icon.dart';

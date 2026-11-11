@@ -99,6 +99,7 @@ The app uses only the OrangeONE Mobile API v2 (`/api/orangeone/mobile/v1`) of th
 - Respect design tokens, color, typography, spacing, components, states, assets, and responsive behavior; do not invent design fidelity if the link cannot be inspected.
 - Translate screens into feature `pages/` plus focused, reusable `widgets/`. Move only genuinely cross-feature components to `shared/`.
 - Include accessibility semantics, clear empty/loading/error states, touch targets, and safe-area/keyboard behavior.
+- Loading states use the shared skeleton (`shared/widgets/skeleton.dart`): placeholders shaped like the coming content, one `Skeleton` per area with a localized label (null only when visible text already says it), `onDark` on the gradient or camera, neutral `OrangeTheme.skeleton*` colors, still with reduced motion. Do not add `CircularProgressIndicator`; only the splash screen keeps its own loading.
 - Keep UI responsive across supported phone sizes and avoid hardcoded pixel assumptions.
 
 ## Application environments and logging (Task 11)

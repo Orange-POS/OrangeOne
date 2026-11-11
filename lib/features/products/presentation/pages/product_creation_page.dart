@@ -17,6 +17,7 @@ import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 /// Creates a product for an unknown barcode. There is no product name card:
 /// the product does not exist yet.
@@ -237,10 +238,9 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                 child: async.when(
                   skipLoadingOnReload: false,
                   skipLoadingOnRefresh: false,
-                  loading: () => Center(
-                    child: CircularProgressIndicator(
-                      semanticsLabel: l10n.createLoading,
-                    ),
+                  loading: () => Skeleton(
+                    label: l10n.createLoading,
+                    child: const SkeletonForm(fields: 4),
                   ),
                   error: (error, stack) => Column(
                     children: [

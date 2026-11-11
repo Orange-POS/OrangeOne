@@ -173,6 +173,62 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   bool get _writable =>
       ref.read(discountAccessProvider(args.scope.manageAllowed)).canWrite;
 
+  /// A new schedule starts today at 09:00 without an end.
+  static DiscountSchedule _defaultSchedule(DateTime now) => DiscountSchedule(
+    startDate: LocalDate(now.year, now.month, now.day),
+    startTime: const TimeOfDayValue(9, 0),
+  );
+
+  /// Sets the start (or, with [end], the end) [date] and/or [time] of the
+  /// schedule. Without a schedule one is started (today 09:00); an end that
+  /// is not set yet starts from the start values.
+  void setSchedulePart({
+    required bool end,
+    LocalDate? date,
+    TimeOfDayValue? time,
+  }) {
+    change((draft) {
+      final old = draft.schedule ?? _defaultSchedule(DateTime.now());
+      return draft.withSchedule(
+        end
+            ? DiscountSchedule(
+                startDate: old.startDate,
+                startTime: old.startTime,
+                endDate: date ?? old.endDate ?? old.startDate,
+                endTime: time ?? old.endTime ?? old.startTime,
+                timezone: old.timezone,
+              )
+            : DiscountSchedule(
+                startDate: date ?? old.startDate,
+                startTime: time ?? old.startTime,
+                endDate: old.endDate,
+                endTime: old.endTime,
+                timezone: old.timezone,
+              ),
+      );
+    });
+  }
+
+  /// "No End Date": removes the end, or starts one at the start values.
+  void setNoEndDate({required bool noEnd}) {
+    change((draft) {
+      final schedule = draft.schedule;
+      if (schedule == null) return draft;
+      return draft.withSchedule(
+        DiscountSchedule(
+          startDate: schedule.startDate,
+          startTime: schedule.startTime,
+          endDate: noEnd ? null : schedule.startDate,
+          endTime: noEnd ? null : schedule.startTime,
+          timezone: schedule.timezone,
+        ),
+      );
+    });
+  }
+
+  /// Removes the date & time limits.
+  void clearSchedule() => change((draft) => draft.withSchedule(null));
+
   /// Reads the product's regular price again after it was changed on the
   /// price screen. The draft, the stored version (If-Match) and all
   /// messages stay; only validation and the preview follow the new price.

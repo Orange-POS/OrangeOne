@@ -3,16 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/capabilities/feature_resolver.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/widgets/stock_count_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/stock_operation_selector.dart';
 import 'package:orange_one/l10n/l10n.dart';
@@ -20,6 +19,7 @@ import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 /// Updates, adds to or removes from the on-hand stock, following the Update
 /// Price layout.
@@ -36,22 +36,6 @@ class _ProductStockUpdatePageState
   final _text = TextEditingController();
   final _focus = FocusNode();
   bool _confirming = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Add and Remove depend on the shop's features. When they are only the
-    // fallback (an earlier GET /meta failed, possibly while Product Details
-    // still listens), ask the shop once more for this screen. Bounded: one
-    // read per opening; never repeated and never a write.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final features = ref.read(backendFeaturesProvider).value;
-      if (features != null && !features.confirmed) {
-        ref.invalidate(backendFeaturesProvider);
-      }
-    });
-  }
 
   @override
   void dispose() {
@@ -249,9 +233,16 @@ class _ProductStockUpdatePageState
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   child: async.when(
-                    loading: () => Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: l10n.stockLoading,
+                    loading: () => Skeleton(
+                      label: l10n.stockLoading,
+                      child: const Column(
+                        children: [
+                          SkeletonTiles(height: 48),
+                          SizedBox(height: 20),
+                          SkeletonForm(fields: 1),
+                          SizedBox(height: 16),
+                          SkeletonCard(child: SkeletonLines(count: 1)),
+                        ],
                       ),
                     ),
                     error: (error, stack) => Column(

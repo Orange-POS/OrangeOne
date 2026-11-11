@@ -1857,5 +1857,21 @@
   "discountMeridiem": "AM/PM",
   "@discountMeridiem": {
     "description": "Discount time card"
+  },
+  "cameraStarting": "Starting camera",
+  "@cameraStarting": {
+    "description": "Loading placeholder label for screen readers"
+  },
+  "wifiChecking": "Checking the Wi-Fi connection",
+  "@wifiChecking": {
+    "description": "Loading placeholder label for screen readers"
+  },
+  "tutorialsLoading": "Loading tutorials",
+  "@tutorialsLoading": {
+    "description": "Loading placeholder label for screen readers"
+  },
+  "categoryCreating": "Creating category",
+  "@categoryCreating": {
+    "description": "Loading placeholder label for screen readers"
   }
 }

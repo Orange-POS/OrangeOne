@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Texts shown by [CodeCamera]. The defaults are English; callers with
@@ -18,7 +19,11 @@ class CodeCameraMessages {
     this.restricted = 'Camera access is restricted on this device.',
     this.openSettings = 'Open Settings',
     this.allowRetry = 'Allow camera / Retry',
+    this.starting = 'Starting camera',
   });
+
+  /// Accessibility label while the camera starts.
+  final String starting;
 
   /// Status when the permission is missing.
   final String permissionRequired;
@@ -135,6 +140,13 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  /// The camera area while the camera starts.
+  Widget _startingPlaceholder() => Skeleton(
+    label: widget.messages.starting,
+    onDark: true,
+    child: const SkeletonBox(height: double.infinity, radius: 0),
+  );
+
   @override
   Widget build(BuildContext context) {
     if (_permission != null && !_permission!.isGranted ||
@@ -177,15 +189,13 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
         ),
       );
     }
-    if (_permission == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_permission == null) return _startingPlaceholder();
     return MobileScanner(
       controller: _controller,
       errorBuilder: (context, error) {
         if (_starting ||
             error.errorCode == MobileScannerErrorCode.controllerUninitialized) {
-          return const Center(child: CircularProgressIndicator());
+          return _startingPlaceholder();
         }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || _starting || _cameraError != null) return;

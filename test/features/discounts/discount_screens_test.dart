@@ -17,7 +17,7 @@ import 'package:orange_one/core/storage/secret_store.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
-import 'package:orange_one/features/discounts/presentation/widgets/discount_form_sections.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';

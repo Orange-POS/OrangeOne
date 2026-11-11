@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/features/discounts/presentation/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/pages/discount_list_page.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_details_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 /// One discount: regular price, value, server preview, schedule, repeat,
 /// minimum quantity and status, with the permitted Edit, Pause/Resume and
@@ -196,9 +197,16 @@ class DiscountDetailsPage extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   child: state.when(
                     skipLoadingOnRefresh: true,
-                    loading: () => Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: l10n.discountLoading,
+                    loading: () => Skeleton(
+                      label: l10n.discountLoading,
+                      child: const Column(
+                        children: [
+                          SkeletonListTile(trailing: false),
+                          SizedBox(height: 12),
+                          SkeletonCard(
+                            child: SkeletonLines(count: 7, spacing: 16),
+                          ),
+                        ],
                       ),
                     ),
                     error: (error, stack) => Column(

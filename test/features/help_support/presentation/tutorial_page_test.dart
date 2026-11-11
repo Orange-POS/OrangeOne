@@ -16,6 +16,7 @@ import 'package:orange_one/features/help_support/domain/repositories/tutorial_re
 import 'package:orange_one/features/help_support/presentation/pages/tutorial_page.dart';
 import 'package:orange_one/features/help_support/presentation/providers/help_support_providers.dart';
 import 'package:orange_one/l10n/locale_controller.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 import '../../../support/auth_fakes.dart';
 import '../../../support/wifi_fakes.dart';
@@ -147,7 +148,7 @@ void main() {
     expect(find.byType(TutorialPage), findsOneWidget);
     expect(find.text('Tutorial'), findsOneWidget);
     expect(find.text('YouTube Guides'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(Skeleton), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('tutorial-back')));
     await tester.pumpAndSettle();
