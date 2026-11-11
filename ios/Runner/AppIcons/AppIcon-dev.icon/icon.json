@@ -1,7 +1,9 @@
 {
   "fill-specializations" : [
     {
-      "value" : "automatic"
+      "value" : {
+        "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+      }
     },
     {
       "appearance" : "dark",
@@ -81,28 +83,13 @@
       }
     },
     {
-      "blur-material" : 0.5,
       "layers" : [
         {
-          "fill-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "extended-gray:1.00000,1.00000"
-              }
-            },
-            {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "extended-gray:1.00000,1.00000"
-              }
-            }
-          ],
           "glass" : false,
-          "image-name" : "Logo.svg",
-          "name" : "Logo",
+          "image-name" : "Fruit.png",
+          "name" : "Fruit",
           "position" : {
-            "scale" : 1.8,
+            "scale" : 1,
             "translation-in-points" : [
               0,
               0
@@ -111,14 +98,14 @@
         }
       ],
       "lighting" : "individual",
-      "name" : "Logo",
+      "name" : "Fruit",
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
       },
-      "specular" : true,
+      "specular" : false,
       "translucency" : {
-        "enabled" : true,
+        "enabled" : false,
         "value" : 0.5
       }
     }
