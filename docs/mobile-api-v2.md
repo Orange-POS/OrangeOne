@@ -78,6 +78,12 @@ Shops run different addon versions; one app version serves them all.
 - **Gated today.** `stock_movements` → stock **Add** and **Remove**. Without it
   the stock screen counts with **Update** only (`stock_adjustments`, every
   supported addon).
+  `product_discounts` (API 1.1.0) → the discount screens, together with
+  `discount_read` / `discount_manage` (session and per product); endpoints
+  `GET/POST /products/{id}/discounts`, `GET/PUT/DELETE /discounts/{id}`,
+  `POST /discounts/{id}/pause|resume` (see
+  [product-discounts.md](product-discounts.md)). The client sends `DELETE`
+  for archive only.
 - **Adding a backend feature.** List it in the addon's `_get_features()`, add
   an `AppFeature` entry (Feature Resolver), gate the screen on it (asking again on open
   when unconfirmed, like the stock screen), and add the

@@ -378,6 +378,13 @@ void main() {
     Future<void> turnOnFromSettings(WidgetTester tester) async {
       await tester.tap(find.byKey(const Key('settings-button')));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('demo-mode-switch')),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(find.byKey(const Key('demo-mode-switch')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('demo-mode-switch')));
       await tester.pumpAndSettle();
     }
@@ -403,6 +410,13 @@ void main() {
       // The crash tools exist in development only (this build is not).
       expect(find.byKey(const Key('trigger-crash-button')), findsNothing);
 
+      await tester.scrollUntilVisible(
+        tile,
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(tile);
+      await tester.pumpAndSettle();
       await tester.tap(tile);
       await tester.pumpAndSettle();
       expect(container.read(demoModeProvider), isNotNull);
@@ -417,6 +431,13 @@ void main() {
       await tester.tap(find.byKey(const Key('settings-button')));
       await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+      await tester.scrollUntilVisible(
+        tile,
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(tile);
+      await tester.pumpAndSettle();
       await tester.tap(tile);
       await tester.pumpAndSettle();
       expect(container.read(demoModeProvider), isNull);

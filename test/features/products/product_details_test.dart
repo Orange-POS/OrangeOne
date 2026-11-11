@@ -149,10 +149,10 @@ void main() {
       );
       expect(tester.widget<IconButton>(action).onPressed, isNull);
     }
-    expect(find.text('Discount · Mock data'), findsNothing);
+    // Without `product_discounts` in GET /meta there is no discount card.
     expect(
-      find.text('Discount · Mock data', skipOffstage: false),
-      findsOneWidget,
+      find.byKey(const Key('discount-summary'), skipOffstage: false),
+      findsNothing,
     );
     expect(repo.writes, 0);
     expect(tester.takeException(), isNull);

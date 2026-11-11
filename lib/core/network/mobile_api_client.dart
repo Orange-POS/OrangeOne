@@ -22,7 +22,7 @@ final mobileApiClientProvider = Provider<MobileApiClient>(
 );
 
 /// HTTP methods used by the Mobile API v2 contract.
-enum MobileApiMethod { get, post, put, patch }
+enum MobileApiMethod { get, post, put, patch, delete }
 
 /// Parsed `SuccessEnvelope` (or an empty 204/304 response).
 class MobileApiResponse {
@@ -263,17 +263,25 @@ class MobileApiClient {
         if (details is List)
           for (final detail in details)
             if (detail is Map<String, dynamic> &&
-                detail['field'] is String &&
+                (detail['field'] is String || detail['field'] == null) &&
                 detail['code'] is String)
               AppFieldError(
-                detail['field'] as String,
+                detail['field'] as String? ?? '',
                 detail['code'] as String,
+                message: _detailMessage(detail['message']),
               ),
       ],
       retryable: error['retryable'] == true,
       retryAfter: retryAfter,
       requestId: requestId,
     );
+  }
+
+  static String? _detailMessage(Object? value) {
+    final text = _text(value)?.trim();
+    return text == null || text.isEmpty || text.length > _maxMessageLength
+        ? null
+        : text;
   }
 
   /// Responses without an error envelope, such as a proxy error page.

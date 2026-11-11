@@ -20,6 +20,19 @@ enum AppFeature {
   productHistory(
     requiredFeatures: {'product_history'},
     permissions: {'product_history_read'},
+  ),
+
+  /// Discount Overview and Details (read-only without [discountManage]).
+  discounts(
+    requiredFeatures: {BackendFeatures.productDiscounts},
+    permissions: {'discount_read'},
+  ),
+
+  /// Create, edit, pause, resume and archive discounts. Per product the
+  /// backend also reports `discount_manage` (discountable products only).
+  discountManage(
+    requiredFeatures: {BackendFeatures.productDiscounts},
+    permissions: {'discount_read', 'discount_manage'},
   );
 
   new({

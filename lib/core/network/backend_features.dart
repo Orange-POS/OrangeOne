@@ -52,6 +52,11 @@ class BackendFeatures {
   /// `POST /products/{id}/stock-movements` (stock Add and Remove).
   static const stockMovements = 'stock_movements';
 
+  /// Product discounts (Mobile API 1.1, `mupi_mobile_pos_api` 19.0.2.2.0
+  /// with `mupi_product_discount`). Never part of the [baseline]: a shop
+  /// shows discounts only when its own `GET /meta` lists them.
+  static const productDiscounts = 'product_discounts';
+
   /// The oldest supported addons (`mupi_mobile_pos_api` 19.0.2.0.0). Used
   /// while `GET /meta` has not answered or cannot be read, so a shop never
   /// sees a feature its backend may not have.

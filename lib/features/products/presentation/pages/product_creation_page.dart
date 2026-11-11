@@ -7,16 +7,16 @@ import 'package:orange_one/features/products/presentation/providers/product_crea
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_category_sheet.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_confirm_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_creation_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_tax_sheet.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/product_action_surface.dart';
+import 'package:orange_one/shared/widgets/product_navbar.dart';
+import 'package:orange_one/shared/widgets/product_scaffold.dart';
 
 /// Creates a product for an unknown barcode. There is no product name card:
 /// the product does not exist yet.

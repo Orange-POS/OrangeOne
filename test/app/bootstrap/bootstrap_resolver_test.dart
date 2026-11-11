@@ -35,7 +35,7 @@ void main() {
 
     test('an unavailable saved workflow opens the fallback entry', () {
       const credentials = StartupConfiguration(
-        workflow: StartupWorkflow.credentialsLogin,
+        method: AuthenticationMethod.credentials,
       );
       expect(_resolve('/startup', startup: credentials), '/login');
       expect(_resolve('/login', startup: credentials), isNull);

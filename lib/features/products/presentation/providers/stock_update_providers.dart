@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
+import 'package:orange_one/core/capabilities/feature_resolver.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
@@ -146,9 +147,26 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
     );
   }
 
+  /// Whether the central Feature Resolver allows [operation] right now:
+  /// stock management supported by the shop and permitted for the user, the
+  /// operation offered by the shop's workflow, and an online read cache.
+  /// Checked on every confirmation and write, independent of the screen.
+  bool allows(StockOperation operation) {
+    final availability = ref.read(
+      featureAvailabilityProvider(AppFeature.stockUpdate),
+    );
+    if (!availability.usable) return false;
+    if (operation != StockOperation.update &&
+        StockWorkflow.of(availability) == StockWorkflow.countOnly) {
+      return false;
+    }
+    return !(ref.read(readCacheProvider)?.offline ?? false);
+  }
+
   StockCountConfirmation? confirmation() {
     final current = state.value;
     if (state.isLoading || current == null || !current.canSubmit) return null;
+    if (!allows(current.operation)) return null;
     final product = current.details.product!;
     return StockCountConfirmation(
       product: product,
@@ -212,6 +230,17 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
             message:
                 'The stock changed. Review the current quantity '
                 'and confirm again.',
+          ),
+        );
+        return;
+      }
+      if (!allows(confirmation.operation)) {
+        state = AsyncData(
+          _editing(
+            details,
+            current.draft,
+            current.operation,
+            message: 'Stock cannot be changed right now.',
           ),
         );
         return;

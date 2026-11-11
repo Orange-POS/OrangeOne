@@ -17,6 +17,9 @@ import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/demo/presentation/providers/demo_providers.dart';
+import 'package:orange_one/features/discounts/data/data_sources/discount_remote_data_source.dart';
+import 'package:orange_one/features/discounts/data/repositories/odoo_discount_repository.dart';
+import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 import 'package:orange_one/features/home/data/data_sources/product_remote_data_source.dart';
 import 'package:orange_one/features/home/data/repositories/odoo_product_repository.dart';
 import 'package:orange_one/features/home/data/repositories/recent_scans_repositories.dart';
@@ -157,6 +160,33 @@ final Override productDetailsRepositoryOverride =
             cancelToken: cancel,
           ),
           cache: ref.watch(readCacheProvider),
+          onSessionRejected: () async {
+            if (ref.mounted &&
+                identical(ref.read(sessionControllerProvider).value, session)) {
+              await ref.read(sessionControllerProvider.notifier).signOut();
+            }
+          },
+        ),
+      };
+    });
+
+/// Product discounts of the signed-in shop. Mobile API 1.1 adds the
+/// discount endpoints to the v1 contract without changing it, so the v1
+/// adapter serves them; the Feature Resolver decides whether they are used
+/// at all. Demo Mode has no discount data, so the feature stays hidden there.
+final Override discountRepositoryOverride = discountRepositoryProvider
+    .overrideWith((ref) {
+      if (ref.watch(demoLoginProvider) != null) throw discountUnavailable;
+      final session = ref.watch(activeSessionProvider);
+      if (session == null) throw invalidSession;
+      final cancel = CancelToken();
+      ref.onDispose(cancel.cancel);
+      return switch (ref.watch(apiContractProvider)) {
+        ApiContract.mobileV1 => OdooDiscountRepository(
+          DiscountRemoteDataSource(
+            ref.watch(authenticatedMobileApiProvider),
+            cancelToken: cancel,
+          ),
           onSessionRejected: () async {
             if (ref.mounted &&
                 identical(ref.read(sessionControllerProvider).value, session)) {

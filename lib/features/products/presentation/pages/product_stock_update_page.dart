@@ -11,15 +11,15 @@ import 'package:orange_one/features/products/presentation/providers/product_succ
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/stock_count_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/stock_operation_selector.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/product_action_surface.dart';
+import 'package:orange_one/shared/widgets/product_navbar.dart';
+import 'package:orange_one/shared/widgets/product_scaffold.dart';
 
 /// Updates, adds to or removes from the on-hand stock, following the Update
 /// Price layout.
@@ -141,11 +141,15 @@ class _ProductStockUpdatePageState
     final view = async.isLoading || async.hasError ? null : async.value;
     final product = view?.details.product;
     final busy = view?.busy ?? false;
-    // Only operations the shop's backend supports (Feature Resolver); Update
-    // exists in every supported backend.
-    final workflow = StockWorkflow.of(
-      ref.watch(featureAvailabilityProvider(AppFeature.stockUpdate)),
+    // The central Feature Resolver decides whether stock management can be
+    // used at all (shop support and session permission); the workflow
+    // variant only selects the operations. Update exists in every
+    // supported backend.
+    final availability = ref.watch(
+      featureAvailabilityProvider(AppFeature.stockUpdate),
     );
+    final allowed = availability.usable;
+    final workflow = StockWorkflow.of(availability);
     final operations = switch (workflow) {
       StockWorkflow.countAddRemove => StockOperation.values,
       StockWorkflow.countOnly => const [StockOperation.update],
@@ -200,7 +204,7 @@ class _ProductStockUpdatePageState
                   ? () => _leave(true)
                   : uncertain
                   ? _refresh
-                  : view?.canSubmit == true && !offline
+                  : view?.canSubmit == true && allowed && !offline
                   ? _confirm
                   : null,
               child: Text(
@@ -300,6 +304,7 @@ class _ProductStockUpdatePageState
                                   .read(provider.notifier)
                                   .changeOperation,
                               enabled:
+                                  allowed &&
                                   value.permitted &&
                                   !value.busy &&
                                   value.phase == StockUpdatePhase.editing,
@@ -317,6 +322,7 @@ class _ProductStockUpdatePageState
                                   .read(provider.notifier)
                                   .changeQuantity,
                               enabled:
+                                  allowed &&
                                   value.permitted &&
                                   !value.busy &&
                                   value.phase == StockUpdatePhase.editing,
@@ -327,10 +333,18 @@ class _ProductStockUpdatePageState
                               preview: value.previewStock,
                             ),
                           ),
-                          if (!value.permitted)
+                          if (!availability.visible)
+                            PriceUpdateNotice(
+                              message: l10n.stockFeatureUnavailable,
+                            )
+                          else if (!allowed)
+                            PriceUpdateNotice(message: l10n.stockNoPermission)
+                          else if (!value.permitted)
                             PriceUpdateNotice(
                               message: _blockedMessage(l10n, value),
-                            ),
+                            )
+                          else if (offline)
+                            PriceUpdateNotice(message: l10n.stockOffline),
                           if (value.message != null)
                             PriceUpdateNotice(message: value.message!),
                         ],

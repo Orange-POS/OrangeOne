@@ -9,6 +9,8 @@ class ProductScaffold extends StatelessWidget {
     required this.body,
     this.bottomNavigationBar,
     this.floatingActionButton,
+    this.floatingActionButtonLocation,
+    this.floatingBottomBar = false,
     super.key,
   });
 
@@ -16,6 +18,13 @@ class ProductScaffold extends StatelessWidget {
   final Widget body;
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
+  final FloatingActionButtonLocation? floatingActionButtonLocation;
+
+  /// The bottom bar floats over the content with a transparent backing
+  /// (the scan dock's notch shows the content behind it). The body extends
+  /// behind the bar; its bottom inset includes the bar's height. Off for the
+  /// sticky action surfaces, which keep their white backing.
+  final bool floatingBottomBar;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -24,9 +33,11 @@ class ProductScaffold extends StatelessWidget {
       backgroundColor: Colors.transparent,
       appBar: appBar,
       body: body,
+      extendBody: floatingBottomBar,
       floatingActionButton: floatingActionButton,
-      bottomNavigationBar: bottomNavigationBar == null
-          ? null
+      floatingActionButtonLocation: floatingActionButtonLocation,
+      bottomNavigationBar: bottomNavigationBar == null || floatingBottomBar
+          ? bottomNavigationBar
           : ColoredBox(color: Colors.white, child: bottomNavigationBar),
     ),
   );

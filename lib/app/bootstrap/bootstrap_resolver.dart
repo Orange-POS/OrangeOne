@@ -8,13 +8,14 @@ import 'package:orange_one/features/startup/domain/entities/startup_workflow.dar
 /// not supported).
 const compatibilityPath = '/compatibility';
 
-/// Entry route of each startup workflow: the starting component shown
-/// without a session. Only available workflows have one; the resolver never
-/// opens a workflow this build cannot run.
-String startupEntryPath(StartupWorkflow workflow) => switch (workflow) {
-  StartupWorkflow.qrLogin => '/login',
-  // Not available until the Mobile API has a credentials contract.
-  StartupWorkflow.credentialsLogin => '/login',
+/// Entry route of each sign-in method: the starting component shown without
+/// a session. The resolver only opens available methods
+/// ([StartupConfiguration.effectiveMethod]); the others have no contract
+/// and fall back to QR login.
+String startupEntryPath(AuthenticationMethod method) => switch (method) {
+  AuthenticationMethod.qrLogin => '/login',
+  // No confirmed backend contracts yet: never opened.
+  AuthenticationMethod.oidc || AuthenticationMethod.credentials => '/login',
 };
 
 /// Signed-in paths the compatibility check protects.
@@ -26,6 +27,9 @@ const _signedInPaths = {
   '/home/products/price',
   '/home/products/stock',
   '/home/products/edit',
+  '/home/products/discounts',
+  '/home/products/discounts/form',
+  '/home/products/discounts/detail',
 };
 
 /// Bootstrap Resolver: the route for [path] given the session, Demo Mode,
@@ -60,6 +64,6 @@ String? bootstrapRedirect({
     return target;
   }
   // The login entry: the selected workflow's starting component.
-  final entry = startupEntryPath(startup.effectiveWorkflow);
+  final entry = startupEntryPath(startup.effectiveMethod);
   return entry == path ? null : entry;
 }

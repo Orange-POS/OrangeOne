@@ -86,4 +86,49 @@ void main() {
     );
     expect(find.text('Server not supported'), findsOneWidget);
   });
+
+  testWidgets('a refusal survives a failed Try again; sign-out still works', (
+    tester,
+  ) async {
+    var reachable = true;
+    final repository = await start(
+      tester,
+      () async => reachable
+          ? BackendFeatures.refused(BackendRefusal.appUpgradeRequired)
+          // Offline, timeout or unreadable: the unconfirmed baseline.
+          : BackendFeatures.baseline,
+    );
+    expect(find.text('Update required'), findsOneWidget);
+
+    reachable = false;
+    await tester.tap(find.byKey(const Key('compatibility-retry')));
+    await tester.pumpAndSettle();
+    expect(find.text('Update required'), findsOneWidget);
+    expect(find.byKey(const Key('logout-button')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('compatibility-sign-out')));
+    await tester.pumpAndSettle();
+    expect(repository.signOuts, 1);
+    expect(find.text('Tap to scan QR'), findsOneWidget);
+  });
+
+  testWidgets('a refusal lifts once Try again is answered as compatible', (
+    tester,
+  ) async {
+    var refused = true;
+    await start(
+      tester,
+      () async => refused
+          ? BackendFeatures.refused(BackendRefusal.appUpgradeRequired)
+          : BackendFeatures(
+              BackendFeatures.baseline.names,
+              apiVersion: '1.1.0',
+              confirmed: true,
+            ),
+    );
+    refused = false;
+    await tester.tap(find.byKey(const Key('compatibility-retry')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('logout-button')), findsOneWidget);
+  });
 }

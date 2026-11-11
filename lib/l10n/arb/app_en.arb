@@ -1184,5 +1184,678 @@
   "compatibilitySignOut": "Sign out",
   "@compatibilitySignOut": {
     "description": "Button that signs out from the compatibility screen"
+  },
+  "startupWorkflowOidc": "Company sign-in (OIDC)",
+  "@startupWorkflowOidc": {
+    "description": "Sign-in method: OpenID Connect through the customer's identity provider"
+  },
+  "startupWorkflowOidcDescription": "Sign in through your company's identity provider.",
+  "@startupWorkflowOidcDescription": {
+    "description": "Description of the OIDC sign-in method"
+  },
+  "startupWorkflowSignOutFirst": "Sign out to change the sign-in method.",
+  "@startupWorkflowSignOutFirst": {
+    "description": "Shown under a sign-in method while a session exists"
+  },
+  "stockFeatureUnavailable": "Stock management is not available for this shop.",
+  "@stockFeatureUnavailable": {
+    "description": "Stock screen notice when the shop's backend does not offer stock management"
+  },
+  "stockOffline": "You are offline. Stock can be changed again once the connection returns.",
+  "@stockOffline": {
+    "description": "Stock screen notice while offline"
+  },
+  "discountsSectionLabel": "PRODUCT DISCOUNTS",
+  "@discountsSectionLabel": {
+    "description": "Small caps label above the discount cards"
+  },
+  "discountsOverviewTitle": "Discount Overview",
+  "@discountsOverviewTitle": {
+    "description": "Title of the discount card on Product Details"
+  },
+  "discountsCreateNewTitle": "Create New Discounts",
+  "@discountsCreateNewTitle": {
+    "description": "Card title when a product has no discounts"
+  },
+  "discountsNone": "No discounts for this product.",
+  "@discountsNone": {
+    "description": "Card text when a product has no discounts and the user cannot create one"
+  },
+  "discountsTotal": "Total Discounts",
+  "@discountsTotal": {
+    "description": "Label of the discount count"
+  },
+  "discountsRegularPrice": "Regular Price",
+  "@discountsRegularPrice": {
+    "description": "Label of the product's regular price"
+  },
+  "discountsListTitle": "Product Discounts",
+  "@discountsListTitle": {
+    "description": "Heading of the discount list"
+  },
+  "discountsCount": "{count, plural, =1{1 discount} other{{count} discounts}}",
+  "@discountsCount": {
+    "description": "Number of discounts",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "discountsPageTitle": "Discount Details",
+  "@discountsPageTitle": {
+    "description": "Navigation title of the discount list screen"
+  },
+  "discountPageTitle": "Discount",
+  "@discountPageTitle": {
+    "description": "Navigation title of one discount"
+  },
+  "discountCreateTitle": "Create Discount",
+  "@discountCreateTitle": {
+    "description": "Title and button of the create form"
+  },
+  "discountEditTitle": "Edit Discount",
+  "@discountEditTitle": {
+    "description": "Title of the edit form and the edit action"
+  },
+  "discountsOpen": "Manage discounts",
+  "@discountsOpen": {
+    "description": "Tooltip of the pencil opening the discount list"
+  },
+  "discountTypeFixedPrice": "Fixed Price",
+  "@discountTypeFixedPrice": {
+    "description": "Discount type tab"
+  },
+  "discountTypePercentage": "Percentage",
+  "@discountTypePercentage": {
+    "description": "Discount type tab"
+  },
+  "discountTypeCollective": "Collective",
+  "@discountTypeCollective": {
+    "description": "Discount type tab (bundle price)"
+  },
+  "discountTypeFixedPriceLong": "Fixed Price Discount",
+  "@discountTypeFixedPriceLong": {
+    "description": "Discount type under a card title"
+  },
+  "discountTypePercentageLong": "Percentage Discount",
+  "@discountTypePercentageLong": {
+    "description": "Discount type under a card title"
+  },
+  "discountTypeCollectiveLong": "Collective Discount",
+  "@discountTypeCollectiveLong": {
+    "description": "Discount type under a card title"
+  },
+  "discountTypeHeading": "Discount Type",
+  "@discountTypeHeading": {
+    "description": "Heading of the type tabs"
+  },
+  "discountChooseType": "Choose a type to enter its discount value.",
+  "@discountChooseType": {
+    "description": "Shown before a type is chosen"
+  },
+  "discountPreviewHint": "Discount Preview appears when a type and value are set.",
+  "@discountPreviewHint": {
+    "description": "Shown until the preview can be calculated"
+  },
+  "discountPreviewTitle": "Discount Preview",
+  "@discountPreviewTitle": {
+    "description": "Title of the preview card"
+  },
+  "discountPreviewFinalPrice": "Final selling price · {price}",
+  "@discountPreviewFinalPrice": {
+    "description": "Final unit price in the preview",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discountPreviewBundlePrice": "Final selling price · {price} / bundle",
+  "@discountPreviewBundlePrice": {
+    "description": "Final bundle price in the preview",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discountPreviewNote": "Preview only: the server confirms the final prices when saving.",
+  "@discountPreviewNote": {
+    "description": "Note that the preview is not authoritative"
+  },
+  "discountPercentOff": "{percent}% off",
+  "@discountPercentOff": {
+    "description": "Percentage discount title",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "discountBundleOffer": "{quantity} for {price}",
+  "@discountBundleOffer": {
+    "description": "Collective discount title, e.g. 5 for CHF 400.00",
+    "placeholders": {
+      "quantity": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discountDiscountedPrice": "Discounted Price",
+  "@discountDiscountedPrice": {
+    "description": "Field label of the fixed price"
+  },
+  "discountPercentageLabel": "Discount Percentage",
+  "@discountPercentageLabel": {
+    "description": "Field label of the percentage"
+  },
+  "discountBundleQuantity": "Bundle Quantity",
+  "@discountBundleQuantity": {
+    "description": "Field label of the bundle size"
+  },
+  "discountBundleTotalPrice": "Bundle Total Price",
+  "@discountBundleTotalPrice": {
+    "description": "Field label of the bundle price"
+  },
+  "discountRegularBundleTotal": "Regular bundle total · {price}",
+  "@discountRegularBundleTotal": {
+    "description": "Regular price of a full bundle",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discountCalculatedPrice": "Calculated price",
+  "@discountCalculatedPrice": {
+    "description": "Label of the price calculated from a percentage"
+  },
+  "discountAmountHelper": "Enter the price in {currency} with up to two decimal places.",
+  "@discountAmountHelper": {
+    "description": "Helper under price fields",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "discountSchedule": "Schedule",
+  "@discountSchedule": {
+    "description": "Label of the schedule summary"
+  },
+  "discountDateTime": "Date & Time",
+  "@discountDateTime": {
+    "description": "Date and time section"
+  },
+  "discountNotSet": "Not set",
+  "@discountNotSet": {
+    "description": "No validity period"
+  },
+  "discountAlwaysValid": "Applies until archived",
+  "@discountAlwaysValid": {
+    "description": "Schedule summary without a period"
+  },
+  "discountSetDateTime": "Set date & time",
+  "@discountSetDateTime": {
+    "description": "Button that adds a validity period"
+  },
+  "discountClearDateTime": "Remove date & time",
+  "@discountClearDateTime": {
+    "description": "Button that removes the validity period"
+  },
+  "discountStartDate": "Start Date",
+  "@discountStartDate": {
+    "description": "Field label"
+  },
+  "discountStartTime": "Start Time",
+  "@discountStartTime": {
+    "description": "Field label"
+  },
+  "discountEndDate": "End Date",
+  "@discountEndDate": {
+    "description": "Field label"
+  },
+  "discountEndTime": "End Time",
+  "@discountEndTime": {
+    "description": "Field label"
+  },
+  "discountNoEndDate": "No End Date",
+  "@discountNoEndDate": {
+    "description": "Checkbox: the discount never expires"
+  },
+  "discountFrom": "From {start}",
+  "@discountFrom": {
+    "description": "Schedule without end",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      }
+    }
+  },
+  "discountRange": "{start} – {end}",
+  "@discountRange": {
+    "description": "Schedule with start and end",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "discountTimezone": "Times in {zone}",
+  "@discountTimezone": {
+    "description": "Timezone the times are in",
+    "placeholders": {
+      "zone": {
+        "type": "String"
+      }
+    }
+  },
+  "discountRepeatSchedule": "Repeat Schedule",
+  "@discountRepeatSchedule": {
+    "description": "Repeat section and dialog title"
+  },
+  "discountRepeatNone": "Does Not Repeat",
+  "@discountRepeatNone": {
+    "description": "Repeat option"
+  },
+  "discountRepeatDaily": "Daily",
+  "@discountRepeatDaily": {
+    "description": "Repeat option"
+  },
+  "discountRepeatWeekly": "Weekly",
+  "@discountRepeatWeekly": {
+    "description": "Repeat option"
+  },
+  "discountRepeatWeekends": "Every Weekend",
+  "@discountRepeatWeekends": {
+    "description": "Repeat option"
+  },
+  "discountRepeatWeekendsHint": "Every Saturday and Sunday",
+  "@discountRepeatWeekendsHint": {
+    "description": "Explains the weekend option"
+  },
+  "discountRepeatYearly": "Yearly / Annual Date",
+  "@discountRepeatYearly": {
+    "description": "Repeat option"
+  },
+  "discountRepeatOn": "Repeat on",
+  "@discountRepeatOn": {
+    "description": "Label above the weekday chips"
+  },
+  "discountRepeatEvery": "Every {days}",
+  "@discountRepeatEvery": {
+    "description": "Weekly repeat summary",
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "discountAnnualDate": "Annual Date",
+  "@discountAnnualDate": {
+    "description": "Field label of the yearly date"
+  },
+  "discountYearlyOn": "Every year on {date}",
+  "@discountYearlyOn": {
+    "description": "Yearly repeat summary",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "discountChooseAnnualDate": "Choose a day",
+  "@discountChooseAnnualDate": {
+    "description": "Button to choose the yearly date"
+  },
+  "discountMinimumQuantity": "Minimum Quantity",
+  "@discountMinimumQuantity": {
+    "description": "Minimum quantity section"
+  },
+  "discountNoMinimum": "No Minimum",
+  "@discountNoMinimum": {
+    "description": "No minimum quantity"
+  },
+  "discountMinimumItems": "Minimum {quantity} items",
+  "@discountMinimumItems": {
+    "description": "Minimum quantity summary",
+    "placeholders": {
+      "quantity": {
+        "type": "String"
+      }
+    }
+  },
+  "discountMinimumHelper": "The discount applies only when a sale has at least this quantity. Leave empty for no minimum.",
+  "@discountMinimumHelper": {
+    "description": "Helper of the minimum quantity field"
+  },
+  "discountEnterValue": "Enter a value",
+  "@discountEnterValue": {
+    "description": "Input hint"
+  },
+  "discountApply": "Apply",
+  "@discountApply": {
+    "description": "Applies the repeat dialog"
+  },
+  "discountStatusActive": "Active",
+  "@discountStatusActive": {
+    "description": "Discount status"
+  },
+  "discountStatusScheduled": "Scheduled",
+  "@discountStatusScheduled": {
+    "description": "Discount status"
+  },
+  "discountStatusExpired": "Expired",
+  "@discountStatusExpired": {
+    "description": "Discount status"
+  },
+  "discountStatusPaused": "Paused",
+  "@discountStatusPaused": {
+    "description": "Discount status"
+  },
+  "discountStatusArchived": "Archived",
+  "@discountStatusArchived": {
+    "description": "Discount status"
+  },
+  "discountStatusUnknown": "Not applying",
+  "@discountStatusUnknown": {
+    "description": "Status this app does not know"
+  },
+  "discountStatusLabel": "Status",
+  "@discountStatusLabel": {
+    "description": "Label of the status row"
+  },
+  "discountAppliesNow": "Applies now",
+  "@discountAppliesNow": {
+    "description": "The POS applies the discount now"
+  },
+  "discountNotNow": "Not applying right now",
+  "@discountNotNow": {
+    "description": "The POS does not apply it right now"
+  },
+  "discountValueLabel": "Discount",
+  "@discountValueLabel": {
+    "description": "Label of the discount value row"
+  },
+  "discountSavingsLabel": "Saving",
+  "@discountSavingsLabel": {
+    "description": "Label of the saving row"
+  },
+  "discountSavings": "{amount} ({percent}%)",
+  "@discountSavings": {
+    "description": "Saving amount and percent",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "discountPause": "Pause Discount",
+  "@discountPause": {
+    "description": "Action"
+  },
+  "discountResume": "Resume Discount",
+  "@discountResume": {
+    "description": "Action"
+  },
+  "discountArchive": "Archive Discount",
+  "@discountArchive": {
+    "description": "Action"
+  },
+  "discountConfirmCreateTitle": "Create this discount?",
+  "@discountConfirmCreateTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmSaveTitle": "Save these changes?",
+  "@discountConfirmSaveTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmChangeBody": "{offer}. Every POS of this shop applies it to new sales.",
+  "@discountConfirmChangeBody": {
+    "description": "Confirmation body for create and save",
+    "placeholders": {
+      "offer": {
+        "type": "String"
+      }
+    }
+  },
+  "discountConfirmPauseTitle": "Pause this discount?",
+  "@discountConfirmPauseTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmPauseBody": "The POS stops applying it. All its values are kept and it can be resumed.",
+  "@discountConfirmPauseBody": {
+    "description": "Confirmation body"
+  },
+  "discountConfirmResumeTitle": "Resume this discount?",
+  "@discountConfirmResumeTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmResumeBody": "The POS applies it again whenever its schedule allows.",
+  "@discountConfirmResumeBody": {
+    "description": "Confirmation body"
+  },
+  "discountConfirmArchiveTitle": "Archive this discount?",
+  "@discountConfirmArchiveTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmArchiveBody": "The POS stops applying it and it can no longer be edited, paused or resumed.",
+  "@discountConfirmArchiveBody": {
+    "description": "Confirmation body"
+  },
+  "discountCreated": "Discount created.",
+  "@discountCreated": {
+    "description": "Success message"
+  },
+  "discountSaved": "Discount saved.",
+  "@discountSaved": {
+    "description": "Success message"
+  },
+  "discountPausedDone": "Discount paused.",
+  "@discountPausedDone": {
+    "description": "Success message"
+  },
+  "discountResumedDone": "Discount resumed.",
+  "@discountResumedDone": {
+    "description": "Success message"
+  },
+  "discountArchivedDone": "Discount archived.",
+  "@discountArchivedDone": {
+    "description": "Success message"
+  },
+  "discountOffline": "You are offline. Discounts can be read and changed again once the connection returns.",
+  "@discountOffline": {
+    "description": "Offline notice"
+  },
+  "discountReadOnly": "You can view discounts but not change them for this product.",
+  "@discountReadOnly": {
+    "description": "Notice when the user may only view discounts"
+  },
+  "discountChanged": "This discount was changed elsewhere. The latest values are shown; review them and try again.",
+  "@discountChanged": {
+    "description": "Version conflict notice"
+  },
+  "discountUncertain": "The change could not be confirmed. Check the discount; trying again sends the same request, so it is applied only once.",
+  "@discountUncertain": {
+    "description": "Write outcome unknown"
+  },
+  "discountLimitReached": "This product already has the maximum number of discounts.",
+  "@discountLimitReached": {
+    "description": "Per-product discount limit"
+  },
+  "discountArchivedNotice": "This discount is archived and can no longer be changed.",
+  "@discountArchivedNotice": {
+    "description": "Archived discount notice"
+  },
+  "discountNotDiscountable": "The POS cannot discount this product.",
+  "@discountNotDiscountable": {
+    "description": "Business rule"
+  },
+  "discountPriceZero": "Discounts need a regular price above zero.",
+  "@discountPriceZero": {
+    "description": "Business rule"
+  },
+  "discountLoadFailed": "Discounts could not be loaded.",
+  "@discountLoadFailed": {
+    "description": "Read failure"
+  },
+  "discountLoading": "Loading discounts",
+  "@discountLoading": {
+    "description": "Loading semantics"
+  },
+  "discountSaving": "Saving…",
+  "@discountSaving": {
+    "description": "Busy button label"
+  },
+  "discountIssueRequired": "Enter a value.",
+  "@discountIssueRequired": {
+    "description": "Field error"
+  },
+  "discountIssueType": "Choose a discount type.",
+  "@discountIssueType": {
+    "description": "Field error"
+  },
+  "discountIssueAmount": "Enter an amount with up to two decimal places.",
+  "@discountIssueAmount": {
+    "description": "Field error"
+  },
+  "discountIssueBelowRegular": "Must be below the regular price.",
+  "@discountIssueBelowRegular": {
+    "description": "Field error"
+  },
+  "discountIssuePercent": "Enter a percentage above 0 and up to 100, with up to two decimals.",
+  "@discountIssuePercent": {
+    "description": "Field error"
+  },
+  "discountIssueBundleQuantity": "Enter a whole number of at least 2.",
+  "@discountIssueBundleQuantity": {
+    "description": "Field error"
+  },
+  "discountIssueEndBeforeStart": "The end must be after the start.",
+  "@discountIssueEndBeforeStart": {
+    "description": "Field error"
+  },
+  "discountIssueEndInPast": "The end must be in the future.",
+  "@discountIssueEndInPast": {
+    "description": "Field error"
+  },
+  "discountIssueTime": "This date or time is not valid in the shop's time zone.",
+  "@discountIssueTime": {
+    "description": "Field error"
+  },
+  "discountIssueWeekdays": "Choose at least one day.",
+  "@discountIssueWeekdays": {
+    "description": "Field error"
+  },
+  "discountIssueAnnualDate": "Choose a real day of the year (not 29 February).",
+  "@discountIssueAnnualDate": {
+    "description": "Field error"
+  },
+  "discountIssueQuantity": "Enter a quantity above zero.",
+  "@discountIssueQuantity": {
+    "description": "Field error"
+  },
+  "discountIssueQuantityStep": "This quantity does not fit the product's unit.",
+  "@discountIssueQuantityStep": {
+    "description": "Field error"
+  },
+  "discountEditingField": "Editing {field}",
+  "@discountEditingField": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "discountTime24": "24-hour time",
+  "@discountTime24": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountSelectTime": "Select Time",
+  "@discountSelectTime": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountHour": "Hour",
+  "@discountHour": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountMinute": "Minute",
+  "@discountMinute": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountTodayValue": "Today · {date}",
+  "@discountTodayValue": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "discountSelectedValue": "Selected · {value}",
+  "@discountSelectedValue": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountPreviousMonth": "Previous month",
+  "@discountPreviousMonth": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountNextMonth": "Next month",
+  "@discountNextMonth": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountSetMinimum": "Set Minimum Quantity",
+  "@discountSetMinimum": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountSelectValue": "Select",
+  "@discountSelectValue": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountIncrease": "Increase {field}",
+  "@discountIncrease": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "discountDecrease": "Decrease {field}",
+  "@discountDecrease": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "discountTime12": "12-hour time",
+  "@discountTime12": {
+    "description": "Discount time card"
+  },
+  "discountTime24Short": "24h",
+  "@discountTime24Short": {
+    "description": "Discount time card"
+  },
+  "discountMeridiem": "AM/PM",
+  "@discountMeridiem": {
+    "description": "Discount time card"
   }
 }

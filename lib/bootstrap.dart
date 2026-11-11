@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/app/app.dart';
 import 'package:orange_one/app/providers/product_dependencies.dart';
+import 'package:orange_one/app/providers/session_lifecycle_bindings.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
@@ -73,8 +74,11 @@ Future<void> bootstrap(AppEnvironment environment) async {
         authenticatedMobileApiOverride,
         backendFeaturesOverride,
         sessionPermissionsOverride,
+        capabilityScopeOverride,
+        sessionLifecycleOverride,
         productRepositoryOverride,
         productDetailsRepositoryOverride,
+        discountRepositoryOverride,
       ],
       child: const App(),
     ),

@@ -16,6 +16,11 @@ import 'package:orange_one/features/demo/presentation/providers/demo_providers.d
 import 'package:orange_one/features/demo/presentation/widgets/demo_mode_section.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_sample_barcodes.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_sample_qr_list.dart';
+import 'package:orange_one/features/discounts/presentation/pages/discount_details_page.dart';
+import 'package:orange_one/features/discounts/presentation/pages/discount_form_page.dart';
+import 'package:orange_one/features/discounts/presentation/pages/discount_list_page.dart';
+import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_summary_card.dart';
 import 'package:orange_one/features/help_support/presentation/pages/tutorial_page.dart';
 import 'package:orange_one/features/home/presentation/pages/home_page.dart';
 import 'package:orange_one/features/home/presentation/pages/product_scanner_page.dart';
@@ -25,9 +30,71 @@ import 'package:orange_one/features/products/presentation/pages/product_details_
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_stock_update_page.dart';
+import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/settings/presentation/pages/settings_page.dart';
 import 'package:orange_one/features/startup/presentation/providers/startup_configuration_providers.dart';
 import 'package:orange_one/features/startup/presentation/widgets/startup_workflow_section.dart';
+
+/// The discount screens of one product: the product's id and its own
+/// `discount_manage` come from Product Details, so the discounts feature
+/// never reads product internals. `editPrice` opens the product's price
+/// screen and tells whether a new price was saved; it is null while the
+/// product's `update_price` is not granted.
+Widget _discountRoute(
+  GoRouterState state,
+  Widget Function(
+    DiscountScope scope,
+    Widget productCard,
+    Widget navTrailing,
+    int? discountId,
+    Future<bool> Function(BuildContext context)? editPrice,
+  )
+  page,
+) {
+  final barcode = state.uri.queryParameters['barcode'] ?? '';
+  final productId = int.tryParse(state.uri.queryParameters['product_id'] ?? '');
+  final discountId = int.tryParse(
+    state.uri.queryParameters['discount_id'] ?? '',
+  );
+  return Consumer(
+    builder: (context, ref, child) {
+      if (productId == null || productId <= 0) {
+        return ProductDetailsPage(barcode: barcode);
+      }
+      final details = ref.watch(productDetailsControllerProvider(barcode));
+      final product = details.hasError ? null : details.value?.product;
+      final scope = DiscountScope(
+        productId: productId,
+        barcode: barcode,
+        manageAllowed:
+            product?.id == productId &&
+            (details.value?.access.manageDiscounts ?? false),
+      );
+      final card = product == null || product.id != productId
+          ? const SizedBox.shrink()
+          : ProductNameCard(product: product, showActions: false);
+      final priceAllowed =
+          product?.id == productId &&
+          (details.value?.access.updatePrice ?? false);
+      return page(
+        scope,
+        card,
+        ProductSyncNavButton(barcode: barcode),
+        discountId,
+        priceAllowed
+            ? (context) async =>
+                  await context.pushNamed<bool>(
+                    'productPrice',
+                    queryParameters: {'barcode': barcode},
+                  ) ??
+                  false
+            : null,
+      );
+    },
+  );
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
@@ -132,8 +199,78 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: 'productDetails',
             path: 'products/details',
-            builder: (context, state) => ProductDetailsPage(
-              barcode: state.uri.queryParameters['barcode'] ?? '',
+            builder: (context, state) {
+              final barcode = state.uri.queryParameters['barcode'] ?? '';
+              return ProductDetailsPage(
+                barcode: barcode,
+                discountsBuilder: (details) {
+                  final product = details.product!;
+                  final query = {
+                    'barcode': barcode,
+                    'product_id': '${product.id}',
+                  };
+                  return DiscountSummaryCard(
+                    productId: product.id,
+                    manageAllowed: details.access.manageDiscounts,
+                    onOpen: () => context.pushNamed(
+                      'productDiscounts',
+                      queryParameters: query,
+                    ),
+                    onCreate: () async {
+                      final message = await context.pushNamed<String>(
+                        'productDiscountForm',
+                        queryParameters: query,
+                      );
+                      if (context.mounted) showDiscountResult(context, message);
+                    },
+                  );
+                },
+              );
+            },
+          ),
+          GoRoute(
+            name: 'productDiscounts',
+            path: 'products/discounts',
+            builder: (context, state) => _discountRoute(
+              state,
+              (scope, card, nav, _, _) => DiscountListPage(
+                scope: scope,
+                productCard: card,
+                navTrailing: nav,
+              ),
+            ),
+          ),
+          GoRoute(
+            name: 'productDiscountForm',
+            path: 'products/discounts/form',
+            builder: (context, state) => _discountRoute(
+              state,
+              (scope, card, nav, discountId, editPrice) => DiscountFormPage(
+                scope: scope,
+                discountId: discountId,
+                productCard: card,
+                navTrailing: nav,
+                onEditPrice: editPrice,
+              ),
+            ),
+          ),
+          GoRoute(
+            name: 'productDiscountDetail',
+            path: 'products/discounts/detail',
+            builder: (context, state) => _discountRoute(
+              state,
+              (scope, card, nav, discountId, _) => discountId == null
+                  ? DiscountListPage(
+                      scope: scope,
+                      productCard: card,
+                      navTrailing: nav,
+                    )
+                  : DiscountDetailsPage(
+                      scope: scope,
+                      discountId: discountId,
+                      productCard: card,
+                      navTrailing: nav,
+                    ),
             ),
           ),
           GoRoute(

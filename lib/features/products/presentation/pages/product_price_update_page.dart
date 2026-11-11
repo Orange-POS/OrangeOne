@@ -9,13 +9,13 @@ import 'package:orange_one/features/products/presentation/providers/product_succ
 import 'package:orange_one/features/products/presentation/widgets/price_change_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/product_action_surface.dart';
+import 'package:orange_one/shared/widgets/product_navbar.dart';
+import 'package:orange_one/shared/widgets/product_scaffold.dart';
 
 class ProductPriceUpdatePage extends ConsumerStatefulWidget {
   const new({required this.barcode, super.key});

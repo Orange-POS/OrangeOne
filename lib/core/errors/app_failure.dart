@@ -20,12 +20,18 @@ enum FailureKind {
 
 /// Field-level validation reported by the Mobile API (`error.details`).
 class AppFieldError {
-  const new(this.field, this.code);
+  const new(this.field, this.code, {this.message});
 
+  /// Dotted body path; empty for a rule about the whole record
+  /// (`BUSINESS_RULE_VIOLATION` details without a field).
   final String field;
 
   /// Machine code such as `REQUIRED` or `INVALID_DECIMAL`.
   final String code;
+
+  /// The server's localised, display-safe text, when short enough; shown
+  /// only for codes the app has no own text for.
+  final String? message;
 }
 
 /// Safe application failure. Never retains a response, token or QR payload.
