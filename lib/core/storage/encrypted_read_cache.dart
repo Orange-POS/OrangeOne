@@ -25,11 +25,15 @@ class EncryptedReadCache {
   /// `sessionSecret` is the session identity the rows belong to. With
   /// `keySecret`, the key and the row owner also depend on that random,
   /// securely stored secret of the session, so the identity alone (which is
-  /// not secret) cannot decrypt or even locate the rows.
+  /// not secret) cannot decrypt or even locate the rows. Secure storage may
+  /// never answer, so each secret read is bounded by `keySecretTimeout`:
+  /// after it the cache counts as unavailable for that access (a verified
+  /// read is returned uncached, a write is refused before it is sent).
   new(
     this.database, {
     required String sessionSecret,
     this._keySecret,
+    this._keySecretTimeout = const Duration(seconds: 2),
     DateTime Function()? now,
   }) : _identity = sessionSecret,
        _now = now ?? DateTime.now;
@@ -65,6 +69,7 @@ class EncryptedReadCache {
   final ReadCacheDatabase database;
   final String _identity;
   final Future<String> Function()? _keySecret;
+  final Duration _keySecretTimeout;
   final DateTime Function() _now;
   final _cipher = AesGcm.with256bits();
   final _events = StreamController<int>.broadcast();
@@ -120,14 +125,19 @@ class EncryptedReadCache {
   Future<String> get owner => _owner ??= _keyMaterial.then(_hash);
 
   /// The identity, plus the session's stored secret when one is wired. A
-  /// failed secret read is not kept: the next cache access tries again.
+  /// failed or timed-out secret read is not kept: the next cache access
+  /// tries again.
   Future<String> get _keyMaterial => _material ??= _loadKeyMaterial();
 
   Future<String> _loadKeyMaterial() async {
     final loader = _keySecret;
     if (loader == null) return _identity;
     try {
-      return '$_identity|${await loader()}';
+      final secret = await loader().timeout(
+        _keySecretTimeout,
+        onTimeout: () => throw const _KeyUnavailable(),
+      );
+      return '$_identity|$secret';
     } on Object {
       _material = null;
       _key = null;
@@ -225,15 +235,18 @@ class EncryptedReadCache {
         } else {
           await _store(barcode, approved, time, revision: revision);
         }
-      } on Exception {
+      } on Exception catch (error) {
         // A cache failure must not hide a valid server response.
         if (_closed || revision != _revision) throw cancelledOperation;
         // Block local fallback while removing the old snapshot durably.
         _unavailable.add(barcode);
-        try {
-          await _remove(barcode, revision: revision);
-        } on Exception {
-          // Keep the instance-local guard if durable cleanup also fails.
+        // Without the key no row can be located: do not wait for it again.
+        if (error is! _KeyUnavailable) {
+          try {
+            await _remove(barcode, revision: revision);
+          } on Exception {
+            // Keep the instance-local guard if durable cleanup also fails.
+          }
         }
         if (_closed || revision != _revision) throw cancelledOperation;
         offline = false;
@@ -430,13 +443,15 @@ class EncryptedReadCache {
       _unavailable.remove(barcode);
       _set(barcode, ReadSyncPhase.online, time);
       await _syncRecents(changed: [product], removedIds: const []);
-    } on Exception {
+    } on Exception catch (error) {
       if (_closed || revision != _revision) return;
       _unavailable.add(barcode);
-      try {
-        await _remove(barcode, revision: revision);
-      } on Exception {
-        // The instance-local guard still blocks the stale snapshot.
+      if (error is! _KeyUnavailable) {
+        try {
+          await _remove(barcode, revision: revision);
+        } on Exception {
+          // The instance-local guard still blocks the stale snapshot.
+        }
       }
       _set(barcode, ReadSyncPhase.failed, time);
     }
@@ -771,4 +786,9 @@ class EncryptedReadCache {
       await _recovery.close();
     }
   }
+}
+
+/// Secure storage did not provide the cache key in time.
+class _KeyUnavailable implements Exception {
+  const new();
 }

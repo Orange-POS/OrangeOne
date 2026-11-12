@@ -31,7 +31,11 @@ a verified connection and use the Mobile API v2 `If-Match` version and
   identity alone is not secret and cannot decrypt or locate the rows. It
   contains no token, so access-token refresh keeps the cache. Neither key nor
   secret is written to SQLite. Logout and expiry delete the secret after the
-  purge, so rows a failed purge left behind stay unreadable. Tokens, scopes,
+  purge, so rows a failed purge left behind stay unreadable. Each secret read
+  is bounded (2 seconds): when secure storage does not answer, a lookup
+  returns the server-verified product uncached (sync status failed, no local
+  fallback for it) and a write is refused with the storage error before it is
+  sent; the next cache access reads the secret again. Tokens, scopes,
   credentials and pending writes are not cached.
 - SQL identifiers contain opaque hashes for owner and barcode. Another login,
   user, company, server or flavor cannot read an earlier session's records.
