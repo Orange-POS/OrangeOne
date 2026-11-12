@@ -5,6 +5,7 @@ import 'package:orange_one/core/network/idempotency_keys.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_merge.dart';
+import 'package:orange_one/features/discounts/domain/entities/pending_discount_create.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 
@@ -39,6 +40,11 @@ enum DiscountFormProblem {
   /// that was closed) has no confirmed answer. Saving first replays it
   /// exactly as sent; nothing else is created before its outcome is known.
   pendingCreate,
+
+  /// The server refused the earlier create when it was retried: it never
+  /// committed. Nothing else was sent; the edited draft is kept and is
+  /// created only after its own confirmation.
+  originalRefused,
 
   /// That earlier create can no longer be confirmed automatically (the
   /// server's idempotency record may have expired). Nothing is sent until
@@ -270,7 +276,8 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       DiscountFormProblem.changed ||
       DiscountFormProblem.createdMeanwhile ||
       DiscountFormProblem.pendingCreate ||
-      DiscountFormProblem.pendingExpired => true,
+      DiscountFormProblem.pendingExpired ||
+      DiscountFormProblem.originalRefused => true,
       _ => false,
     };
     state = AsyncData(
@@ -418,6 +425,22 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     return current != null && current.canSubmit && _writable;
   }
 
+  /// The earlier create a Save would replay first, when its values differ
+  /// from the current draft (a formatting-only change does not count). The
+  /// page then confirms that original offer, not the edited one: if it
+  /// never reached the server, the replay creates it.
+  PendingDiscountCreate? get pendingReplay {
+    final current = _editable;
+    if (current == null || current.editing) return null;
+    final pending = ref
+        .read(discountRepositoryProvider)
+        .pendingCreate(args.scope.productId);
+    if (pending == null || !pending.replayable) return null;
+    return _fingerprint(pending.draft) == _fingerprint(current.draft)
+        ? null
+        : pending;
+  }
+
   /// Whether the archive confirmation may be shown now.
   bool get canArchive {
     final current = _editable;
@@ -442,9 +465,11 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   /// committed, or runs it now if it never did, so its outcome is known
   /// before anything else is written. A list read never decides it.
   /// - Same values (also "20" and "20.00"): the replay is the save.
-  /// - Changed values: if the replay created the discount, the form edits
+  /// - Changed values: the page confirms the original offer first
+  ///   ([pendingReplay]). If the replay created the discount, the form edits
   ///   it with the changes ([DiscountFormProblem.createdMeanwhile]); if the
-  ///   server refused it, the changed draft is created.
+  ///   server refused it ([DiscountFormProblem.originalRefused]), nothing
+  ///   else is sent. Either way the edited terms need their own Save.
   /// - No answer again: it stays pending, unchanged.
   Future<void> save() async {
     final current = _editable;
@@ -508,7 +533,14 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         await _failed(current, failure, generation);
         return;
       }
-      await _create(current, repository, generation);
+      // The edited terms were not confirmed for themselves: they wait for
+      // their own Save and confirmation.
+      state = AsyncData(
+        current.copy(
+          phase: DiscountFormPhase.editing,
+          problem: DiscountFormProblem.originalRefused,
+        ),
+      );
       return;
     }
     if (!ref.mounted || generation != _generation) return;

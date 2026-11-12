@@ -760,6 +760,11 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      Finder inDialog(String text) => find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining(text),
+      );
+
       String percentText(WidgetTester tester) => tester
           .widget<TextField>(find.byKey(const Key('discount-percent')))
           .controller!
@@ -1120,6 +1125,98 @@ void main() {
         expect(find.text('Edit Discount'), findsOneWidget);
         expect(percentText(tester), '25');
         expect(session['discount-create:product:10'], isNull);
+      });
+
+      // P1: the confirmation must describe the request that is sent.
+      testWidgets('a retry confirms the original offer; the edit waits', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        // Times out without committing: a replay would create 20% now.
+        discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.discounts, isEmpty);
+        discounts.writeError = null;
+        await typePercent(tester, '25');
+        await tapKey(tester, 'discount-save');
+        // The retry names the original offer and what it can do.
+        expect(find.text('Confirm the earlier offer first'), findsOneWidget);
+        expect(
+          find.textContaining('creates the 20% off discount'),
+          findsOneWidget,
+        );
+        expect(inDialog('(25% off)'), findsOneWidget);
+        expect(find.text('Retry 20% off'), findsOneWidget);
+        expect(find.text('Create this discount?'), findsNothing);
+        // Cancel: nothing is sent and the edited draft stays.
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(discounts.writes, ['create']);
+        expect(percentText(tester), '25');
+        expect(discounts.pending[10]?.percent, '20');
+        // Retry: the original 20% is created (its outcome), nothing else.
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(
+          [for (final d in discounts.createdDrafts) d.percent],
+          ['20', '20'],
+        );
+        expect(discounts.discounts.single.percent, '20');
+        expect(discounts.writes, ['create', 'create']);
+        expect(find.text('Edit Discount'), findsOneWidget);
+        expect(percentText(tester), '25');
+        // The edited terms need their own confirmation.
+        await tapKey(tester, 'discount-save');
+        expect(find.text('Save these changes?'), findsOneWidget);
+        expect(inDialog('25% off'), findsOneWidget);
+        await confirm(tester);
+        expect(discounts.writes, ['create', 'create', 'update']);
+        expect(discounts.discounts.single.percent, '25');
+      });
+
+      testWidgets('a refused original never sends the edit by itself', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        await typePercent(tester, '25');
+        // The retried original is refused by the server.
+        discounts.writeError = const AppFailure(
+          FailureKind.validation,
+          'Refused',
+          code: 'BUSINESS_RULE_VIOLATION',
+        );
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.discounts, isEmpty);
+        expect(
+          [for (final d in discounts.createdDrafts) d.percent],
+          ['20', '20'],
+        );
+        expect(
+          find.textContaining('earlier offer was not created'),
+          findsOneWidget,
+        );
+        expect(percentText(tester), '25');
+        // Only a separate, ordinary confirmation creates the edited offer.
+        discounts.writeError = null;
+        await tapKey(tester, 'discount-save');
+        expect(find.text('Create this discount?'), findsOneWidget);
+        expect(inDialog('25% off'), findsOneWidget);
+        await confirm(tester);
+        expect(discounts.discounts.single.percent, '25');
+        expect(find.text('Discount created.'), findsOneWidget);
       });
 
       testWidgets('rapid repeated Save sends one create', (tester) async {

@@ -399,5 +399,9 @@
   "discountArchiving": "Archivage…",
   "discountPendingCreate": "Un enregistrement précédent d'une nouvelle remise pour ce produit n'est pas encore confirmé. Ses valeurs sont affichées. L'enregistrement confirme d'abord cette demande, afin que rien ne soit créé deux fois.",
   "discountPendingExpired": "Un enregistrement précédent d'une nouvelle remise pour ce produit n'a pas pu être confirmé et ne peut plus être vérifié automatiquement. Consultez les remises du produit : si elle y figure, modifiez-la là. Sinon, abandonnez l'enregistrement précédent pour créer celle-ci.",
-  "discountPendingDiscard": "Elle n'y est pas : abandonner l'enregistrement précédent"
+  "discountPendingDiscard": "Elle n'y est pas : abandonner l'enregistrement précédent",
+  "discountReplayTitle": "Confirmer d'abord l'offre précédente",
+  "discountReplayBody": "Votre enregistrement précédent de {original} n'est pas confirmé. Réessayer renvoie exactement cette demande : si elle n'avait pas atteint le serveur, elle crée maintenant la remise {original}. Votre offre modifiée ({edited}) est conservée et n'est enregistrée qu'après votre confirmation séparée.",
+  "discountReplayConfirm": "Renvoyer {original}",
+  "discountOriginalRefused": "L'offre précédente n'a pas été créée. Votre offre modifiée est conservée : enregistrez à nouveau pour la créer."
 }

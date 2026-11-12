@@ -74,9 +74,13 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
   running original, returns what it committed, or runs it now; only then
   is the outcome known:
   - same values (also `20` and `20.00`): the replay is the save;
-  - changed values: a created discount is edited with the changes
-    (`createdMeanwhile`); a refused original lets the changed draft be
-    created;
+  - changed values: Save first asks to confirm the original offer, not the
+    edited one ("Confirm the earlier offer first": the retry sends that
+    request and may create it now); Cancel sends nothing and keeps the
+    edit. A created original is then edited with the changes
+    (`createdMeanwhile`); a refused one sends nothing else
+    (`originalRefused`). Either way the edited terms need their own Save
+    and ordinary confirmation;
   - no answer again: the original stays pending, never replaced by an
     unsent draft.
 - The pending create lives in the session's `PendingWrites` (body exactly

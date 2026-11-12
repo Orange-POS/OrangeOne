@@ -107,16 +107,34 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
             preview,
             state.regularPrice.currency,
           )!;
+    // An earlier create with other values is unresolved: Save replays that
+    // request first, so the user confirms that original offer (which may
+    // be created now), not the edited one.
+    final replay = _controller.pendingReplay;
+    final currency = state.regularPrice.currency;
     _confirming = true;
     FocusScope.of(context).unfocus();
     try {
-      final confirmed = await DiscountConfirmDialog.show(
-        context,
-        title: state.editing
-            ? l10n.discountConfirmSaveTitle
-            : l10n.discountConfirmCreateTitle,
-        message: l10n.discountConfirmChangeBody(offer),
-      );
+      final confirmed = replay != null
+          ? await DiscountConfirmDialog.show(
+              context,
+              title: l10n.discountReplayTitle,
+              message: l10n.discountReplayBody(
+                DiscountText.draftValue(l10n, replay.draft, currency),
+                DiscountText.draftValue(l10n, state.draft, currency),
+              ),
+              confirmLabel: l10n.discountReplayConfirm(
+                DiscountText.draftValue(l10n, replay.draft, currency),
+              ),
+            )
+          : await DiscountConfirmDialog.show(
+              context,
+              title: state.editing
+                  ? l10n.discountConfirmSaveTitle
+                  : l10n.discountConfirmCreateTitle,
+              message: l10n.discountConfirmChangeBody(offer),
+            );
+      // Cancelling sends nothing and keeps the edited draft.
       if (confirmed && mounted) await _controller.save();
     } finally {
       _confirming = false;
@@ -646,7 +664,8 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
             key: const Key('discount-form-problem'),
             error: switch (state.problem!) {
               DiscountFormProblem.changed ||
-              DiscountFormProblem.createdMeanwhile => false,
+              DiscountFormProblem.createdMeanwhile ||
+              DiscountFormProblem.originalRefused => false,
               _ => true,
             },
             message: switch (state.problem!) {
@@ -659,6 +678,8 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
                 l10n.discountCreatedMeanwhile,
               DiscountFormProblem.pendingCreate => l10n.discountPendingCreate,
               DiscountFormProblem.pendingExpired => l10n.discountPendingExpired,
+              DiscountFormProblem.originalRefused =>
+                l10n.discountOriginalRefused,
               DiscountFormProblem.refused =>
                 DiscountText.rule(l10n, state.ruleCode) ??
                     state.problemMessage ??

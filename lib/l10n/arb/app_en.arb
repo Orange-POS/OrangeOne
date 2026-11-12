@@ -1939,5 +1939,34 @@
   "discountPendingDiscard": "It is not there: discard the earlier save",
   "@discountPendingDiscard": {
     "description": "Discount form: an unresolved earlier create"
+  },
+  "discountReplayTitle": "Confirm the earlier offer first",
+  "@discountReplayTitle": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountReplayBody": "Your earlier save of {original} has no confirmed answer. Retrying sends exactly that request again: if it did not reach the server before, it creates the {original} discount now. Your edited offer ({edited}) is kept and is only saved after you confirm it separately.",
+  "@discountReplayBody": {
+    "description": "Discount form: retrying an unconfirmed earlier create",
+    "placeholders": {
+      "original": {
+        "type": "String"
+      },
+      "edited": {
+        "type": "String"
+      }
+    }
+  },
+  "discountReplayConfirm": "Retry {original}",
+  "@discountReplayConfirm": {
+    "description": "Discount form: retrying an unconfirmed earlier create",
+    "placeholders": {
+      "original": {
+        "type": "String"
+      }
+    }
+  },
+  "discountOriginalRefused": "The earlier offer was not created. Your edited offer is kept: save again to create it.",
+  "@discountOriginalRefused": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
   }
 }

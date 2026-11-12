@@ -399,5 +399,9 @@
   "discountArchiving": "Archiviazione…",
   "discountPendingCreate": "Un salvataggio precedente di un nuovo sconto per questo prodotto non è ancora confermato. Sono mostrati i suoi valori. Salvando si conferma prima quella richiesta, così nulla viene creato due volte.",
   "discountPendingExpired": "Un salvataggio precedente di un nuovo sconto per questo prodotto non è stato confermato e non può più essere verificato automaticamente. Controlla gli sconti del prodotto: se c'è, modificalo lì. Altrimenti scarta il salvataggio precedente per creare questo.",
-  "discountPendingDiscard": "Non c'è: scarta il salvataggio precedente"
+  "discountPendingDiscard": "Non c'è: scarta il salvataggio precedente",
+  "discountReplayTitle": "Conferma prima l'offerta precedente",
+  "discountReplayBody": "Il salvataggio precedente di {original} non è confermato. Riprovare invia di nuovo esattamente quella richiesta: se prima non era arrivata al server, ora crea lo sconto {original}. La tua offerta modificata ({edited}) resta e viene salvata solo dopo una conferma separata.",
+  "discountReplayConfirm": "Riprova {original}",
+  "discountOriginalRefused": "L'offerta precedente non è stata creata. La tua offerta modificata resta: salva di nuovo per crearla."
 }

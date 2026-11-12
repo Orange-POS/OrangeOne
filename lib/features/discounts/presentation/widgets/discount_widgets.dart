@@ -208,19 +208,31 @@ class DiscountNotice extends StatelessWidget {
 
 /// Confirms a discount write before anything is sent.
 class DiscountConfirmDialog extends StatelessWidget {
-  const new({required this.title, required this.message, super.key});
+  const new({
+    required this.title,
+    required this.message,
+    this.confirmLabel,
+    super.key,
+  });
   final String title;
   final String message;
+
+  /// The confirm button's text; Confirm when null.
+  final String? confirmLabel;
 
   static Future<bool> show(
     BuildContext context, {
     required String title,
     required String message,
+    String? confirmLabel,
   }) async =>
       await showDialog<bool>(
         context: context,
-        builder: (context) =>
-            DiscountConfirmDialog(title: title, message: message),
+        builder: (context) => DiscountConfirmDialog(
+          title: title,
+          message: message,
+          confirmLabel: confirmLabel,
+        ),
       ) ??
       false;
 
@@ -238,7 +250,7 @@ class DiscountConfirmDialog extends StatelessWidget {
         FilledButton(
           key: const Key('discount-confirm'),
           onPressed: () => Navigator.pop(context, true),
-          child: Text(l10n.commonConfirm),
+          child: Text(confirmLabel ?? l10n.commonConfirm),
         ),
       ],
     );
