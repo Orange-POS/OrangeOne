@@ -396,5 +396,8 @@
   "discountConflictTakenOver": "Repris : vous ne l'aviez pas modifié.",
   "discountConflictApply": "Appliquer et vérifier",
   "discountPartValue": "Valeur de la remise",
-  "discountArchiving": "Archivage…"
+  "discountArchiving": "Archivage…",
+  "discountPendingCreate": "Un enregistrement précédent d'une nouvelle remise pour ce produit n'est pas encore confirmé. Ses valeurs sont affichées. L'enregistrement confirme d'abord cette demande, afin que rien ne soit créé deux fois.",
+  "discountPendingExpired": "Un enregistrement précédent d'une nouvelle remise pour ce produit n'a pas pu être confirmé et ne peut plus être vérifié automatiquement. Consultez les remises du produit : si elle y figure, modifiez-la là. Sinon, abandonnez l'enregistrement précédent pour créer celle-ci.",
+  "discountPendingDiscard": "Elle n'y est pas : abandonner l'enregistrement précédent"
 }

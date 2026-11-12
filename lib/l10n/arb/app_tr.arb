@@ -396,5 +396,8 @@
   "discountConflictTakenOver": "Alındı: bunu siz değiştirmediniz.",
   "discountConflictApply": "Uygula ve kontrol et",
   "discountPartValue": "İndirim değeri",
-  "discountArchiving": "Arşivleniyor…"
+  "discountArchiving": "Arşivleniyor…",
+  "discountPendingCreate": "Bu ürün için yeni bir indirimin önceki kaydı henüz onaylanmadı. Değerleri gösteriliyor. Kaydetmek önce o isteği onaylar, böylece hiçbir şey iki kez oluşturulmaz.",
+  "discountPendingExpired": "Bu ürün için yeni bir indirimin önceki kaydı onaylanamadı ve artık otomatik olarak kontrol edilemiyor. Ürünün indirimlerine bakın: oradaysa orada düzenleyin. Değilse, bunu oluşturmak için önceki kaydı yok sayın.",
+  "discountPendingDiscard": "Orada değil: önceki kaydı yok say"
 }

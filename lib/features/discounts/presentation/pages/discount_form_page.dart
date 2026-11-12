@@ -382,9 +382,40 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     final schedule = draft.schedule;
     final typeIcon = draft.type == null ? null : discountTypeIcon(draft.type!);
     final merge = state.merge;
+    final pendingProblem =
+        state.problem == DiscountFormProblem.pendingCreate ||
+        state.problem == DiscountFormProblem.pendingExpired;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // An earlier create of this product is unresolved: said first.
+        if (pendingProblem) ...[
+          DiscountNotice(
+            key: const Key('discount-pending'),
+            error: state.problem == DiscountFormProblem.pendingExpired,
+            message: state.problem == DiscountFormProblem.pendingExpired
+                ? l10n.discountPendingExpired
+                : l10n.discountPendingCreate,
+          ),
+          if (state.problem == DiscountFormProblem.pendingExpired)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: OutlinedButton(
+                key: const Key('discount-pending-discard'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: editable
+                    ? _controller.discardExpiredPendingCreate
+                    : null,
+                child: Text(l10n.discountPendingDiscard),
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
         if (merge != null)
           DiscountConflictPanel(
             merge: merge,
@@ -608,8 +639,9 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
           DiscountNotice(message: l10n.discountReadOnly)
         else if (state.limitReached && !state.editing)
           DiscountNotice(message: l10n.discountLimitReached),
-        // The conflict panel at the top already explains a conflict.
-        if (state.problem != null && merge == null)
+        // The conflict panel and the pending notice at the top explain
+        // those states already.
+        if (state.problem != null && merge == null && !pendingProblem)
           DiscountNotice(
             key: const Key('discount-form-problem'),
             error: switch (state.problem!) {
@@ -625,6 +657,8 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
               DiscountFormProblem.uncertain => l10n.discountUncertain,
               DiscountFormProblem.createdMeanwhile =>
                 l10n.discountCreatedMeanwhile,
+              DiscountFormProblem.pendingCreate => l10n.discountPendingCreate,
+              DiscountFormProblem.pendingExpired => l10n.discountPendingExpired,
               DiscountFormProblem.refused =>
                 DiscountText.rule(l10n, state.ruleCode) ??
                     state.problemMessage ??

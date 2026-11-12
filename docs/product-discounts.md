@@ -79,6 +79,21 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
     created;
   - no answer again: the original stays pending, never replaced by an
     unsent draft.
+- The pending create lives in the session's `PendingWrites` (body exactly
+  as serialised, original key, send time; one per product), not in the
+  form: closing the form, disposing its controller or rebuilding the
+  repository keeps it, and reopening Create Discount for the product shows
+  its values and the guard again (`pendingCreate`). The repository refuses
+  any other create for that product until it is settled
+  (`DiscountRefusal.pendingCreate`), so no path can send a second one.
+  App composition makes one store per session identity (environment,
+  server, company, user, token family) — the server's idempotency scope
+  is the token family — so another shop, user or session never sees it.
+  It is memory only (writes are never persisted or queued).
+- The server keeps idempotency records 24 hours; sessions can last longer.
+  After 23 hours a pending create is no longer replayed
+  (`pendingExpired`): Save stays off until the user checks the product's
+  discounts and explicitly discards it.
 - `If-Match` with the discount `version` of a fresh read (the edit form and
   the details screen load `GET /discounts/{id}`; the list switch uses the
   version of the online list read), never the ETag.

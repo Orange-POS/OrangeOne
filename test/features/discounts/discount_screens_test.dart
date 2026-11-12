@@ -14,6 +14,7 @@ import 'package:orange_one/core/capabilities/session_permissions.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/backend_features.dart';
+import 'package:orange_one/core/network/pending_writes.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
@@ -22,6 +23,7 @@ import 'package:orange_one/features/authentication/presentation/providers/auth_p
 import 'package:orange_one/features/discounts/data/data_sources/discount_remote_data_source.dart';
 import 'package:orange_one/features/discounts/data/repositories/odoo_discount_repository.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
+import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
@@ -1031,6 +1033,173 @@ void main() {
         expect(discounts.lastDraft?.percent, '20');
         expect(discounts.writes, ['create', 'create']);
         expect(discounts.discounts, hasLength(1));
+        expect(find.text('Discount created.'), findsOneWidget);
+      });
+
+      // P1 at 92c556a: the pending create must outlive the form.
+      testWidgets('close and reopen the form; a changed save makes no second', (
+        tester,
+      ) async {
+        final server = FakeMobileApiServer();
+        final stored = <Map<String, dynamic>>[];
+        final byKey = <String, Map<String, dynamic>>{};
+        var loseAnswer = true;
+        Map<String, Object?> ok(Object? data) => {
+          'data': data,
+          'meta': {'request_id': 'r', 'server_time': '2026-10-13T08:00:00Z'},
+        };
+        server
+          ..on(
+            'GET /products/10/discounts',
+            (request) => FakeReply(200, ok(discountListPayload(stored))),
+          )
+          ..on('POST /products/10/discounts', (request) {
+            final key = request.headers['Idempotency-Key'] as String;
+            final replay = byKey[key];
+            if (replay != null) return FakeReply(201, ok(replay));
+            final body = request.data as Map<String, dynamic>;
+            final created = discountPayload(
+              id: 100 + stored.length,
+              percent: body['percent'] as String?,
+            );
+            stored.add(created);
+            byKey[key] = created;
+            if (loseAnswer) {
+              loseAnswer = false;
+              throw DioException(
+                requestOptions: request,
+                type: DioExceptionType.receiveTimeout,
+              );
+            }
+            return FakeReply(201, ok(created));
+          });
+        // One store for the session, as app composition provides it.
+        final session = PendingWrites();
+        await open(
+          tester,
+          repository: OdooDiscountRepository(
+            DiscountRemoteDataSource(fakeProductApi(server)),
+            pendingWrites: session,
+          ),
+        );
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(stored, hasLength(1), reason: 'the first POST committed');
+        // The form closes (its controller is disposed) ...
+        container.read(routerProvider).pop();
+        await tester.pumpAndSettle();
+        expect(find.text('Create Discount'), findsNothing);
+        // ... and opens again: the pending create comes back with its
+        // values, and its guard with it.
+        unawaited(
+          container
+              .read(routerProvider)
+              .pushNamed(
+                'productDiscountForm',
+                queryParameters: {'barcode': _barcode, 'product_id': '10'},
+              ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('discount-pending')), findsOneWidget);
+        expect(percentText(tester), '20');
+        await typePercent(tester, '25');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        final posts = server.called('POST /products/10/discounts');
+        expect(posts, hasLength(2));
+        expect(
+          posts[1].headers['Idempotency-Key'],
+          posts[0].headers['Idempotency-Key'],
+        );
+        expect(jsonEncode(posts[1].data), jsonEncode(posts[0].data));
+        expect(stored, hasLength(1), reason: 'no second discount');
+        // The changed offer now edits the confirmed discount.
+        expect(find.text('Edit Discount'), findsOneWidget);
+        expect(percentText(tester), '25');
+        expect(session['discount-create:product:10'], isNull);
+      });
+
+      testWidgets('rapid repeated Save sends one create', (tester) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        final gate = Completer<void>();
+        discounts.pendingWrite = gate;
+        await tapKey(tester, 'discount-save');
+        await tester.tap(find.byKey(const Key('discount-confirm')));
+        // The confirmation closes; the create is still waiting for its
+        // answer.
+        await tester.pumpAndSettle();
+        expect(discounts.writes, ['create']);
+        for (var i = 0; i < 3; i++) {
+          await tester.tap(find.byKey(const Key('discount-save')));
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(find.byKey(const Key('discount-confirm')), findsNothing);
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(discounts.writes, ['create']);
+        expect(discounts.discounts, hasLength(1));
+      });
+
+      testWidgets('a reopened form keeps a changed draft blocked', (
+        tester,
+      ) async {
+        discounts
+          ..discounts = []
+          // A create of this product is still unresolved in the session.
+          ..pending[10] = const DiscountDraft(
+            type: DiscountType.percentage,
+            percent: '20',
+          );
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        expect(find.byKey(const Key('discount-pending')), findsOneWidget);
+        expect(percentText(tester), '20');
+        await typePercent(tester, '30');
+        discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        // Only the original was sent, and it is still pending.
+        expect([for (final d in discounts.createdDrafts) d.percent], ['20']);
+        expect(discounts.pending[10]?.percent, '20');
+        expect(percentText(tester), '30', reason: 'the draft is kept');
+      });
+
+      testWidgets('an expired pending create needs an explicit decision', (
+        tester,
+      ) async {
+        discounts
+          ..discounts = []
+          ..pending[10] = const DiscountDraft(
+            type: DiscountType.percentage,
+            percent: '20',
+          )
+          ..expiredPending.add(10);
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        expect(
+          find.textContaining('no longer be checked automatically'),
+          findsOneWidget,
+        );
+        await typePercent(tester, '25');
+        expect(
+          tester
+              .widget<FilledButton>(find.byKey(const Key('discount-save')))
+              .onPressed,
+          isNull,
+        );
+        expect(discounts.writes, isEmpty);
+        await tapKey(tester, 'discount-pending-discard');
+        expect(discounts.pending, isEmpty);
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect([for (final d in discounts.createdDrafts) d.percent], ['25']);
         expect(find.text('Discount created.'), findsOneWidget);
       });
 

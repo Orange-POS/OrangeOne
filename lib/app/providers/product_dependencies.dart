@@ -12,6 +12,7 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/authenticated_mobile_api.dart';
 import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/network/mobile_api_client.dart';
+import 'package:orange_one/core/network/pending_writes.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
@@ -170,6 +171,18 @@ final Override productDetailsRepositoryOverride =
       };
     });
 
+/// Unresolved creates belong to one session identity (environment, server,
+/// company, user, token family), like the server's idempotency records
+/// (per token family). Another shop, user or session, logout or expiry get
+/// a new, empty store; within the session it outlives forms, controllers
+/// and repository rebuilds.
+final Override pendingWritesOverride = pendingWritesProvider.overrideWith((
+  ref,
+) {
+  ref.watch(readCacheIdentityProvider);
+  return PendingWrites(now: ref.watch(utcNowProvider));
+});
+
 /// Product discounts of the signed-in shop. Mobile API 1.1 adds the
 /// discount endpoints to the v1 contract without changing it, so the v1
 /// adapter serves them; the Feature Resolver decides whether they are used
@@ -187,6 +200,7 @@ final Override discountRepositoryOverride = discountRepositoryProvider
             ref.watch(authenticatedMobileApiProvider),
             cancelToken: cancel,
           ),
+          pendingWrites: ref.watch(pendingWritesProvider),
           onSessionRejected: () async {
             if (ref.mounted &&
                 identical(ref.read(sessionControllerProvider).value, session)) {

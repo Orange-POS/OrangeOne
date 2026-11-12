@@ -1927,5 +1927,17 @@
   "discountArchiving": "Archiving…",
   "@discountArchiving": {
     "description": "Discount form: lost create and concurrent change"
+  },
+  "discountPendingCreate": "An earlier save of a new discount for this product has no confirmed answer yet. Its values are shown. Saving first confirms that request, so nothing is created twice.",
+  "@discountPendingCreate": {
+    "description": "Discount form: an unresolved earlier create"
+  },
+  "discountPendingExpired": "An earlier save of a new discount for this product could not be confirmed and can no longer be checked automatically. Look at the product's discounts: if it is there, edit it there. If it is not, discard the earlier save to create this one.",
+  "@discountPendingExpired": {
+    "description": "Discount form: an unresolved earlier create"
+  },
+  "discountPendingDiscard": "It is not there: discard the earlier save",
+  "@discountPendingDiscard": {
+    "description": "Discount form: an unresolved earlier create"
   }
 }

@@ -10,6 +10,7 @@ import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/authenticated_mobile_api.dart';
 import 'package:orange_one/core/network/dio_provider.dart';
+import 'package:orange_one/core/network/pending_writes.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
@@ -557,4 +558,49 @@ void main() {
       });
     });
   });
+
+  group('pending writes', () {
+    test('belong to one session identity; another one starts empty', () {
+      final identity = _Identity.provider;
+      final container = ProviderContainer.test(
+        overrides: [
+          readCacheIdentityProvider.overrideWith((ref) => ref.watch(identity)),
+          pendingWritesOverride,
+        ],
+      );
+      final first = container.read(pendingWritesProvider)
+        ..begin(
+          slot: 'discount-create:product:10',
+          method: 'POST',
+          path: '/products/10/discounts',
+          body: '{}',
+          key: 'k1',
+        );
+      // Token refresh keeps the identity, and so the store.
+      container.read(identity.notifier).identity =
+          'production|shop-a|1|2|family-1';
+      expect(container.read(pendingWritesProvider), same(first));
+      for (final other in [
+        'production|shop-b|1|2|family-1',
+        'production|shop-a|1|3|family-1',
+        'production|shop-a|1|2|family-2',
+        null,
+      ]) {
+        container.read(identity.notifier).identity = other;
+        final store = container.read(pendingWritesProvider);
+        expect(store, isNot(same(first)), reason: '$other');
+        expect(store['discount-create:product:10'], isNull, reason: '$other');
+      }
+    });
+  });
+}
+
+class _Identity extends Notifier<String?> {
+  static final provider = NotifierProvider<_Identity, String?>(_Identity.new);
+
+  @override
+  String? build() => 'production|shop-a|1|2|family-1';
+
+  String? get identity => state;
+  set identity(String? value) => state = value;
 }

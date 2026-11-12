@@ -22,7 +22,7 @@ class IdempotencyKeys {
     String operation,
     Future<T> Function(String key) write,
   ) async {
-    final key = _uncertain.remove(operation) ?? _newKey();
+    final key = _uncertain.remove(operation) ?? newKey();
     try {
       return await write(key);
     } on AppFailure catch (failure) {
@@ -53,7 +53,8 @@ class IdempotencyKeys {
     }
   }
 
-  String _newKey() {
+  /// A fresh UUID v4 key for a new write intent.
+  String newKey() {
     final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;

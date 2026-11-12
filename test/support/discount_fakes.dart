@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/backend_features.dart';
+import 'package:orange_one/core/network/idempotency_keys.dart';
 import 'package:orange_one/features/discounts/data/models/discount_model.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
+import 'package:orange_one/features/discounts/domain/entities/pending_discount_create.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 
 /// A `Discount` payload of the Mobile API 1.1 contract (product 10, CHF 100).
@@ -267,17 +269,76 @@ class FakeDiscountRepository implements DiscountRepository {
     version: version,
   );
 
+  /// Unresolved creates per product, exactly as sent (like the real
+  /// repository's session store).
+  final pending = <int, DiscountDraft>{};
+
+  /// Pending creates whose replay window has passed.
+  final expiredPending = <int>{};
+
   @override
   Future<Discount> create(int productId, DiscountDraft draft) async {
+    if (pending.containsKey(productId)) {
+      throw const AppFailure(
+        FailureKind.conflict,
+        'Pending',
+        code: DiscountRefusal.pendingCreate,
+      );
+    }
+    pending[productId] = draft;
+    return await _send(productId, draft);
+  }
+
+  @override
+  PendingDiscountCreate? pendingCreate(int productId) {
+    final draft = pending[productId];
+    return draft == null
+        ? null
+        : PendingDiscountCreate(
+            draft: draft,
+            replayable: !expiredPending.contains(productId),
+          );
+  }
+
+  @override
+  Future<Discount> resolvePendingCreate(int productId) async {
+    final draft = pending[productId]!;
+    if (expiredPending.contains(productId)) {
+      throw const AppFailure(
+        FailureKind.conflict,
+        'Expired',
+        code: DiscountRefusal.pendingCreateExpired,
+      );
+    }
+    return await _send(productId, draft);
+  }
+
+  @override
+  void discardPendingCreate(int productId) {
+    if (expiredPending.remove(productId)) pending.remove(productId);
+  }
+
+  /// The server side of a create (keyed by the exact payload, like the
+  /// `Idempotency-Key`), with the pending bookkeeping of the repository.
+  Future<Discount> _send(int productId, DiscountDraft draft) async {
     lastDraft = draft;
     createdDrafts.add(draft);
-    await _write('create', null);
+    try {
+      await _write('create', null);
+    } on AppFailure catch (failure) {
+      if (IdempotencyKeys.settles(failure)) pending.remove(productId);
+      rethrow;
+    }
     if (_deferred != null && _payload(_deferred!) == _payload(draft)) {
       // The replay waits for the running original and returns it.
+      pending.remove(productId);
       return commitDeferred();
     }
     final replayed = _replay[_payload(draft)];
-    if (replayed != null) return replayed;
+    if (replayed != null) {
+      pending.remove(productId);
+      return replayed;
+    }
     if (deferNextCommit) {
       deferNextCommit = false;
       _deferred = draft;
@@ -290,6 +351,7 @@ class FakeDiscountRepository implements DiscountRepository {
       _replay[_payload(draft)] = created;
       throw const AppFailure(FailureKind.network, 'Connection lost');
     }
+    pending.remove(productId);
     return created;
   }
 

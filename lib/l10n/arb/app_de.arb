@@ -396,5 +396,8 @@
   "discountConflictTakenOver": "Übernommen: Sie haben dies nicht geändert.",
   "discountConflictApply": "Übernehmen und prüfen",
   "discountPartValue": "Rabattwert",
-  "discountArchiving": "Wird archiviert…"
+  "discountArchiving": "Wird archiviert…",
+  "discountPendingCreate": "Für ein früheres Speichern eines neuen Rabatts für dieses Produkt fehlt noch die Bestätigung. Seine Werte werden angezeigt. Beim Speichern wird zuerst diese Anfrage bestätigt, damit nichts doppelt erstellt wird.",
+  "discountPendingExpired": "Ein früheres Speichern eines neuen Rabatts für dieses Produkt konnte nicht bestätigt werden und lässt sich nicht mehr automatisch prüfen. Sehen Sie in den Rabatten des Produkts nach: Ist er dort, bearbeiten Sie ihn dort. Wenn nicht, verwerfen Sie das frühere Speichern, um diesen zu erstellen.",
+  "discountPendingDiscard": "Er ist nicht dort: früheres Speichern verwerfen"
 }

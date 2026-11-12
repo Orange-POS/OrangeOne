@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/pending_writes.dart';
 import 'package:orange_one/features/discounts/data/data_sources/discount_remote_data_source.dart';
 import 'package:orange_one/features/discounts/data/models/discount_model.dart';
 import 'package:orange_one/features/discounts/data/repositories/odoo_discount_repository.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
+import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 
 import '../../../support/discount_fakes.dart';
 import '../../../support/mobile_api_fakes.dart';
@@ -250,7 +253,8 @@ void main() {
         repository.create(10, percentage),
         throwsA(isA<AppFailure>()),
       );
-      await repository.create(10, percentage);
+      // The open create is settled by replaying it; then a new intent.
+      await repository.resolvePendingCreate(10);
       await repository.create(10, percentage);
       final keys = [
         for (final request in server.called('POST /products/10/discounts'))
@@ -329,5 +333,261 @@ void main() {
       () => jsonEncode(discountListPayload([discountPayload()])),
       returnsNormally,
     );
+  });
+
+  group('pending creates', () {
+    late PendingWrites pending;
+    late DateTime now;
+    OdooDiscountRepository repositoryOver(PendingWrites writes) =>
+        OdooDiscountRepository(
+          DiscountRemoteDataSource(fakeProductApi(server)),
+          pendingWrites: writes,
+        );
+    List<RequestOptions> posts([int productId = 10]) =>
+        server.called('POST /products/$productId/discounts');
+    String? keyOf(RequestOptions request) =>
+        request.headers['Idempotency-Key'] as String?;
+
+    /// A server that commits every new key once, loses the first answer
+    /// (when [lose]), and replays a known key, like the real one.
+    void committingServer({bool lose = true, int productId = 10}) {
+      final byKey = <String, Map<String, dynamic>>{};
+      var next = 7;
+      var loseAnswer = lose;
+      server.on('POST /products/$productId/discounts', (request) {
+        final key = keyOf(request)!;
+        final known = byKey[key];
+        if (known != null) return FakeReply(201, _ok(known));
+        final created = byKey[key] = discountPayload(
+          id: next++,
+          productId: productId,
+        );
+        if (loseAnswer) {
+          loseAnswer = false;
+          throw DioException(
+            requestOptions: request,
+            type: DioExceptionType.receiveTimeout,
+          );
+        }
+        return FakeReply(201, _ok(created));
+      });
+    }
+
+    setUp(() {
+      now = DateTime.utc(2026, 11, 12, 8);
+      pending = PendingWrites(now: () => now);
+      repository = repositoryOver(pending);
+    });
+
+    test('an open create stays pending exactly as sent', () async {
+      committingServer();
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(isA<AppFailure>()),
+      );
+      final open = repository.pendingCreate(10)!;
+      expect(open.draft.percent, '20');
+      expect(open.replayable, isTrue);
+      // Another create for the product is refused before anything is sent,
+      // also with a formatting-only change.
+      await expectLater(
+        repository.create(
+          10,
+          const DiscountDraft(type: DiscountType.percentage, percent: '20.00'),
+        ),
+        throwsA(
+          isA<AppFailure>().having(
+            (e) => e.code,
+            'code',
+            DiscountRefusal.pendingCreate,
+          ),
+        ),
+      );
+      expect(posts(), hasLength(1));
+      final created = await repository.resolvePendingCreate(10);
+      expect(created.id, 7);
+      expect(posts(), hasLength(2));
+      expect(keyOf(posts()[1]), keyOf(posts()[0]));
+      expect(jsonEncode(posts()[1].data), jsonEncode(posts()[0].data));
+      expect(repository.pendingCreate(10), isNull);
+    });
+
+    test('a rebuilt repository of the session replays the same key', () async {
+      committingServer();
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(isA<AppFailure>()),
+      );
+      // The form closed and the repository was rebuilt; the session store
+      // stays.
+      final rebuilt = repositoryOver(pending);
+      expect(rebuilt.pendingCreate(10)?.draft.percent, '20');
+      await rebuilt.resolvePendingCreate(10);
+      expect(keyOf(posts()[1]), keyOf(posts()[0]));
+      expect(jsonEncode(posts()[1].data), jsonEncode(posts()[0].data));
+    });
+
+    test('repeated failures, 401 and 429 keep the original request', () async {
+      var attempt = 0;
+      server.on('POST /products/10/discounts', (request) {
+        attempt++;
+        return switch (attempt) {
+          1 || 2 => throw DioException(
+            requestOptions: request,
+            type: attempt == 1
+                ? DioExceptionType.receiveTimeout
+                : DioExceptionType.connectionError,
+          ),
+          3 => FakeReply(429, _error('RATE_LIMITED')),
+          _ => FakeReply(201, _ok(discountPayload(id: 7))),
+        };
+      });
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(isA<AppFailure>()),
+      );
+      for (var i = 0; i < 2; i++) {
+        await expectLater(
+          repository.resolvePendingCreate(10),
+          throwsA(isA<AppFailure>()),
+        );
+        expect(repository.pendingCreate(10), isNotNull);
+      }
+      await repository.resolvePendingCreate(10);
+      final keys = posts().map(keyOf).toSet();
+      expect(keys, hasLength(1), reason: 'never regenerated');
+      expect(posts().map((r) => jsonEncode(r.data)).toSet(), hasLength(1));
+      expect(repository.pendingCreate(10), isNull);
+    });
+
+    test('a 401 leaves it pending for the same session', () async {
+      var attempt = 0;
+      server.on('POST /products/10/discounts', (request) {
+        attempt++;
+        if (attempt == 1) {
+          throw DioException(
+            requestOptions: request,
+            type: DioExceptionType.receiveTimeout,
+          );
+        }
+        return FakeReply(401, _error('TOKEN_EXPIRED'));
+      });
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(isA<AppFailure>()),
+      );
+      await expectLater(
+        repository.resolvePendingCreate(10),
+        throwsA(
+          isA<AppFailure>().having(
+            (e) => e.kind,
+            'kind',
+            FailureKind.unauthenticated,
+          ),
+        ),
+      );
+      expect(repository.pendingCreate(10), isNotNull);
+    });
+
+    test('a definitive refusal settles it', () async {
+      var attempt = 0;
+      server.on('POST /products/10/discounts', (request) {
+        attempt++;
+        if (attempt == 1) {
+          throw DioException(
+            requestOptions: request,
+            type: DioExceptionType.receiveTimeout,
+          );
+        }
+        return FakeReply(
+          422,
+          _error(
+            'BUSINESS_RULE_VIOLATION',
+            details: [
+              {'field': '', 'code': 'DISCOUNT_LIMIT_REACHED'},
+            ],
+          ),
+        );
+      });
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(isA<AppFailure>()),
+      );
+      await expectLater(
+        repository.resolvePendingCreate(10),
+        throwsA(isA<AppFailure>()),
+      );
+      expect(repository.pendingCreate(10), isNull);
+    });
+
+    test('overlapping creates for a product never both go out', () async {
+      final answer = Completer<FakeReply>();
+      server.on('POST /products/10/discounts', (request) => answer.future);
+      final first = repository.create(10, percentage);
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(
+          isA<AppFailure>().having(
+            (e) => e.code,
+            'code',
+            DiscountRefusal.pendingCreate,
+          ),
+        ),
+      );
+      answer.complete(FakeReply(201, _ok(discountPayload(id: 7))));
+      expect((await first).id, 7);
+      expect(posts(), hasLength(1));
+      expect(repository.pendingCreate(10), isNull);
+    });
+
+    test('pending creates are per product', () async {
+      committingServer();
+      committingServer(lose: false, productId: 11);
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(isA<AppFailure>()),
+      );
+      expect(repository.pendingCreate(11), isNull);
+      final other = await repository.create(11, percentage);
+      expect(other.productId, 11);
+      expect(repository.pendingCreate(10), isNotNull);
+    });
+
+    test('another session store has nothing pending', () async {
+      committingServer();
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(isA<AppFailure>()),
+      );
+      final otherSession = repositoryOver(PendingWrites(now: () => now));
+      expect(otherSession.pendingCreate(10), isNull);
+    });
+
+    test('past the replay window it is never replayed blindly', () async {
+      committingServer();
+      await expectLater(
+        repository.create(10, percentage),
+        throwsA(isA<AppFailure>()),
+      );
+      // A replayable one cannot be discarded.
+      repository.discardPendingCreate(10);
+      expect(repository.pendingCreate(10), isNotNull);
+      now = now.add(PendingWrites.replayWindow);
+      expect(repository.pendingCreate(10)!.replayable, isFalse);
+      await expectLater(
+        repository.resolvePendingCreate(10),
+        throwsA(
+          isA<AppFailure>().having(
+            (e) => e.code,
+            'code',
+            DiscountRefusal.pendingCreateExpired,
+          ),
+        ),
+      );
+      expect(posts(), hasLength(1), reason: 'nothing replayed');
+      // Only the user's explicit decision drops it.
+      repository.discardPendingCreate(10);
+      expect(repository.pendingCreate(10), isNull);
+    });
   });
 }

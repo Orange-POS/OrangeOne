@@ -78,6 +78,7 @@ Future<void> bootstrap(AppEnvironment environment) async {
         sessionLifecycleOverride,
         productRepositoryOverride,
         productDetailsRepositoryOverride,
+        pendingWritesOverride,
         discountRepositoryOverride,
       ],
       child: const App(),

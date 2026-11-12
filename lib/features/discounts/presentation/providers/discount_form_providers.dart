@@ -35,6 +35,16 @@ enum DiscountFormProblem {
   /// second one. Nothing was sent.
   createdMeanwhile,
 
+  /// An earlier create for this product (in this session, also from a form
+  /// that was closed) has no confirmed answer. Saving first replays it
+  /// exactly as sent; nothing else is created before its outcome is known.
+  pendingCreate,
+
+  /// That earlier create can no longer be confirmed automatically (the
+  /// server's idempotency record may have expired). Nothing is sent until
+  /// the user checks the product's discounts and decides.
+  pendingExpired,
+
   /// The server refused it (a rule about the whole discount).
   refused,
 }
@@ -136,6 +146,7 @@ class DiscountFormState {
   bool get canSubmit =>
       phase == DiscountFormPhase.editing &&
       conflict == null &&
+      problem != DiscountFormProblem.pendingExpired &&
       issues.isEmpty &&
       !(limitReached && !editing) &&
       (original?.editable ?? true);
@@ -203,11 +214,6 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   final DiscountFormArgs args;
   int _generation = 0;
 
-  /// A create sent without a confirmed answer, exactly as sent. It may
-  /// have committed (or still commit). Only replaying it with its key can
-  /// tell; until then no other create is sent.
-  DiscountDraft? _unconfirmedCreate;
-
   @override
   Future<DiscountFormState> build() async {
     _generation++;
@@ -217,10 +223,18 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     final id = args.discountId;
     if (id == null) {
       final list = await repository.list(args.scope.productId);
+      // An unresolved create of this product (also from a form closed
+      // since) comes back with its values, and its guard is restored.
+      final pending = repository.pendingCreate(args.scope.productId);
       return DiscountFormState(
         regularPrice: list.regularPrice,
-        draft: const DiscountDraft(),
+        draft: pending?.draft ?? const DiscountDraft(),
         limitReached: list.limitReached,
+        problem: pending == null
+            ? null
+            : pending.replayable
+            ? DiscountFormProblem.pendingCreate
+            : DiscountFormProblem.pendingExpired,
       );
     }
     // A fresh read: its version guards the update (If-Match).
@@ -254,7 +268,9 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     final keep = switch (current.problem) {
       DiscountFormProblem.uncertain ||
       DiscountFormProblem.changed ||
-      DiscountFormProblem.createdMeanwhile => true,
+      DiscountFormProblem.createdMeanwhile ||
+      DiscountFormProblem.pendingCreate ||
+      DiscountFormProblem.pendingExpired => true,
       _ => false,
     };
     state = AsyncData(
@@ -419,16 +435,17 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
 
   /// Sends the confirmed draft once.
   ///
-  /// A create whose answer was lost stays pending, exactly as sent. Any
-  /// next save first replays it unchanged (same payload, same
-  /// `Idempotency-Key`): the server returns what it committed, or runs it
-  /// now if it never did, so its outcome is known before anything else is
-  /// written. A list read or an empty list never decides it.
+  /// A create whose answer was lost stays pending in the session (the
+  /// repository keeps it exactly as sent, also after this form closes). Any
+  /// next save of a new discount for the product first replays it unchanged
+  /// (same payload, same `Idempotency-Key`): the server returns what it
+  /// committed, or runs it now if it never did, so its outcome is known
+  /// before anything else is written. A list read never decides it.
   /// - Same values (also "20" and "20.00"): the replay is the save.
   /// - Changed values: if the replay created the discount, the form edits
   ///   it with the changes ([DiscountFormProblem.createdMeanwhile]); if the
   ///   server refused it, the changed draft is created.
-  /// - No answer again: the original request stays pending, unchanged.
+  /// - No answer again: it stays pending, unchanged.
   Future<void> save() async {
     final current = _editable;
     if (current == null) return;
@@ -437,6 +454,8 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         current.copy(
           problem: current.conflict != null
               ? DiscountFormProblem.changed
+              : current.problem == DiscountFormProblem.pendingExpired
+              ? DiscountFormProblem.pendingExpired
               : current.limitReached && !current.editing
               ? DiscountFormProblem.limitReached
               : DiscountFormProblem.notAllowed,
@@ -461,65 +480,88 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       }
       return;
     }
-    final pending = _unconfirmedCreate;
-    if (pending != null) {
-      final Discount confirmed;
-      try {
-        confirmed = await repository.create(args.scope.productId, pending);
-      } on AppFailure catch (failure) {
-        if (!ref.mounted || generation != _generation) return;
-        if (_outcomeOpen(failure)) {
-          // Still unknown: the original request stays pending as sent.
-          await _failed(current, failure, generation);
-          return;
-        }
-        // The server refused the original request: it never committed.
-        _unconfirmedCreate = null;
-        if (_fingerprint(pending) == _fingerprint(current.draft)) {
-          await _failed(current, failure, generation);
-          return;
-        }
-        await _create(current, repository, generation);
-        return;
-      }
-      if (!ref.mounted || generation != _generation) return;
-      _unconfirmedCreate = null;
-      if (_fingerprint(pending) == _fingerprint(current.draft)) {
-        _saved(current, confirmed);
-        return;
-      }
-      // The original request created the discount: edit it with the
-      // changes instead of creating a second one. Nothing else was sent.
-      state = AsyncData(
-        DiscountFormState(
-          regularPrice: confirmed.regularPrice,
-          draft: current.draft,
-          original: confirmed,
-          problem: DiscountFormProblem.createdMeanwhile,
-        ),
-      );
-      ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
+    final productId = args.scope.productId;
+    final pending = repository.pendingCreate(productId);
+    if (pending == null) {
+      await _create(current, repository, generation);
       return;
     }
-    await _create(current, repository, generation);
+    if (!pending.replayable) {
+      state = AsyncData(
+        current.copy(problem: DiscountFormProblem.pendingExpired),
+      );
+      return;
+    }
+    final Discount confirmed;
+    try {
+      confirmed = await repository.resolvePendingCreate(productId);
+    } on AppFailure catch (failure) {
+      if (!ref.mounted || generation != _generation) return;
+      if (_outcomeOpen(failure) ||
+          failure.code == DiscountRefusal.pendingCreateExpired) {
+        // Still unknown: the original request stays pending as sent.
+        await _failed(current, failure, generation);
+        return;
+      }
+      // The server refused the original request: it never committed.
+      if (_fingerprint(pending.draft) == _fingerprint(current.draft)) {
+        await _failed(current, failure, generation);
+        return;
+      }
+      await _create(current, repository, generation);
+      return;
+    }
+    if (!ref.mounted || generation != _generation) return;
+    if (_fingerprint(pending.draft) == _fingerprint(current.draft)) {
+      _saved(current, confirmed);
+      return;
+    }
+    // The original request created the discount: edit it with the changes
+    // instead of creating a second one. Nothing else was sent.
+    state = AsyncData(
+      DiscountFormState(
+        regularPrice: confirmed.regularPrice,
+        draft: current.draft,
+        original: confirmed,
+        problem: DiscountFormProblem.createdMeanwhile,
+      ),
+    );
+    ref.invalidate(productDiscountsControllerProvider(productId));
   }
 
-  /// Creates [current]'s draft; an open outcome keeps it pending as sent.
+  /// Creates [current]'s draft. An open outcome stays pending in the
+  /// repository exactly as sent.
   Future<void> _create(
     DiscountFormState current,
     DiscountRepository repository,
     int generation,
   ) async {
-    final draft = current.draft;
     try {
-      final saved = await repository.create(args.scope.productId, draft);
+      final saved = await repository.create(
+        args.scope.productId,
+        current.draft,
+      );
       if (!ref.mounted || generation != _generation) return;
       _saved(current, saved);
     } on AppFailure catch (failure) {
       if (!ref.mounted || generation != _generation) return;
-      if (_outcomeOpen(failure)) _unconfirmedCreate = draft;
       await _failed(current, failure, generation);
     }
+  }
+
+  /// After the user checked the product's discounts: drops an earlier
+  /// create that can no longer be confirmed automatically, so this draft
+  /// can be created. Only for [DiscountFormProblem.pendingExpired].
+  void discardExpiredPendingCreate() {
+    final current = _editable;
+    if (current == null ||
+        current.problem != DiscountFormProblem.pendingExpired) {
+      return;
+    }
+    ref
+        .read(discountRepositoryProvider)
+        .discardPendingCreate(args.scope.productId);
+    state = AsyncData(current.copy());
   }
 
   void _saved(DiscountFormState current, Discount saved) {
@@ -598,6 +640,18 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       } else if (error.message != null) {
         messages[input] = error.message!;
       }
+    }
+    if (failure.code == DiscountRefusal.pendingCreate ||
+        failure.code == DiscountRefusal.pendingCreateExpired) {
+      state = AsyncData(
+        current.copy(
+          phase: DiscountFormPhase.editing,
+          problem: failure.code == DiscountRefusal.pendingCreate
+              ? DiscountFormProblem.pendingCreate
+              : DiscountFormProblem.pendingExpired,
+        ),
+      );
+      return;
     }
     final uncertain =
         _outcomeOpen(failure) &&
