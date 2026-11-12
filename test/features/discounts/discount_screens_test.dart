@@ -374,6 +374,34 @@ void main() {
       expect(find.text('Discount paused.'), findsNothing);
       expect(toggleOf(tester, 1).value, isTrue);
     });
+
+    // AUD-07: an open outcome reads the list again.
+    testWidgets('an unconfirmed outcome shows what the server holds now', (
+      tester,
+    ) async {
+      await openList(tester);
+      final lists = discounts.lists;
+      // The pause reached the server, but its answer is lost.
+      discounts
+        ..writeError = const AppFailure(FailureKind.timeout, 'slow')
+        ..discounts = [discountOf(paused: true)];
+      await tapKey(tester, 'discount-toggle-1');
+      await confirm(tester);
+      expect(discounts.lists, greaterThan(lists));
+      expect(find.textContaining('could not be confirmed'), findsOneWidget);
+      expect(toggleOf(tester, 1).value, isFalse);
+      expect(find.text('Discount paused.'), findsNothing);
+    });
+
+    testWidgets('a cancelled write is unconfirmed, not refused', (
+      tester,
+    ) async {
+      discounts.writeError = cancelledOperation;
+      await openList(tester);
+      await tapKey(tester, 'discount-toggle-1');
+      await confirm(tester);
+      expect(find.textContaining('could not be confirmed'), findsOneWidget);
+    });
   });
 
   group('form', () {
@@ -741,6 +769,119 @@ void main() {
       await confirm(tester);
       expect(discounts.writes, ['archive']);
       expect(find.text('Discount archived.'), findsOneWidget);
+    });
+
+    // AUD-03: a failed product refresh must not reset the open form.
+    testWidgets('a failed product refresh keeps the draft and the form', (
+      tester,
+    ) async {
+      await openCreate(tester);
+      await tapKey(tester, 'discount-type-percentage');
+      await tester.enterText(find.byKey(const Key('discount-percent')), '20');
+      await tester.pumpAndSettle();
+      (container.read(
+        productDetailsRepositoryProvider,
+      ) as FakeDetailsRepository).error = const AppFailure(
+        FailureKind.network,
+        'unreachable',
+      );
+      await container
+          .read(productDetailsControllerProvider(_barcode).notifier)
+          .refresh();
+      await tester.pumpAndSettle();
+      expect(
+        container.read(productDetailsControllerProvider(_barcode)).hasError,
+        isTrue,
+      );
+      expect(find.text('Create Discount'), findsWidgets);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('discount-percent')))
+            .controller
+            ?.text,
+        '20',
+      );
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('discount-save')))
+            .onPressed,
+        isNotNull,
+      );
+    });
+
+    // CodeRabbit: a read without this product (or of another one) says
+    // nothing about its permission.
+    for (final (name, other) in [
+      ('no product', null),
+      (
+        'another product',
+        ProductDetails(
+          id: 99,
+          name: detailsFixture.name,
+          barcode: detailsFixture.barcode,
+          price: detailsFixture.price,
+          stock: detailsFixture.stock,
+          unit: detailsFixture.unit,
+          currency: detailsFixture.currency,
+          version: detailsFixture.version,
+        ),
+      ),
+    ]) {
+      testWidgets('a refresh with $name keeps the draft and the form', (
+        tester,
+      ) async {
+        await openCreate(tester);
+        await tapKey(tester, 'discount-type-percentage');
+        await tester.enterText(find.byKey(const Key('discount-percent')), '20');
+        await tester.pumpAndSettle();
+        (container.read(
+          productDetailsRepositoryProvider,
+        ) as FakeDetailsRepository).product = other;
+        await container
+            .read(productDetailsControllerProvider(_barcode).notifier)
+            .refresh();
+        await tester.pumpAndSettle();
+        expect(
+          container
+              .read(productDetailsControllerProvider(_barcode))
+              .value
+              ?.product
+              ?.id,
+          other?.id,
+        );
+        expect(
+          tester
+              .widget<TextField>(find.byKey(const Key('discount-percent')))
+              .controller
+              ?.text,
+          '20',
+        );
+        expect(
+          tester
+              .widget<FilledButton>(find.byKey(const Key('discount-save')))
+              .onPressed,
+          isNotNull,
+        );
+      });
+    }
+
+    testWidgets('a verified refresh without the permission still applies', (
+      tester,
+    ) async {
+      await openCreate(tester);
+      (container.read(
+        productDetailsRepositoryProvider,
+      ) as FakeDetailsRepository).access = const ProductAccess();
+      await container
+          .read(productDetailsControllerProvider(_barcode).notifier)
+          .refresh();
+      await tester.pumpAndSettle();
+      final save = find.byKey(const Key('discount-save'));
+      expect(
+        save.evaluate().isEmpty ||
+            tester.widget<FilledButton>(save).onPressed == null,
+        isTrue,
+      );
     });
 
     group('review of #63', () {
@@ -1127,6 +1268,395 @@ void main() {
         expect(session['discount-create:product:10'], isNull);
       });
 
+      // P2 at 05d5061: a lost create that took the last slot.
+      testWidgets('a last-slot create with a lost answer can be recovered', (
+        tester,
+      ) async {
+        final server = FakeMobileApiServer();
+        final stored = <Map<String, dynamic>>[];
+        final byKey = <String, Map<String, dynamic>>{};
+        var loseAnswer = true;
+        Map<String, Object?> ok(Object? data) => {
+          'data': data,
+          'meta': {'request_id': 'r', 'server_time': '2026-10-13T08:00:00Z'},
+        };
+        server
+          ..on(
+            'GET /products/10/discounts',
+            (request) =>
+                FakeReply(200, ok(discountListPayload(stored, limit: 1))),
+          )
+          ..on('POST /products/10/discounts', (request) {
+            final key = request.headers['Idempotency-Key'] as String;
+            final replay = byKey[key];
+            if (replay != null) return FakeReply(201, ok(replay));
+            if (stored.isNotEmpty) {
+              return const FakeReply(422, {
+                'error': {
+                  'code': 'BUSINESS_RULE_VIOLATION',
+                  'message': 'Limit',
+                  'details': [
+                    {'field': '', 'code': 'DISCOUNT_LIMIT_REACHED'},
+                  ],
+                },
+                'meta': {'request_id': 'r'},
+              });
+            }
+            final body = request.data as Map<String, dynamic>;
+            final created = discountPayload(
+              id: 100,
+              percent: body['percent'] as String?,
+            );
+            stored.add(created);
+            byKey[key] = created;
+            if (loseAnswer) {
+              loseAnswer = false;
+              throw DioException(
+                requestOptions: request,
+                type: DioExceptionType.receiveTimeout,
+              );
+            }
+            return FakeReply(201, ok(created));
+          });
+        final session = PendingWrites();
+        await open(
+          tester,
+          repository: OdooDiscountRepository(
+            DiscountRemoteDataSource(fakeProductApi(server)),
+            pendingWrites: session,
+          ),
+        );
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(stored, hasLength(1), reason: 'it committed the last slot');
+        container.read(routerProvider).pop();
+        await tester.pumpAndSettle();
+        // The list is at its limit: only the recovery is offered.
+        unawaited(
+          container
+              .read(routerProvider)
+              .pushNamed(
+                'productDiscounts',
+                queryParameters: {'barcode': _barcode, 'product_id': '10'},
+              ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('discount-list-pending')), findsOneWidget);
+        final entry = find.byKey(const Key('discount-list-create'));
+        expect(tester.widget<FilledButton>(entry).onPressed, isNotNull);
+        expect(
+          find.descendant(
+            of: entry,
+            matching: find.text('Confirm earlier discount'),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(entry);
+        await tester.pumpAndSettle();
+        // The form shows the earlier values and allows only their replay.
+        expect(find.byKey(const Key('discount-pending')), findsOneWidget);
+        expect(percentText(tester), '20');
+        expect(
+          find.text(
+            'This product already has the maximum number of discounts.',
+          ),
+          findsNothing,
+        );
+        final save = find.byKey(const Key('discount-save'));
+        expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        final posts = server.called('POST /products/10/discounts');
+        expect(posts, hasLength(2));
+        expect(
+          posts[1].headers['Idempotency-Key'],
+          posts[0].headers['Idempotency-Key'],
+        );
+        expect(jsonEncode(posts[1].data), jsonEncode(posts[0].data));
+        expect(stored, hasLength(1), reason: 'no second discount');
+        expect(session['discount-create:product:10'], isNull);
+        // Back on the list: settled, so a fresh create is blocked again.
+        expect(find.text('Discount created.'), findsOneWidget);
+        expect(find.byKey(const Key('discount-list-pending')), findsNothing);
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.byKey(const Key('discount-list-create')),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(find.text('Create Discount'), findsOneWidget);
+      });
+
+      testWidgets('at the limit a changed draft replays only the original', (
+        tester,
+      ) async {
+        discounts
+          ..discounts = []
+          ..limit = 1;
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        // No answer, and it never committed.
+        discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        container.read(routerProvider).pop();
+        await tester.pumpAndSettle();
+        // Meanwhile another operator takes the last slot.
+        discounts.discounts = [discountOf(id: 7)];
+        unawaited(
+          container
+              .read(routerProvider)
+              .pushNamed(
+                'productDiscountForm',
+                queryParameters: {'barcode': _barcode, 'product_id': '10'},
+              ),
+        );
+        await tester.pumpAndSettle();
+        FilledButton save() =>
+            tester.widget<FilledButton>(find.byKey(const Key('discount-save')));
+        expect(save().onPressed, isNotNull, reason: 'the replay is allowed');
+        await typePercent(tester, '25');
+        // The server refuses the replayed original (the slot is taken).
+        discounts.writeError = const AppFailure(
+          FailureKind.validation,
+          'Refused',
+          code: 'BUSINESS_RULE_VIOLATION',
+        );
+        await tapKey(tester, 'discount-save');
+        expect(find.text('Retry earlier offer'), findsOneWidget);
+        await confirm(tester);
+        expect(discounts.pending, isEmpty);
+        expect(
+          [for (final d in discounts.createdDrafts) d.percent],
+          ['20', '20'],
+        );
+        // The edited offer would be a fresh create: blocked at the limit.
+        expect(save().onPressed, isNull);
+        expect(discounts.writes, ['create', 'create']);
+      });
+
+      // P1 at 05d5061: a schedule-only edit with the same percentage.
+      testWidgets('a repeat-only edit shows the original terms to retry', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        // An open-ended 20% offer times out without committing.
+        discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        discounts.writeError = null;
+        // The user narrows it to Fridays only; the percentage stays.
+        await tapKey(tester, 'discount-section-repeat');
+        await tapKey(tester, 'discount-repeat-weekly');
+        await tapKey(tester, 'discount-weekday-fri');
+        await tapKey(tester, 'discount-repeat-apply');
+        await tapKey(tester, 'discount-save');
+        Finder term(String part, String text) => find.descendant(
+          of: find.byKey(Key('discount-replay-$part')),
+          matching: find.textContaining(text),
+        );
+        // Every original term is named; the changed one is marked.
+        expect(term('value', '20% off'), findsOneWidget);
+        expect(term('value', 'Your edit'), findsNothing);
+        expect(term('schedule', 'Not set'), findsOneWidget);
+        expect(term('repeat', 'Does Not Repeat'), findsOneWidget);
+        expect(term('repeat', 'Your edit: Every Fri'), findsOneWidget);
+        expect(term('minimum', 'No Minimum'), findsOneWidget);
+        expect(find.text('Retry earlier offer'), findsOneWidget);
+        // Cancel sends nothing and keeps the Fridays-only edit.
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(discounts.writes, ['create']);
+        expect(find.textContaining('Every Fri'), findsWidgets);
+        // The retry sends the open-ended original, unchanged.
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(
+          [for (final d in discounts.createdDrafts) d.repeat.type],
+          [RepeatType.none, RepeatType.none],
+        );
+        expect(discounts.discounts.single.repeat.type, RepeatType.none);
+        // The Fridays-only terms need their own confirmation.
+        expect(find.text('Edit Discount'), findsOneWidget);
+        await tapKey(tester, 'discount-save');
+        expect(find.text('Save these changes?'), findsOneWidget);
+        await confirm(tester);
+        expect(discounts.writes, ['create', 'create', 'update']);
+        expect(discounts.lastDraft?.repeat.weekdays, {Weekday.fri});
+      });
+
+      // CodeRabbit: the list under the form must see a removed pending create.
+      Future<void> pendingAtLimitFromList(WidgetTester tester) async {
+        discounts
+          ..discounts = []
+          ..limit = 1;
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        // Another operator takes the last slot meanwhile.
+        discounts
+          ..discounts = [discountOf(id: 7)]
+          ..writeError = const AppFailure(FailureKind.timeout, 'slow');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        discounts.writeError = null;
+        container.read(routerProvider).pop();
+        await tester.pumpAndSettle();
+        // The list is at its limit and offers the recovery.
+        unawaited(
+          container
+              .read(routerProvider)
+              .pushNamed(
+                'productDiscounts',
+                queryParameters: {'barcode': _barcode, 'product_id': '10'},
+              ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Confirm earlier discount'), findsOneWidget);
+        await tapKey(tester, 'discount-list-create');
+        expect(find.byKey(const Key('discount-pending')), findsOneWidget);
+      }
+
+      void expectFreshCreateBlocked(WidgetTester tester) {
+        expect(find.byKey(const Key('discount-list-pending')), findsNothing);
+        expect(find.text('Confirm earlier discount'), findsNothing);
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.byKey(const Key('discount-list-create')),
+              )
+              .onPressed,
+          isNull,
+        );
+      }
+
+      testWidgets('a refused edited replay clears the list recovery', (
+        tester,
+      ) async {
+        await pendingAtLimitFromList(tester);
+        await typePercent(tester, '25');
+        discounts.writeError = const AppFailure(
+          FailureKind.validation,
+          'Refused',
+          code: 'BUSINESS_RULE_VIOLATION',
+        );
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.pending, isEmpty);
+        container.read(routerProvider).pop();
+        await tester.pumpAndSettle();
+        expectFreshCreateBlocked(tester);
+      });
+
+      testWidgets('a discarded expired create clears the list recovery', (
+        tester,
+      ) async {
+        discounts.expiredPending.add(10);
+        await pendingAtLimitFromList(tester);
+        await tapKey(tester, 'discount-pending-discard');
+        expect(discounts.pending, isEmpty);
+        container.read(routerProvider).pop();
+        await tester.pumpAndSettle();
+        expectFreshCreateBlocked(tester);
+      });
+
+      // CodeRabbit: an accepted create with an unreadable reply blocks
+      // every new create until the user resolves it.
+      testWidgets('an unreadable accepted create blocks a second create', (
+        tester,
+      ) async {
+        final server = FakeMobileApiServer();
+        final stored = <Map<String, dynamic>>[];
+        var unreadable = true;
+        Map<String, Object?> ok(Object? data) => {
+          'data': data,
+          'meta': {'request_id': 'r', 'server_time': '2026-10-13T08:00:00Z'},
+        };
+        server
+          ..on(
+            'GET /products/10/discounts',
+            (request) => FakeReply(200, ok(discountListPayload(stored))),
+          )
+          ..on('POST /products/10/discounts', (request) {
+            final body = request.data as Map<String, dynamic>;
+            final created = discountPayload(
+              id: 100 + stored.length,
+              percent: body['percent'] as String?,
+            );
+            stored.add(created);
+            if (unreadable) {
+              unreadable = false;
+              return FakeReply(201, ok({'id': 'unreadable'}));
+            }
+            return FakeReply(201, ok(created));
+          });
+        final session = PendingWrites();
+        await open(
+          tester,
+          repository: OdooDiscountRepository(
+            DiscountRemoteDataSource(fakeProductApi(server)),
+            pendingWrites: session,
+          ),
+        );
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        List<RequestOptions> posts() =>
+            server.called('POST /products/10/discounts');
+        expect(posts(), hasLength(1));
+        expect(stored, hasLength(1), reason: 'the server created it');
+        // The form says so and offers no second create.
+        expect(find.byKey(const Key('discount-pending')), findsOneWidget);
+        expect(find.textContaining('most likely created'), findsOneWidget);
+        FilledButton save() =>
+            tester.widget<FilledButton>(find.byKey(const Key('discount-save')));
+        expect(save().onPressed, isNull);
+        // Closing and reopening the form keeps the block.
+        container.read(routerProvider).pop();
+        await tester.pumpAndSettle();
+        unawaited(
+          container
+              .read(routerProvider)
+              .pushNamed(
+                'productDiscountForm',
+                queryParameters: {'barcode': _barcode, 'product_id': '10'},
+              ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.textContaining('most likely created'), findsOneWidget);
+        expect(percentText(tester), '20');
+        expect(save().onPressed, isNull);
+        expect(posts(), hasLength(1), reason: 'nothing sent again');
+        // Only the user's explicit decision allows a new create.
+        expect(find.text('I checked the discounts: continue'), findsOneWidget);
+        await tapKey(tester, 'discount-pending-discard');
+        expect(session['discount-create:product:10'], isNull);
+        expect(save().onPressed, isNotNull);
+        await typePercent(tester, '25');
+        await tapKey(tester, 'discount-save');
+        expect(find.text('Create this discount?'), findsOneWidget);
+        await confirm(tester);
+        expect(posts(), hasLength(2));
+        expect(
+          posts()[1].headers['Idempotency-Key'],
+          isNot(posts()[0].headers['Idempotency-Key']),
+        );
+      });
+
       // P1: the confirmation must describe the request that is sent.
       testWidgets('a retry confirms the original offer; the edit waits', (
         tester,
@@ -1146,12 +1676,9 @@ void main() {
         await tapKey(tester, 'discount-save');
         // The retry names the original offer and what it can do.
         expect(find.text('Confirm the earlier offer first'), findsOneWidget);
-        expect(
-          find.textContaining('creates the 20% off discount'),
-          findsOneWidget,
-        );
-        expect(inDialog('(25% off)'), findsOneWidget);
-        expect(find.text('Retry 20% off'), findsOneWidget);
+        expect(inDialog('20% off'), findsOneWidget);
+        expect(inDialog('Your edit: 25% off'), findsOneWidget);
+        expect(find.text('Retry earlier offer'), findsOneWidget);
         expect(find.text('Create this discount?'), findsNothing);
         // Cancel: nothing is sent and the edited draft stays.
         await tester.tap(find.text('Cancel'));

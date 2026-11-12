@@ -105,7 +105,13 @@ class DiscountListPage extends ConsumerWidget {
     final provider = productDiscountsControllerProvider(scope.productId);
     final state = ref.watch(provider);
     final list = state.hasError ? null : state.value;
-    final canCreate = access.canWrite && list != null && !list.limitReached;
+    // At the limit only an unresolved create of this product can still be
+    // confirmed (its replay may hold the last slot); fresh creates stay
+    // blocked, and the form allows nothing else.
+    final pending = ref.watch(pendingDiscountCreateProvider(scope.productId));
+    final recover = list != null && list.limitReached && pending != null;
+    final canCreate =
+        access.canWrite && list != null && (!list.limitReached || recover);
     return ProductScaffold(
       appBar: ProductNavbar(
         title: l10n.discountsPageTitle,
@@ -130,7 +136,11 @@ class DiscountListPage extends ConsumerWidget {
                 onPressed: canCreate
                     ? () => _open(context, 'productDiscountForm')
                     : null,
-                child: Text(l10n.discountCreateTitle),
+                child: Text(
+                  recover
+                      ? l10n.discountPendingRecover
+                      : l10n.discountCreateTitle,
+                ),
               ),
             )
           : null,
@@ -249,6 +259,12 @@ class DiscountListPage extends ConsumerWidget {
           DiscountNotice(message: l10n.discountOffline)
         else if (!access.manage)
           DiscountNotice(message: l10n.discountReadOnly)
+        else if (list.limitReached &&
+            ref.watch(pendingDiscountCreateProvider(scope.productId)) != null)
+          DiscountNotice(
+            key: const Key('discount-list-pending'),
+            message: l10n.discountPendingAtLimit,
+          )
         else if (list.limitReached)
           DiscountNotice(message: l10n.discountLimitReached),
         const SizedBox(height: 24),

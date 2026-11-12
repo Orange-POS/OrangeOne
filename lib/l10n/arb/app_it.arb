@@ -401,7 +401,14 @@
   "discountPendingExpired": "Un salvataggio precedente di un nuovo sconto per questo prodotto non è stato confermato e non può più essere verificato automaticamente. Controlla gli sconti del prodotto: se c'è, modificalo lì. Altrimenti scarta il salvataggio precedente per creare questo.",
   "discountPendingDiscard": "Non c'è: scarta il salvataggio precedente",
   "discountReplayTitle": "Conferma prima l'offerta precedente",
-  "discountReplayBody": "Il salvataggio precedente di {original} non è confermato. Riprovare invia di nuovo esattamente quella richiesta: se prima non era arrivata al server, ora crea lo sconto {original}. La tua offerta modificata ({edited}) resta e viene salvata solo dopo una conferma separata.",
-  "discountReplayConfirm": "Riprova {original}",
-  "discountOriginalRefused": "L'offerta precedente non è stata creata. La tua offerta modificata resta: salva di nuovo per crearla."
+  "discountOriginalRefused": "L'offerta precedente non è stata creata. La tua offerta modificata resta: salva di nuovo per crearla.",
+  "discountPendingRecover": "Conferma lo sconto precedente",
+  "discountPendingAtLimit": "Questo prodotto ha raggiunto il limite di sconti, ma un salvataggio precedente di un nuovo sconto non è ancora confermato. Confermalo per sapere se è stato creato; nessun altro sconto può essere creato.",
+  "discountReplayIntro": "Il salvataggio precedente di un nuovo sconto non è confermato. Riprovare invia di nuovo esattamente quella richiesta: se prima non era arrivata al server, ora crea lo sconto qui sotto con tutte queste condizioni.",
+  "discountReplayOriginal": "Offerta precedente (inviata di nuovo)",
+  "discountReplayYourEdit": "La tua modifica: {value}",
+  "discountReplayKept": "La tua offerta modificata (le differenze evidenziate) resta e viene salvata solo dopo una conferma separata.",
+  "discountReplayRetry": "Riprova l'offerta precedente",
+  "discountPendingCommitted": "Il server ha ricevuto il salvataggio precedente di un nuovo sconto per questo prodotto, ma la sua risposta non era leggibile, quindi molto probabilmente è stato creato. Controlla gli sconti del prodotto prima di crearne un altro.",
+  "discountPendingCommittedResolve": "Ho controllato gli sconti: continua"
 }

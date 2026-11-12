@@ -10,6 +10,9 @@ abstract final class DiscountRefusal {
 
   /// The unresolved create can no longer be replayed safely.
   static const pendingCreateExpired = 'PENDING_CREATE_EXPIRED';
+
+  /// The server accepted the create, but its result could not be read.
+  static const pendingCreateCommitted = 'PENDING_CREATE_COMMITTED';
 }
 
 /// Product discounts of the signed-in shop. Reads are always fresh from the
@@ -38,12 +41,15 @@ abstract interface class DiscountRepository {
   /// server committed or creates now. A definitive refusal removes it and is
   /// rethrown; an open outcome (no answer, authentication, rate limit)
   /// keeps it. Refused ([DiscountRefusal.pendingCreateExpired]) when it
-  /// can no longer be replayed safely.
+  /// can no longer be replayed safely, and
+  /// ([DiscountRefusal.pendingCreateCommitted]) when the server accepted it
+  /// but its result could not be read.
   Future<Discount> resolvePendingCreate(int productId);
 
   /// Drops the unresolved create for [productId] on the user's explicit
   /// decision, after checking the product's discounts. Only for one that is
-  /// no longer [PendingDiscountCreate.replayable].
+  /// no longer [PendingDiscountCreate.replayable] (expired, or
+  /// [PendingDiscountCreate.committed]).
   void discardPendingCreate(int productId);
 
   /// Replaces every editable value of [current] (full replacement).

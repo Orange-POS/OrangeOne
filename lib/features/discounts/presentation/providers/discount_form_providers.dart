@@ -51,6 +51,11 @@ enum DiscountFormProblem {
   /// the user checks the product's discounts and decides.
   pendingExpired,
 
+  /// The server accepted that earlier create, but its result could not be
+  /// read: it was most likely created. No other create is sent until the
+  /// user checked the product's discounts and resolves it.
+  pendingCommitted,
+
   /// The server refused it (a rule about the whole discount).
   refused,
 }
@@ -81,6 +86,7 @@ class DiscountFormState {
     this.ruleCode,
     this.saved,
     this.limitReached = false,
+    this.recoverable = false,
     this.conflict,
   });
 
@@ -111,6 +117,11 @@ class DiscountFormState {
   /// The discount the server confirmed (saved or archived).
   final Discount? saved;
   final bool limitReached;
+
+  /// An earlier create of this product is unresolved and can still be
+  /// replayed. At the limit only that replay may be sent (its slot may
+  /// already be taken by it); a fresh create stays blocked.
+  final bool recoverable;
 
   /// Set while a concurrent change waits for the user's resolution.
   final DiscountFormConflict? conflict;
@@ -153,8 +164,9 @@ class DiscountFormState {
       phase == DiscountFormPhase.editing &&
       conflict == null &&
       problem != DiscountFormProblem.pendingExpired &&
+      problem != DiscountFormProblem.pendingCommitted &&
       issues.isEmpty &&
-      !(limitReached && !editing) &&
+      !(limitReached && !editing && !recoverable) &&
       (original?.editable ?? true);
 
   /// Archive is possible for a stored, not archived discount while nothing
@@ -177,6 +189,7 @@ class DiscountFormState {
     String? ruleCode,
     Discount? saved,
     bool? limitReached,
+    bool? recoverable,
     DiscountFormConflict? conflict,
     bool keepProblem = false,
     bool keepConflict = true,
@@ -193,6 +206,7 @@ class DiscountFormState {
     ruleCode: ruleCode ?? (keepProblem ? this.ruleCode : null),
     saved: saved,
     limitReached: limitReached ?? this.limitReached,
+    recoverable: recoverable ?? this.recoverable,
     conflict: conflict ?? (keepConflict ? this.conflict : null),
   );
 }
@@ -236,11 +250,8 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         regularPrice: list.regularPrice,
         draft: pending?.draft ?? const DiscountDraft(),
         limitReached: list.limitReached,
-        problem: pending == null
-            ? null
-            : pending.replayable
-            ? DiscountFormProblem.pendingCreate
-            : DiscountFormProblem.pendingExpired,
+        recoverable: pending?.replayable ?? false,
+        problem: _pendingProblem(pending),
       );
     }
     // A fresh read: its version guards the update (If-Match).
@@ -277,6 +288,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       DiscountFormProblem.createdMeanwhile ||
       DiscountFormProblem.pendingCreate ||
       DiscountFormProblem.pendingExpired ||
+      DiscountFormProblem.pendingCommitted ||
       DiscountFormProblem.originalRefused => true,
       _ => false,
     };
@@ -479,8 +491,9 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         current.copy(
           problem: current.conflict != null
               ? DiscountFormProblem.changed
-              : current.problem == DiscountFormProblem.pendingExpired
-              ? DiscountFormProblem.pendingExpired
+              : current.problem == DiscountFormProblem.pendingExpired ||
+                    current.problem == DiscountFormProblem.pendingCommitted
+              ? current.problem
               : current.limitReached && !current.editing
               ? DiscountFormProblem.limitReached
               : DiscountFormProblem.notAllowed,
@@ -513,7 +526,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     }
     if (!pending.replayable) {
       state = AsyncData(
-        current.copy(problem: DiscountFormProblem.pendingExpired),
+        current.copy(problem: _pendingProblem(pending), recoverable: false),
       );
       return;
     }
@@ -523,7 +536,8 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     } on AppFailure catch (failure) {
       if (!ref.mounted || generation != _generation) return;
       if (_outcomeOpen(failure) ||
-          failure.code == DiscountRefusal.pendingCreateExpired) {
+          failure.code == DiscountRefusal.pendingCreateExpired ||
+          failure.code == DiscountRefusal.pendingCreateCommitted) {
         // Still unknown: the original request stays pending as sent.
         await _failed(current, failure, generation);
         return;
@@ -539,8 +553,10 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         current.copy(
           phase: DiscountFormPhase.editing,
           problem: DiscountFormProblem.originalRefused,
+          recoverable: false,
         ),
       );
+      _pendingChanged();
       return;
     }
     if (!ref.mounted || generation != _generation) return;
@@ -559,6 +575,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       ),
     );
     ref.invalidate(productDiscountsControllerProvider(productId));
+    _pendingChanged();
   }
 
   /// Creates [current]'s draft. An open outcome stays pending in the
@@ -583,24 +600,53 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
 
   /// After the user checked the product's discounts: drops an earlier
   /// create that can no longer be confirmed automatically, so this draft
-  /// can be created. Only for [DiscountFormProblem.pendingExpired].
+  /// can be created. Only for [DiscountFormProblem.pendingExpired] and
+  /// [DiscountFormProblem.pendingCommitted] (the user's explicit decision).
   void discardExpiredPendingCreate() {
     final current = _editable;
     if (current == null ||
-        current.problem != DiscountFormProblem.pendingExpired) {
+        (current.problem != DiscountFormProblem.pendingExpired &&
+            current.problem != DiscountFormProblem.pendingCommitted)) {
       return;
     }
     ref
         .read(discountRepositoryProvider)
         .discardPendingCreate(args.scope.productId);
-    state = AsyncData(current.copy());
+    state = AsyncData(current.copy(recoverable: false));
+    _pendingChanged();
   }
+
+  /// The session's pending create of this product may have changed
+  /// (settled, refused or discarded): entry points that offer its recovery,
+  /// such as a list still mounted under this form, read it again.
+  void _pendingChanged() =>
+      ref.invalidate(pendingDiscountCreateProvider(args.scope.productId));
+
+  /// The form problem that describes [pending], if any.
+  static DiscountFormProblem? _pendingProblem(PendingDiscountCreate? pending) =>
+      pending == null
+      ? null
+      : pending.committed
+      ? DiscountFormProblem.pendingCommitted
+      : pending.replayable
+      ? DiscountFormProblem.pendingCreate
+      : DiscountFormProblem.pendingExpired;
+
+  /// Whether this product's unresolved create can still be replayed.
+  bool get _recoverable =>
+      args.discountId == null &&
+      (ref
+              .read(discountRepositoryProvider)
+              .pendingCreate(args.scope.productId)
+              ?.replayable ??
+          false);
 
   void _saved(DiscountFormState current, Discount saved) {
     state = AsyncData(
       current.copy(phase: DiscountFormPhase.saved, saved: saved),
     );
     ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
+    _pendingChanged();
   }
 
   /// Archives the stored discount once (`DELETE /discounts/{id}` with its
@@ -635,6 +681,8 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     AppFailure failure,
     int generation,
   ) async {
+    // A refused create or replay settles it; an open outcome keeps it.
+    _pendingChanged();
     if (failure.code == 'VERSION_CONFLICT' && current.original != null) {
       try {
         final latest = await ref
@@ -674,15 +722,26 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       }
     }
     if (failure.code == DiscountRefusal.pendingCreate ||
-        failure.code == DiscountRefusal.pendingCreateExpired) {
+        failure.code == DiscountRefusal.pendingCreateExpired ||
+        failure.code == DiscountRefusal.pendingCreateCommitted) {
       state = AsyncData(
         current.copy(
           phase: DiscountFormPhase.editing,
-          problem: failure.code == DiscountRefusal.pendingCreate
-              ? DiscountFormProblem.pendingCreate
-              : DiscountFormProblem.pendingExpired,
+          problem: switch (failure.code) {
+            DiscountRefusal.pendingCreate => DiscountFormProblem.pendingCreate,
+            DiscountRefusal.pendingCreateCommitted =>
+              DiscountFormProblem.pendingCommitted,
+            _ => DiscountFormProblem.pendingExpired,
+          },
+          recoverable: _recoverable,
         ),
       );
+      // The list shows a create the server accepted.
+      if (failure.code == DiscountRefusal.pendingCreateCommitted) {
+        ref.invalidate(
+          productDiscountsControllerProvider(args.scope.productId),
+        );
+      }
       return;
     }
     final uncertain =
@@ -698,6 +757,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         draft: current.draft,
         original: current.original,
         limitReached: current.limitReached || limit,
+        recoverable: _recoverable,
         serverIssues: issues,
         serverMessages: messages,
         conflict: current.conflict,
@@ -714,6 +774,12 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         ruleCode: uncertain ? null : ruleCode,
       ),
     );
+    // The server may have committed it: lists and counts read again (a
+    // committed create can take the last slot; the list then offers only
+    // the recovery of the pending create).
+    if (uncertain) {
+      ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
+    }
   }
 }
 

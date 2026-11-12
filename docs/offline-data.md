@@ -25,13 +25,19 @@ a verified connection and use the Mobile API v2 `If-Match` version and
   Each encryption uses a new random nonce and authenticates the schema and the
   row's opaque barcode code as AAD (`v2|code`), so payloads cannot be moved
   between rows. The key is domain-separated SHA-256 (`product-cache.v2`) of the
-  session identity: environment, API base, company, user and session family
-  (Stage 3). It contains no token, so access-token refresh keeps the cache. It
-  is never written to SQLite. Tokens, scopes, credentials and pending writes
-  are not cached.
+  session identity (environment, API base, company, user and session family)
+  plus a random 256-bit secret of that session kept in platform secure storage
+  (`ReadCacheSecret`, bound to the identity; a new session gets a new one). The
+  identity alone is not secret and cannot decrypt or locate the rows. It
+  contains no token, so access-token refresh keeps the cache. Neither key nor
+  secret is written to SQLite. Logout and expiry delete the secret after the
+  purge, so rows a failed purge left behind stay unreadable. Tokens, scopes,
+  credentials and pending writes are not cached.
 - SQL identifiers contain opaque hashes for owner and barcode. Another login,
   user, company, server or flavor cannot read an earlier session's records.
-  Logout, expiry and session disposal delete that owner's rows.
+  Logout, expiry and session disposal delete that owner's rows. When a
+  session's cache opens, rows of every other owner (a session the app was
+  stopped in, or an older key) are deleted.
 - Schema 2 (Mobile API v2): approved fields are ID, barcode, name, price,
   currency, quantity, tracked flag, unit, product reference, description,
   category ID/name, `updated_at` and tax display fields. Write-only data

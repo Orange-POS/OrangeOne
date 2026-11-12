@@ -11,6 +11,7 @@ import 'package:orange_one/features/discounts/presentation/widgets/discount_conf
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_sections.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_pickers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_replay_dialog.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
@@ -116,16 +117,11 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     FocusScope.of(context).unfocus();
     try {
       final confirmed = replay != null
-          ? await DiscountConfirmDialog.show(
+          ? await DiscountReplayDialog.show(
               context,
-              title: l10n.discountReplayTitle,
-              message: l10n.discountReplayBody(
-                DiscountText.draftValue(l10n, replay.draft, currency),
-                DiscountText.draftValue(l10n, state.draft, currency),
-              ),
-              confirmLabel: l10n.discountReplayConfirm(
-                DiscountText.draftValue(l10n, replay.draft, currency),
-              ),
+              original: replay.draft,
+              edited: state.draft,
+              currency: currency,
             )
           : await DiscountConfirmDialog.show(
               context,
@@ -402,7 +398,12 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     final merge = state.merge;
     final pendingProblem =
         state.problem == DiscountFormProblem.pendingCreate ||
-        state.problem == DiscountFormProblem.pendingExpired;
+        state.problem == DiscountFormProblem.pendingExpired ||
+        state.problem == DiscountFormProblem.pendingCommitted;
+    // The user's explicit decision after checking the product's discounts.
+    final pendingResolvable =
+        state.problem == DiscountFormProblem.pendingExpired ||
+        state.problem == DiscountFormProblem.pendingCommitted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -410,12 +411,15 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
         if (pendingProblem) ...[
           DiscountNotice(
             key: const Key('discount-pending'),
-            error: state.problem == DiscountFormProblem.pendingExpired,
-            message: state.problem == DiscountFormProblem.pendingExpired
-                ? l10n.discountPendingExpired
-                : l10n.discountPendingCreate,
+            error: pendingResolvable,
+            message: switch (state.problem) {
+              DiscountFormProblem.pendingExpired => l10n.discountPendingExpired,
+              DiscountFormProblem.pendingCommitted =>
+                l10n.discountPendingCommitted,
+              _ => l10n.discountPendingCreate,
+            },
           ),
-          if (state.problem == DiscountFormProblem.pendingExpired)
+          if (pendingResolvable)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: OutlinedButton(
@@ -429,7 +433,11 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
                 onPressed: editable
                     ? _controller.discardExpiredPendingCreate
                     : null,
-                child: Text(l10n.discountPendingDiscard),
+                child: Text(
+                  state.problem == DiscountFormProblem.pendingCommitted
+                      ? l10n.discountPendingCommittedResolve
+                      : l10n.discountPendingDiscard,
+                ),
               ),
             ),
           const SizedBox(height: 16),
@@ -655,7 +663,9 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
           DiscountNotice(message: l10n.discountOffline)
         else if (!access.manage)
           DiscountNotice(message: l10n.discountReadOnly)
-        else if (state.limitReached && !state.editing)
+        // At the limit an unresolved create can still be confirmed (the
+        // pending notice says so); only fresh creates are blocked.
+        else if (state.limitReached && !state.editing && !state.recoverable)
           DiscountNotice(message: l10n.discountLimitReached),
         // The conflict panel and the pending notice at the top explain
         // those states already.
@@ -678,6 +688,8 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
                 l10n.discountCreatedMeanwhile,
               DiscountFormProblem.pendingCreate => l10n.discountPendingCreate,
               DiscountFormProblem.pendingExpired => l10n.discountPendingExpired,
+              DiscountFormProblem.pendingCommitted =>
+                l10n.discountPendingCommitted,
               DiscountFormProblem.originalRefused =>
                 l10n.discountOriginalRefused,
               DiscountFormProblem.refused =>

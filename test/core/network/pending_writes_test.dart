@@ -50,4 +50,18 @@ void main() {
     expect(writes.replayable(write), isFalse);
     expect(writes['a'], same(write), reason: 'never dropped by itself');
   });
+
+  // CodeRabbit: an accepted write with an unreadable result stays blocking.
+  test('a committed write blocks its slot and is never replayed', () {
+    final write = begin();
+    writes.markCommitted(write);
+    expect(writes.committed(write), isTrue);
+    expect(writes.replayable(write), isFalse);
+    expect(writes['a'], same(write));
+    expect(() => begin('a', 'k2'), throwsStateError);
+    writes.settle(write);
+    expect(writes['a'], isNull);
+    final next = begin('a', 'k2');
+    expect(writes.committed(next), isFalse);
+  });
 }

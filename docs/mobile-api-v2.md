@@ -17,8 +17,10 @@ source of truth for paths, fields and error codes. The legacy JSON-RPC routes
 | `idempotency_keys.dart` | UUID v4 per write; an uncertain outcome keeps the key for the identical retry |
 | `product_payload.dart` | Validates `Product` / `ProductSummary` payloads (decimal strings, ISO currency) |
 
-Base URL: the POS QR `api_base` (`{origin}/api/orangeone/mobile/v1`), checked
-against the flavor's trusted origin. Error codes map as follows:
+Base URL: the POS QR `api_base` (`{origin}/api/orangeone/mobile/v1`). Its
+form is validated (HTTP or HTTPS, host and port, no credentials, query or
+fragment; `docs/authentication.md`), but any host is accepted, because POS
+servers are reached on the shop's local network. Error codes map as follows:
 `VALIDATION_FAILED`, `BUSINESS_RULE_VIOLATION`, `QR_INVALID` → validation;
 `AUTH_REQUIRED`, `TOKEN_*` → unauthenticated; `PERMISSION_DENIED`,
 `COMPANY_MISMATCH`, `DEVICE_MISMATCH` → forbidden; `NOT_FOUND`,

@@ -401,7 +401,14 @@
   "discountPendingExpired": "Un enregistrement précédent d'une nouvelle remise pour ce produit n'a pas pu être confirmé et ne peut plus être vérifié automatiquement. Consultez les remises du produit : si elle y figure, modifiez-la là. Sinon, abandonnez l'enregistrement précédent pour créer celle-ci.",
   "discountPendingDiscard": "Elle n'y est pas : abandonner l'enregistrement précédent",
   "discountReplayTitle": "Confirmer d'abord l'offre précédente",
-  "discountReplayBody": "Votre enregistrement précédent de {original} n'est pas confirmé. Réessayer renvoie exactement cette demande : si elle n'avait pas atteint le serveur, elle crée maintenant la remise {original}. Votre offre modifiée ({edited}) est conservée et n'est enregistrée qu'après votre confirmation séparée.",
-  "discountReplayConfirm": "Renvoyer {original}",
-  "discountOriginalRefused": "L'offre précédente n'a pas été créée. Votre offre modifiée est conservée : enregistrez à nouveau pour la créer."
+  "discountOriginalRefused": "L'offre précédente n'a pas été créée. Votre offre modifiée est conservée : enregistrez à nouveau pour la créer.",
+  "discountPendingRecover": "Confirmer la remise précédente",
+  "discountPendingAtLimit": "Ce produit a atteint sa limite de remises, mais un enregistrement précédent d'une nouvelle remise n'est pas encore confirmé. Confirmez-le pour savoir s'il a été créé ; aucune autre remise ne peut être créée.",
+  "discountReplayIntro": "Votre enregistrement précédent d'une nouvelle remise n'est pas confirmé. Réessayer renvoie exactement cette demande : si elle n'avait pas atteint le serveur, elle crée maintenant la remise ci-dessous avec toutes ces conditions.",
+  "discountReplayOriginal": "Offre précédente (renvoyée)",
+  "discountReplayYourEdit": "Votre modification : {value}",
+  "discountReplayKept": "Votre offre modifiée (les différences marquées) est conservée et n’est enregistrée qu’après votre confirmation séparée.",
+  "discountReplayRetry": "Renvoyer l'offre précédente",
+  "discountPendingCommitted": "Le serveur a reçu l'enregistrement précédent d'une nouvelle remise pour ce produit, mais sa réponse était illisible : elle a donc très probablement été créée. Vérifiez les remises du produit avant d'en créer une autre.",
+  "discountPendingCommittedResolve": "J'ai vérifié les remises : continuer"
 }

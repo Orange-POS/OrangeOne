@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/app/bootstrap/bootstrap_resolver.dart';
+import 'package:orange_one/app/router/auth_redirect.dart';
 import 'package:orange_one/core/capabilities/compatibility.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
 import 'package:orange_one/features/startup/domain/entities/startup_workflow.dart';
@@ -39,6 +40,27 @@ void main() {
       );
       expect(_resolve('/startup', startup: credentials), '/login');
       expect(_resolve('/login', startup: credentials), isNull);
+    });
+
+    // AUD-02: every signed-in screen, discounts included, is protected.
+    test('signed out or expired: no signed-in screen stays open', () {
+      for (final path in signedInPaths) {
+        expect(_resolve(path), '/login', reason: path);
+        expect(
+          _resolve(path, session: const AsyncLoading<AuthSession?>()),
+          '/startup',
+          reason: path,
+        );
+        expect(_resolve(path, session: _signedIn), isNull, reason: path);
+      }
+      expect(
+        signedInPaths,
+        containsAll([
+          '/home/products/discounts',
+          '/home/products/discounts/form',
+          '/home/products/discounts/detail',
+        ]),
+      );
     });
 
     test('authentication rules are unchanged', () {

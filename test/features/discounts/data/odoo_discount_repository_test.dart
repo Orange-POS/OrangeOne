@@ -379,6 +379,60 @@ void main() {
       repository = repositoryOver(pending);
     });
 
+    // AUD-12 / CodeRabbit: a create the server accepted with an unreadable
+    // result keeps blocking new creates until the user resolves it.
+    for (final (name, data) in [
+      ('unreadable data', <String, Object?>{'id': 'not-a-discount'}),
+      ('another product', discountPayload(id: 7, productId: 11)),
+    ]) {
+      test('a success reply with $name blocks new creates', () async {
+        server.on(
+          'POST /products/10/discounts',
+          (request) => FakeReply(201, _ok(data)),
+        );
+        await expectLater(
+          repository.create(10, percentage),
+          throwsA(
+            isA<AppFailure>().having(
+              (failure) => failure.code,
+              'code',
+              DiscountRefusal.pendingCreateCommitted,
+            ),
+          ),
+        );
+        final open = repository.pendingCreate(10)!;
+        expect(open.committed, isTrue);
+        expect(open.replayable, isFalse);
+        expect(open.draft.percent, '20');
+        // No fresh create and no replay of the unreadable reply is sent.
+        await expectLater(
+          repository.create(10, percentage),
+          throwsA(
+            isA<AppFailure>().having(
+              (failure) => failure.code,
+              'code',
+              DiscountRefusal.pendingCreate,
+            ),
+          ),
+        );
+        await expectLater(
+          repository.resolvePendingCreate(10),
+          throwsA(
+            isA<AppFailure>().having(
+              (failure) => failure.code,
+              'code',
+              DiscountRefusal.pendingCreateCommitted,
+            ),
+          ),
+        );
+        expect(posts(), hasLength(1));
+        // Only the user's explicit decision releases it.
+        repository.discardPendingCreate(10);
+        expect(repository.pendingCreate(10), isNull);
+        expect(pending['discount-create:product:10'], isNull);
+      });
+    }
+
     test('an open create stays pending exactly as sent', () async {
       committingServer();
       await expectLater(

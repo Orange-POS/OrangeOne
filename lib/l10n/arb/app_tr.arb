@@ -401,7 +401,14 @@
   "discountPendingExpired": "Bu ürün için yeni bir indirimin önceki kaydı onaylanamadı ve artık otomatik olarak kontrol edilemiyor. Ürünün indirimlerine bakın: oradaysa orada düzenleyin. Değilse, bunu oluşturmak için önceki kaydı yok sayın.",
   "discountPendingDiscard": "Orada değil: önceki kaydı yok say",
   "discountReplayTitle": "Önce önceki teklifi onaylayın",
-  "discountReplayBody": "{original} için önceki kaydınız onaylanmadı. Yeniden denemek tam olarak o isteği tekrar gönderir: daha önce sunucuya ulaşmadıysa, {original} indirimini şimdi oluşturur. Düzenlenmiş teklifiniz ({edited}) korunur ve yalnızca ayrıca onayladıktan sonra kaydedilir.",
-  "discountReplayConfirm": "{original} yeniden dene",
-  "discountOriginalRefused": "Önceki teklif oluşturulmadı. Düzenlenmiş teklifiniz korunuyor: oluşturmak için yeniden kaydedin."
+  "discountOriginalRefused": "Önceki teklif oluşturulmadı. Düzenlenmiş teklifiniz korunuyor: oluşturmak için yeniden kaydedin.",
+  "discountPendingRecover": "Önceki indirimi onayla",
+  "discountPendingAtLimit": "Bu ürün indirim sınırına ulaştı, ancak yeni bir indirimin önceki kaydı henüz onaylanmadı. Oluşturulup oluşturulmadığını öğrenmek için onaylayın; başka indirim oluşturulamaz.",
+  "discountReplayIntro": "Yeni bir indirimin önceki kaydı onaylanmadı. Yeniden denemek tam olarak o isteği tekrar gönderir: daha önce sunucuya ulaşmadıysa, aşağıdaki indirimi tüm bu koşullarla şimdi oluşturur.",
+  "discountReplayOriginal": "Önceki teklif (yeniden gönderilir)",
+  "discountReplayYourEdit": "Düzenlemeniz: {value}",
+  "discountReplayKept": "Düzenlenmiş teklifiniz (işaretli farklar) korunur ve yalnızca ayrıca onayladıktan sonra kaydedilir.",
+  "discountReplayRetry": "Önceki teklifi yeniden dene",
+  "discountPendingCommitted": "Sunucu bu ürün için yeni bir indirimin önceki kaydını aldı, ancak yanıtı okunamadı; yani büyük olasılıkla oluşturuldu. Başka bir indirim oluşturmadan önce ürünün indirimlerini kontrol edin.",
+  "discountPendingCommittedResolve": "İndirimleri kontrol ettim: devam et"
 }

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/idempotency_keys.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/features/products/data/data_sources/product_catalog_remote_data_source.dart';
@@ -219,6 +220,39 @@ void main() {
       _kind(FailureKind.conflict),
     );
     expect(server.called(create), hasLength(2));
+  });
+
+  // AUD-09: the key survives a rebuilt repository of the same session.
+  test('a rebuilt repository retries with the uncertain key', () async {
+    final keys = IdempotencyKeys();
+    OdooProductDetailsRepository build() => OdooProductDetailsRepository(
+      ProductCatalogRemoteDataSource(
+        fakeProductApi(server),
+        cancelToken: CancelToken(),
+      ),
+      onSessionRejected: () async {},
+      idempotencyKeys: keys,
+    );
+    server.on(
+      create,
+      (r) => throw DioException(
+        requestOptions: r,
+        type: DioExceptionType.receiveTimeout,
+      ),
+    );
+    await expectLater(
+      build().createProduct(draft()),
+      throwsA(isA<AppFailure>()),
+    );
+    // The screens closed; a new repository instance sends the retry.
+    server.on(create, created);
+    await build().createProduct(draft());
+    final sent = [
+      for (final request in server.called(create))
+        request.headers['Idempotency-Key'],
+    ];
+    expect(sent, hasLength(2));
+    expect(sent[1], sent[0]);
   });
 
   test('a malformed acknowledgement is never reported as created', () async {

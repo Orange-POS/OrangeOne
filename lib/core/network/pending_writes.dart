@@ -48,6 +48,11 @@ class PendingWrites {
   final DateTime Function() _now;
   final _writes = <String, PendingWrite>{};
 
+  /// Writes the server accepted (a success reply) whose result could not be
+  /// read. They stay in their slot, so nothing replaces them, but a replay
+  /// would only return the same unreadable reply.
+  final _committed = <PendingWrite>{};
+
   /// The server keeps an idempotency record 24 hours. A pending write older
   /// than this margin can no longer be confirmed by a replay (it could run
   /// as a new request), so it needs the user's explicit decision.
@@ -57,7 +62,17 @@ class PendingWrites {
 
   /// Whether [write] can still be confirmed by replaying it.
   bool replayable(PendingWrite write) =>
-      _now().difference(write.sentAt) < replayWindow;
+      !committed(write) && _now().difference(write.sentAt) < replayWindow;
+
+  /// Whether the server accepted [write] but its result could not be read.
+  bool committed(PendingWrite write) => _committed.contains(write);
+
+  /// Keeps [write] in its slot as accepted by the server with an unreadable
+  /// result: it blocks every other write of the slot until the result is
+  /// reconciled or the user resolves it explicitly ([settle]).
+  void markCommitted(PendingWrite write) {
+    if (identical(_writes[write.slot], write)) _committed.add(write);
+  }
 
   /// Records a write before it is sent. Refused while [slot] already has an
   /// unresolved write: nothing may replace it.
@@ -87,7 +102,10 @@ class PendingWrites {
   /// definitive refusal), or on the user's explicit decision. A newer write
   /// in the same slot is never removed.
   void settle(PendingWrite write) {
-    if (identical(_writes[write.slot], write)) _writes.remove(write.slot);
+    if (identical(_writes[write.slot], write)) {
+      _writes.remove(write.slot);
+      _committed.remove(write);
+    }
   }
 }
 

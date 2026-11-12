@@ -1944,29 +1944,49 @@
   "@discountReplayTitle": {
     "description": "Discount form: retrying an unconfirmed earlier create"
   },
-  "discountReplayBody": "Your earlier save of {original} has no confirmed answer. Retrying sends exactly that request again: if it did not reach the server before, it creates the {original} discount now. Your edited offer ({edited}) is kept and is only saved after you confirm it separately.",
-  "@discountReplayBody": {
-    "description": "Discount form: retrying an unconfirmed earlier create",
-    "placeholders": {
-      "original": {
-        "type": "String"
-      },
-      "edited": {
-        "type": "String"
-      }
-    }
-  },
-  "discountReplayConfirm": "Retry {original}",
-  "@discountReplayConfirm": {
-    "description": "Discount form: retrying an unconfirmed earlier create",
-    "placeholders": {
-      "original": {
-        "type": "String"
-      }
-    }
-  },
   "discountOriginalRefused": "The earlier offer was not created. Your edited offer is kept: save again to create it.",
   "@discountOriginalRefused": {
     "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountPendingRecover": "Confirm earlier discount",
+  "@discountPendingRecover": {
+    "description": "Discount list: recovering an unconfirmed create at the limit"
+  },
+  "discountPendingAtLimit": "This product is at its discount limit, but an earlier save of a new discount has no confirmed answer yet. Confirm it to find out whether it was created; no other discount can be created.",
+  "@discountPendingAtLimit": {
+    "description": "Discount list: recovering an unconfirmed create at the limit"
+  },
+  "discountReplayIntro": "Your earlier save of a new discount has no confirmed answer. Retrying sends exactly that request again: if it did not reach the server before, it creates the discount below now, with all of these terms.",
+  "@discountReplayIntro": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountReplayOriginal": "Earlier offer (sent again)",
+  "@discountReplayOriginal": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountReplayYourEdit": "Your edit: {value}",
+  "@discountReplayYourEdit": {
+    "description": "Discount form: retrying an unconfirmed earlier create",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountReplayKept": "Your edited offer (the marked differences) is kept and is only saved after you confirm it separately.",
+  "@discountReplayKept": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountReplayRetry": "Retry earlier offer",
+  "@discountReplayRetry": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountPendingCommitted": "The server received the earlier save of a new discount for this product, but its reply could not be read, so it was most likely created. Check the product's discounts before creating another one.",
+  "@discountPendingCommitted": {
+    "description": "Discount form: a create the server accepted with an unreadable reply"
+  },
+  "discountPendingCommittedResolve": "I checked the discounts: continue",
+  "@discountPendingCommittedResolve": {
+    "description": "Discount form: a create the server accepted with an unreadable reply"
   }
 }

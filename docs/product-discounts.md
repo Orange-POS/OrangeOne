@@ -75,9 +75,12 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
   is the outcome known:
   - same values (also `20` and `20.00`): the replay is the save;
   - changed values: Save first asks to confirm the original offer, not the
-    edited one ("Confirm the earlier offer first": the retry sends that
-    request and may create it now); Cancel sends nothing and keeps the
-    edit. A created original is then edited with the changes
+    edited one ("Confirm the earlier offer first", `DiscountReplayDialog`:
+    the retry sends that request and may create it now). It lists every
+    term of the original (value, start and end, repeat, minimum quantity)
+    and marks each term the edit changed with the edited value, so a
+    schedule-only edit is not hidden behind an equal amount; Cancel sends
+    nothing and keeps the edit. A created original is then edited with the changes
     (`createdMeanwhile`); a refused one sends nothing else
     (`originalRefused`). Either way the edited terms need their own Save
     and ordinary confirmation;
@@ -94,6 +97,19 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
   server, company, user, token family) — the server's idempotency scope
   is the token family — so another shop, user or session never sees it.
   It is memory only (writes are never persisted or queued).
+- At the product's discount limit (a lost create may hold the last slot)
+  only that pending create can still be sent: the list replaces Create
+  Discount with "Confirm earlier discount" and explains why
+  (`pendingDiscountCreateProvider`), and the form enables Save for the
+  replay (`DiscountFormState.recoverable`). A fresh create stays blocked, also
+  the edited offer after a refused replay. An uncertain write reads the list
+  again, since the server may have committed it.
+- A create the server accepted (success reply) whose result cannot be read
+  (malformed, or for another product) is not confirmed and not replayed (a
+  replay would return the same reply): it stays in the slot as committed
+  (`pendingCommitted`), so no other create is sent. The form says it was
+  most likely created; only the user's explicit "I checked the discounts:
+  continue" releases it.
 - The server keeps idempotency records 24 hours; sessions can last longer.
   After 23 hours a pending create is no longer replayed
   (`pendingExpired`): Save stays off until the user checks the product's

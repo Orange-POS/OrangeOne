@@ -87,6 +87,12 @@ class OdooDiscountRepository implements DiscountRepository {
     code: DiscountRefusal.pendingCreate,
   );
 
+  static const _pendingCommitted = AppFailure(
+    FailureKind.protocol,
+    'The discount was received, but its result could not be read.',
+    code: DiscountRefusal.pendingCreateCommitted,
+  );
+
   static const _pendingExpired = AppFailure(
     FailureKind.conflict,
     'An earlier discount create can no longer be confirmed automatically.',
@@ -117,6 +123,7 @@ class OdooDiscountRepository implements DiscountRepository {
     return PendingDiscountCreate(
       draft: draft,
       replayable: _pending.replayable(write),
+      committed: _pending.committed(write),
     );
   }
 
@@ -124,6 +131,7 @@ class OdooDiscountRepository implements DiscountRepository {
   Future<Discount> resolvePendingCreate(int productId) async {
     final write = _pending[_slot(productId)];
     if (write == null) throw StateError('No pending create for $productId.');
+    if (_pending.committed(write)) throw _pendingCommitted;
     if (!_pending.replayable(write)) throw _pendingExpired;
     return await _sendCreate(productId, write);
   }
@@ -140,15 +148,13 @@ class OdooDiscountRepository implements DiscountRepository {
   /// rebuilt. The outcome decides whether it stays pending.
   Future<Discount> _sendCreate(int productId, PendingWrite write) =>
       _call(() async {
-        final Discount discount;
+        final MobileApiResponse response;
         try {
           final body = jsonDecode(write.body) as Map<String, dynamic>;
-          discount = DiscountModel.parse(
-            (await _remote.create(
-              productId,
-              body,
-              idempotencyKey: write.key,
-            )).data,
+          response = await _remote.create(
+            productId,
+            body,
+            idempotencyKey: write.key,
           );
         } on AppFailure catch (failure) {
           // A server decision about this request settles it; no answer, a
@@ -156,10 +162,21 @@ class OdooDiscountRepository implements DiscountRepository {
           if (IdempotencyKeys.settles(failure)) _pending.settle(write);
           rethrow;
         }
-        // Committed. A reply for another product is off contract; the write
-        // still happened, so it stays settled and the reply is refused.
+        // A success envelope: the server committed it (or replayed that
+        // commit). A result that is off contract (unreadable, or for another
+        // product) is not a confirmed discount, and a replay would only
+        // return the same stored reply: the create stays in its slot as
+        // committed, blocking any other create for the product until the
+        // user checked its discounts and resolves it.
+        final Discount discount;
+        try {
+          discount = DiscountModel.parse(response.data);
+          if (discount.productId != productId) throw invalidResponse;
+        } on Object {
+          _pending.markCommitted(write);
+          throw _pendingCommitted;
+        }
         _pending.settle(write);
-        if (discount.productId != productId) throw invalidResponse;
         return discount;
       });
 

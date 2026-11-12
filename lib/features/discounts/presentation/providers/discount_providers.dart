@@ -5,6 +5,7 @@ import 'package:orange_one/core/capabilities/feature_resolver.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
+import 'package:orange_one/features/discounts/domain/entities/pending_discount_create.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 
 /// App composition binds the signed-in shop's contract adapter; it throws
@@ -103,6 +104,16 @@ productDiscountsControllerProvider = AsyncNotifierProvider.autoDispose
       name: 'productDiscountsControllerProvider',
       retry: (count, error) => null,
     );
+
+/// The product's unresolved create of this session, if any. Read again with
+/// every list read (writes invalidate the list), so entry points can offer
+/// its recovery also when the product is at its discount limit.
+final ProviderFamily<PendingDiscountCreate?, int>
+pendingDiscountCreateProvider = Provider.autoDispose
+    .family<PendingDiscountCreate?, int>((ref, productId) {
+      ref.watch(productDiscountsControllerProvider(productId));
+      return ref.watch(discountRepositoryProvider).pendingCreate(productId);
+    }, name: 'pendingDiscountCreateProvider');
 
 class ProductDiscountsController extends AsyncNotifier<ProductDiscounts> {
   new(this.productId);

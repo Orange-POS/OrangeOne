@@ -86,14 +86,17 @@ class DiscountToggleController extends Notifier<DiscountToggleState> {
         ref.invalidate(list);
         return;
       }
-      final uncertain =
-          failure.code == null && failure.kind != FailureKind.cancelled;
+      // No server decision (no answer, or the request was cancelled while
+      // in flight): the server may have paused or resumed it already.
+      final uncertain = failure.code == null;
       state = DiscountToggleState(
         problem: uncertain
             ? DiscountActionProblem.uncertain
             : DiscountActionProblem.refused,
         serverMessage: uncertain ? null : failure.message,
       );
+      // Show what the server holds now instead of the state before the write.
+      if (uncertain) ref.invalidate(list);
     }
   }
 }

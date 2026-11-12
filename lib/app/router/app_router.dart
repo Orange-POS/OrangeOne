@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/app/bootstrap/bootstrap_resolver.dart';
 import 'package:orange_one/core/capabilities/compatibility.dart';
 import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/core/network/backend_features.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/authentication/presentation/pages/login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/qr_login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/splash_page.dart';
@@ -25,6 +27,7 @@ import 'package:orange_one/features/help_support/presentation/pages/tutorial_pag
 import 'package:orange_one/features/home/presentation/pages/home_page.dart';
 import 'package:orange_one/features/home/presentation/pages/product_scanner_page.dart';
 import 'package:orange_one/features/initialization/presentation/pages/initialization_page.dart';
+import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_creation_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
@@ -36,6 +39,56 @@ import 'package:orange_one/features/products/presentation/widgets/product_sync_n
 import 'package:orange_one/features/settings/presentation/pages/settings_page.dart';
 import 'package:orange_one/features/startup/presentation/providers/startup_configuration_providers.dart';
 import 'package:orange_one/features/startup/presentation/widgets/startup_workflow_section.dart';
+
+typedef _DiscountProduct = ({String barcode, int productId});
+
+/// The product's `discount_manage` as the discount screens' scope uses it:
+/// the last value a server-verified Product Details read reported. A failed
+/// refresh or an offline (cache-only) read carries no permissions, so it
+/// keeps the last verified value instead of flipping it to false; that
+/// would change the scope and with it the family key of the open discount
+/// form, which then loses the draft and any save in flight. Offline writes
+/// stay blocked by the discount access check, and the server checks the
+/// permission on every write.
+final NotifierProviderFamily<_DiscountManage, bool, _DiscountProduct>
+_discountManageProvider = NotifierProvider.autoDispose
+    .family<_DiscountManage, bool, _DiscountProduct>(
+      _DiscountManage.new,
+      name: '_discountManageProvider',
+    );
+
+class _DiscountManage extends Notifier<bool> {
+  new(this.product);
+  final _DiscountProduct product;
+
+  @override
+  bool build() {
+    final details = productDetailsControllerProvider(product.barcode);
+    ref.listen(details, (previous, next) {
+      final verified = _verified(next);
+      if (verified != null) state = verified;
+    });
+    // The first value is what Product Details shows now, as before; only
+    // later changes must come from a verified read.
+    final current = ref.read(details);
+    return _verified(current) ??
+        (!current.hasError &&
+            current.value?.product?.id == product.productId &&
+            (current.value?.access.manageDiscounts ?? false));
+  }
+
+  /// The permission of a server-verified read, or null when [details]
+  /// cannot tell (no value, a failure, a cache-only read while offline, or a
+  /// read without this product or of another one: it says nothing about
+  /// this product's permission).
+  bool? _verified(AsyncValue<ProductDetailsState> details) {
+    final value = details.value;
+    if (details.hasError || value == null) return null;
+    if (ref.read(readCacheProvider)?.offline ?? false) return null;
+    if (value.product?.id != product.productId) return null;
+    return value.access.manageDiscounts;
+  }
+}
 
 /// The discount screens of one product: the product's id and its own
 /// `discount_manage` come from Product Details, so the discounts feature
@@ -68,9 +121,9 @@ Widget _discountRoute(
       final scope = DiscountScope(
         productId: productId,
         barcode: barcode,
-        manageAllowed:
-            product?.id == productId &&
-            (details.value?.access.manageDiscounts ?? false),
+        manageAllowed: ref.watch(
+          _discountManageProvider((barcode: barcode, productId: productId)),
+        ),
       );
       final card = product == null || product.id != productId
           ? const SizedBox.shrink()

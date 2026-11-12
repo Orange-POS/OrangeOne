@@ -18,20 +18,6 @@ String startupEntryPath(AuthenticationMethod method) => switch (method) {
   AuthenticationMethod.oidc || AuthenticationMethod.credentials => '/login',
 };
 
-/// Signed-in paths the compatibility check protects.
-const _signedInPaths = {
-  '/home',
-  '/home/scan',
-  '/home/products/new',
-  '/home/products/details',
-  '/home/products/price',
-  '/home/products/stock',
-  '/home/products/edit',
-  '/home/products/discounts',
-  '/home/products/discounts/form',
-  '/home/products/discounts/detail',
-};
-
 /// Bootstrap Resolver: the route for [path] given the session, Demo Mode,
 /// the saved startup configuration and the shop's compatibility.
 ///
@@ -57,7 +43,7 @@ String? bootstrapRedirect({
     if (blocked) return null;
     return demo || signedIn ? '/home' : '/login';
   }
-  if (blocked && _signedInPaths.contains(path)) return compatibilityPath;
+  if (blocked && signedInPaths.contains(path)) return compatibilityPath;
 
   final target = authenticationRedirect(session, path, demo: demo);
   if (target != '/login' && !(target == null && path == '/login')) {

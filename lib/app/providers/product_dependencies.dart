@@ -11,10 +11,13 @@ import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/authenticated_mobile_api.dart';
 import 'package:orange_one/core/network/backend_features.dart';
+import 'package:orange_one/core/network/idempotency_keys.dart';
 import 'package:orange_one/core/network/mobile_api_client.dart';
 import 'package:orange_one/core/network/pending_writes.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/core/storage/read_cache_secret.dart';
+import 'package:orange_one/core/storage/secret_store.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/demo/presentation/providers/demo_providers.dart';
@@ -161,6 +164,9 @@ final Override productDetailsRepositoryOverride =
             cancelToken: cancel,
           ),
           cache: ref.watch(readCacheProvider),
+          // Session-lived: closing the product screens disposes this
+          // repository, never the key of a write with an unknown outcome.
+          idempotencyKeys: ref.watch(idempotencyKeysProvider),
           onSessionRejected: () async {
             if (ref.mounted &&
                 identical(ref.read(sessionControllerProvider).value, session)) {
@@ -170,6 +176,16 @@ final Override productDetailsRepositoryOverride =
         ),
       };
     });
+
+/// Keys of writes whose outcome is unknown belong to one session identity,
+/// like the server's idempotency records (per token family). Another shop,
+/// user or session, logout or expiry start with none.
+final Override idempotencyKeysOverride = idempotencyKeysProvider.overrideWith((
+  ref,
+) {
+  ref.watch(readCacheIdentityProvider);
+  return IdempotencyKeys();
+});
 
 /// Unresolved creates belong to one session identity (environment, server,
 /// company, user, token family), like the server's idempotency records
@@ -201,6 +217,7 @@ final Override discountRepositoryOverride = discountRepositoryProvider
             cancelToken: cancel,
           ),
           pendingWrites: ref.watch(pendingWritesProvider),
+          idempotencyKeys: ref.watch(idempotencyKeysProvider),
           onSessionRejected: () async {
             if (ref.mounted &&
                 identical(ref.read(sessionControllerProvider).value, session)) {
@@ -265,10 +282,20 @@ final Override readCacheOverride = readCacheProvider.overrideWith((ref) {
   final identity = ref.watch(readCacheIdentityProvider);
   if (identity == null) return null;
   final session = ref.watch(activeSessionProvider);
+  final secrets = ReadCacheSecret(
+    ref.watch(secretStoreProvider),
+    environment: ref.watch(
+      apiConfigurationProvider.select((config) => config.environment.name),
+    ),
+  );
   final cache = EncryptedReadCache(
     ref.watch(readCacheDatabaseProvider),
     sessionSecret: identity,
+    keySecret: () => secrets.secretFor(identity),
   );
+  // Rows of sessions that never closed their cache (the app was stopped)
+  // or of an older key are removed once this session's key is known.
+  unawaited(cache.purgeOtherOwners());
   final cancel = CancelToken();
   final sync = ProductCacheSynchronizer(
     ProductCatalogRemoteDataSource(
@@ -294,7 +321,14 @@ final Override readCacheOverride = readCacheProvider.overrideWith((ref) {
     cancel.cancel();
     unawaited(subscription.cancel());
     unawaited(recovery.cancel());
-    unawaited(cache.close());
+    // The session ended: its rows are purged first, then its key secret
+    // goes too (best effort; another session's secret is never deleted).
+    unawaited(
+      cache
+          .close()
+          .whenComplete(() => secrets.deleteFor(identity))
+          .then<void>((_) {}, onError: (Object error, StackTrace stack) {}),
+    );
   });
   return cache;
 });

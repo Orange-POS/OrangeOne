@@ -401,7 +401,14 @@
   "discountPendingExpired": "Ein früheres Speichern eines neuen Rabatts für dieses Produkt konnte nicht bestätigt werden und lässt sich nicht mehr automatisch prüfen. Sehen Sie in den Rabatten des Produkts nach: Ist er dort, bearbeiten Sie ihn dort. Wenn nicht, verwerfen Sie das frühere Speichern, um diesen zu erstellen.",
   "discountPendingDiscard": "Er ist nicht dort: früheres Speichern verwerfen",
   "discountReplayTitle": "Zuerst das frühere Angebot bestätigen",
-  "discountReplayBody": "Ihr früheres Speichern von {original} ist nicht bestätigt. Ein erneuter Versuch sendet genau diese Anfrage noch einmal: Kam sie vorher nicht beim Server an, erstellt sie den Rabatt {original} jetzt. Ihr bearbeitetes Angebot ({edited}) bleibt erhalten und wird erst nach Ihrer eigenen Bestätigung gespeichert.",
-  "discountReplayConfirm": "{original} erneut senden",
-  "discountOriginalRefused": "Das frühere Angebot wurde nicht erstellt. Ihr bearbeitetes Angebot bleibt erhalten: Speichern Sie erneut, um es zu erstellen."
+  "discountOriginalRefused": "Das frühere Angebot wurde nicht erstellt. Ihr bearbeitetes Angebot bleibt erhalten: Speichern Sie erneut, um es zu erstellen.",
+  "discountPendingRecover": "Früheren Rabatt bestätigen",
+  "discountPendingAtLimit": "Dieses Produkt hat die maximale Anzahl Rabatte, aber ein früheres Speichern eines neuen Rabatts ist noch nicht bestätigt. Bestätigen Sie es, um zu erfahren, ob er erstellt wurde; kein anderer Rabatt kann erstellt werden.",
+  "discountReplayIntro": "Ihr früheres Speichern eines neuen Rabatts ist nicht bestätigt. Ein erneuter Versuch sendet genau diese Anfrage noch einmal: Kam sie vorher nicht beim Server an, erstellt sie jetzt den Rabatt unten mit all diesen Bedingungen.",
+  "discountReplayOriginal": "Früheres Angebot (wird erneut gesendet)",
+  "discountReplayYourEdit": "Ihre Änderung: {value}",
+  "discountReplayKept": "Ihr bearbeitetes Angebot (die markierten Unterschiede) bleibt erhalten und wird erst nach Ihrer eigenen Bestätigung gespeichert.",
+  "discountReplayRetry": "Früheres Angebot erneut senden",
+  "discountPendingCommitted": "Der Server hat das frühere Speichern eines neuen Rabatts für dieses Produkt erhalten, aber seine Antwort war nicht lesbar; der Rabatt wurde also sehr wahrscheinlich erstellt. Prüfen Sie die Rabatte des Produkts, bevor Sie einen weiteren erstellen.",
+  "discountPendingCommittedResolve": "Rabatte geprüft: fortfahren"
 }

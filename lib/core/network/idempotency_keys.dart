@@ -1,6 +1,16 @@
 import 'dart:math';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+
+/// The session's [IdempotencyKeys]. App composition makes one per session
+/// identity, so the key of a write with an unknown outcome outlives the
+/// screen and repository that sent it (the repository is rebuilt when its
+/// screens close) but never another session, user or shop.
+final idempotencyKeysProvider = Provider<IdempotencyKeys>(
+  (ref) => IdempotencyKeys(),
+  name: 'idempotencyKeysProvider',
+);
 
 /// `Idempotency-Key` values for Mobile API writes.
 ///

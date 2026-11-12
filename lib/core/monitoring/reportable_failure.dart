@@ -50,6 +50,10 @@ String operationLabel(String method, String path) {
     'categories',
     'taxes',
     'price',
+    'meta',
+    'discounts',
+    'pause',
+    'resume',
   };
   final pathOnly = path.split('?').first;
   final segments = pathOnly

@@ -22,9 +22,17 @@ typedef CacheSyncState = ({String since});
 /// Session-scoped read cache (schema 2: Mobile API v2 product reads).
 /// Tokens, permissions, versions and pending writes are never persisted.
 class EncryptedReadCache {
-  new(this.database, {required String sessionSecret, DateTime Function()? now})
-    : _identity = sessionSecret,
-      _now = now ?? DateTime.now;
+  /// `sessionSecret` is the session identity the rows belong to. With
+  /// `keySecret`, the key and the row owner also depend on that random,
+  /// securely stored secret of the session, so the identity alone (which is
+  /// not secret) cannot decrypt or even locate the rows.
+  new(
+    this.database, {
+    required String sessionSecret,
+    this._keySecret,
+    DateTime Function()? now,
+  }) : _identity = sessionSecret,
+       _now = now ?? DateTime.now;
 
   /// Encrypted envelope schema; other envelopes are discarded as misses.
   static const schema = 2;
@@ -56,6 +64,7 @@ class EncryptedReadCache {
 
   final ReadCacheDatabase database;
   final String _identity;
+  final Future<String> Function()? _keySecret;
   final DateTime Function() _now;
   final _cipher = AesGcm.with256bits();
   final _events = StreamController<int>.broadcast();
@@ -72,6 +81,7 @@ class EncryptedReadCache {
   bool _writing = false;
   Future<SecretKey>? _key;
   Future<String>? _owner;
+  Future<String>? _material;
   Future<void>? _persistence;
 
   // Order snapshot changes and purges, never backend mutations.
@@ -100,10 +110,51 @@ class EncryptedReadCache {
         verifiedAt: null,
       );
 
-  Future<SecretKey> get key => _key ??= Sha256()
-      .hash(utf8.encode('orangeone.product-cache.v$schema:$_identity'))
+  Future<SecretKey> get key => _key ??= _keyMaterial
+      .then(
+        (material) => Sha256().hash(
+          utf8.encode('orangeone.product-cache.v$schema:$material'),
+        ),
+      )
       .then((hash) => SecretKey(hash.bytes));
-  Future<String> get owner => _owner ??= _hash(_identity);
+  Future<String> get owner => _owner ??= _keyMaterial.then(_hash);
+
+  /// The identity, plus the session's stored secret when one is wired. A
+  /// failed secret read is not kept: the next cache access tries again.
+  Future<String> get _keyMaterial => _material ??= _loadKeyMaterial();
+
+  Future<String> _loadKeyMaterial() async {
+    final loader = _keySecret;
+    if (loader == null) return _identity;
+    try {
+      return '$_identity|${await loader()}';
+    } on Object {
+      _material = null;
+      _key = null;
+      _owner = null;
+      rethrow;
+    }
+  }
+
+  /// Deletes the rows of every other owner: sessions whose cache was never
+  /// closed (the app was stopped before logout or expiry) and rows under an
+  /// older key. Best effort; the entry cap still bounds the file.
+  Future<void> purgeOtherOwners() async {
+    try {
+      final identity = await owner;
+      await _persist(() async {
+        if (_closed) return;
+        await database.customStatement(
+          'DELETE FROM product_reads WHERE owner != ?',
+          [identity],
+        );
+      });
+    } on Object {
+      // Best effort, also when the database closed meanwhile: other
+      // owners' rows stay unreadable to this one.
+    }
+  }
+
   Future<String> _hash(String value) async =>
       base64UrlEncode((await Sha256().hash(utf8.encode(value))).bytes);
 
@@ -202,7 +253,8 @@ class EncryptedReadCache {
           await _remove(barcode, revision: revision);
         } on Exception {
           // Preserve authentication rejection even when cache cleanup fails.
-          // Session key removal still makes its encrypted payload inaccessible.
+          // The session's purge on close, or the next session's sweep of
+          // other owners, removes the row later.
         }
         _set(barcode, ReadSyncPhase.failed);
         rethrow;
@@ -711,7 +763,9 @@ class EncryptedReadCache {
     _closed = true;
     _revision++;
     try {
-      await _purge();
+      // Rows are only ever written under a derived owner: a cache that never
+      // derived one has nothing to purge (and never reads its secret now).
+      if (_owner != null) await _purge();
     } finally {
       await _events.close();
       await _recovery.close();
