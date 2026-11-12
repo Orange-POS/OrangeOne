@@ -147,6 +147,25 @@ class FakeDiscountRepository implements DiscountRepository {
   bool loseCreateAnswer = false;
   final _replay = <String, Discount>{};
 
+  /// Every create request as sent, in order.
+  final createdDrafts = <DiscountDraft>[];
+
+  /// The next create times out while still running on the server: it
+  /// commits only when [commitDeferred] is called (or a replay of the same
+  /// payload waits for it, like the server's key lock).
+  bool deferNextCommit = false;
+  DiscountDraft? _deferred;
+
+  /// The deferred create commits now.
+  Discount commitDeferred() {
+    final draft = _deferred!;
+    _deferred = null;
+    final created = _from(_next++, draft, 'v1');
+    discounts = [created, ...discounts];
+    _replay[_payload(draft)] = created;
+    return created;
+  }
+
   /// Updates and archives with a stale version fail with
   /// `VERSION_CONFLICT`, like the server's `If-Match` check.
   bool checkVersions = false;
@@ -251,9 +270,19 @@ class FakeDiscountRepository implements DiscountRepository {
   @override
   Future<Discount> create(int productId, DiscountDraft draft) async {
     lastDraft = draft;
+    createdDrafts.add(draft);
     await _write('create', null);
+    if (_deferred != null && _payload(_deferred!) == _payload(draft)) {
+      // The replay waits for the running original and returns it.
+      return commitDeferred();
+    }
     final replayed = _replay[_payload(draft)];
     if (replayed != null) return replayed;
+    if (deferNextCommit) {
+      deferNextCommit = false;
+      _deferred = draft;
+      throw const AppFailure(FailureKind.timeout, 'No answer yet');
+    }
     final created = _from(_next++, draft, 'v1');
     discounts = [created, ...discounts];
     if (loseCreateAnswer) {

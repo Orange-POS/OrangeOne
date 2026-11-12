@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/idempotency_keys.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_merge.dart';
+import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 
 /// [saving] and [archiving] are the two writes of the form; while one runs,
@@ -201,10 +203,9 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   final DiscountFormArgs args;
   int _generation = 0;
 
-  /// Discounts that existed when the create form opened.
-  Set<int> _knownIds = const {};
-
-  /// A create sent without a confirmed answer: it may exist on the server.
+  /// A create sent without a confirmed answer, exactly as sent. It may
+  /// have committed (or still commit). Only replaying it with its key can
+  /// tell; until then no other create is sent.
   DiscountDraft? _unconfirmedCreate;
 
   @override
@@ -216,7 +217,6 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     final id = args.discountId;
     if (id == null) {
       final list = await repository.list(args.scope.productId);
-      _knownIds = {for (final discount in list.discounts) discount.id};
       return DiscountFormState(
         regularPrice: list.regularPrice,
         draft: const DiscountDraft(),
@@ -411,15 +411,24 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   static String _fingerprint(DiscountDraft draft) =>
       [for (final part in DiscountPart.values) draft.partKey(part)].join('|');
 
+  /// Whether the outcome of a write is still open after [failure]: no
+  /// server decision about the write itself (transport failure,
+  /// cancellation, authentication or rate limit).
+  static bool _outcomeOpen(AppFailure failure) =>
+      !IdempotencyKeys.settles(failure);
+
   /// Sends the confirmed draft once.
   ///
-  /// After a create whose answer was lost, a retry with the same values
-  /// (also when only formatted differently, "20" and "20.00") replays the
-  /// originally sent draft: the identical payload with the same
-  /// `Idempotency-Key`, so the server applies it once.
-  /// A changed draft is not sent until the product's discounts were read:
-  /// if the lost create did reach the server, the form switches to editing
-  /// that discount instead of creating a second one.
+  /// A create whose answer was lost stays pending, exactly as sent. Any
+  /// next save first replays it unchanged (same payload, same
+  /// `Idempotency-Key`): the server returns what it committed, or runs it
+  /// now if it never did, so its outcome is known before anything else is
+  /// written. A list read or an empty list never decides it.
+  /// - Same values (also "20" and "20.00"): the replay is the save.
+  /// - Changed values: if the replay created the discount, the form edits
+  ///   it with the changes ([DiscountFormProblem.createdMeanwhile]); if the
+  ///   server refused it, the changed draft is created.
+  /// - No answer again: the original request stays pending, unchanged.
   Future<void> save() async {
     final current = _editable;
     if (current == null) return;
@@ -440,71 +449,84 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     state = AsyncData(
       current.copy(phase: DiscountFormPhase.saving, keepProblem: true),
     );
-    // The draft to send. While a create is unresolved, a retry with the
-    // same values ("20" or "20.00") sends the request exactly as first
-    // sent: same payload, so the repository reuses its Idempotency-Key and
-    // the server applies it once.
-    var toSend = current.draft;
-    try {
-      final original = current.original;
-      if (original == null) {
-        final unconfirmed = _unconfirmedCreate;
-        if (unconfirmed != null &&
-            _fingerprint(unconfirmed) == _fingerprint(current.draft)) {
-          toSend = unconfirmed;
-        } else if (unconfirmed != null) {
-          final created = await _findUnconfirmedCreate(unconfirmed);
-          if (!ref.mounted || generation != _generation) return;
-          _unconfirmedCreate = null;
-          if (created != null) {
-            state = AsyncData(
-              DiscountFormState(
-                regularPrice: created.regularPrice,
-                draft: current.draft,
-                original: created,
-                problem: DiscountFormProblem.createdMeanwhile,
-              ),
-            );
-            ref.invalidate(
-              productDiscountsControllerProvider(args.scope.productId),
-            );
-            return;
-          }
-        }
+    final original = current.original;
+    if (original != null) {
+      try {
+        final saved = await repository.update(original, current.draft);
+        if (!ref.mounted || generation != _generation) return;
+        _saved(current, saved);
+      } on AppFailure catch (failure) {
+        if (!ref.mounted || generation != _generation) return;
+        await _failed(current, failure, generation);
       }
-      final saved = original == null
-          ? await repository.create(args.scope.productId, toSend)
-          : await repository.update(original, current.draft);
+      return;
+    }
+    final pending = _unconfirmedCreate;
+    if (pending != null) {
+      final Discount confirmed;
+      try {
+        confirmed = await repository.create(args.scope.productId, pending);
+      } on AppFailure catch (failure) {
+        if (!ref.mounted || generation != _generation) return;
+        if (_outcomeOpen(failure)) {
+          // Still unknown: the original request stays pending as sent.
+          await _failed(current, failure, generation);
+          return;
+        }
+        // The server refused the original request: it never committed.
+        _unconfirmedCreate = null;
+        if (_fingerprint(pending) == _fingerprint(current.draft)) {
+          await _failed(current, failure, generation);
+          return;
+        }
+        await _create(current, repository, generation);
+        return;
+      }
       if (!ref.mounted || generation != _generation) return;
       _unconfirmedCreate = null;
+      if (_fingerprint(pending) == _fingerprint(current.draft)) {
+        _saved(current, confirmed);
+        return;
+      }
+      // The original request created the discount: edit it with the
+      // changes instead of creating a second one. Nothing else was sent.
       state = AsyncData(
-        current.copy(phase: DiscountFormPhase.saved, saved: saved),
+        DiscountFormState(
+          regularPrice: confirmed.regularPrice,
+          draft: current.draft,
+          original: confirmed,
+          problem: DiscountFormProblem.createdMeanwhile,
+        ),
       );
       ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
+      return;
+    }
+    await _create(current, repository, generation);
+  }
+
+  /// Creates [current]'s draft; an open outcome keeps it pending as sent.
+  Future<void> _create(
+    DiscountFormState current,
+    DiscountRepository repository,
+    int generation,
+  ) async {
+    final draft = current.draft;
+    try {
+      final saved = await repository.create(args.scope.productId, draft);
+      if (!ref.mounted || generation != _generation) return;
+      _saved(current, saved);
     } on AppFailure catch (failure) {
       if (!ref.mounted || generation != _generation) return;
-      if (current.original == null) {
-        // Remember exactly what was sent, to replay it byte for byte.
-        _unconfirmedCreate = _isUncertain(failure) ? toSend : null;
-      }
+      if (_outcomeOpen(failure)) _unconfirmedCreate = draft;
       await _failed(current, failure, generation);
     }
   }
 
-  /// A discount the lost create made: new since the form opened and equal
-  /// to what was sent. Throws when the list cannot be read (still unsure).
-  Future<Discount?> _findUnconfirmedCreate(DiscountDraft sent) async {
-    final list = await ref
-        .read(discountRepositoryProvider)
-        .list(args.scope.productId);
-    final fingerprint = _fingerprint(sent);
-    for (final discount in list.discounts) {
-      if (!_knownIds.contains(discount.id) &&
-          _fingerprint(DiscountDraft.fromDiscount(discount)) == fingerprint) {
-        return discount;
-      }
-    }
-    return null;
+  void _saved(DiscountFormState current, Discount saved) {
+    state = AsyncData(
+      current.copy(phase: DiscountFormPhase.saved, saved: saved),
+    );
+    ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
   }
 
   /// Archives the stored discount once (`DELETE /discounts/{id}` with its
@@ -533,9 +555,6 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       await _failed(current, failure, generation);
     }
   }
-
-  static bool _isUncertain(AppFailure failure) =>
-      failure.code == null && failure.kind != FailureKind.cancelled;
 
   Future<void> _failed(
     DiscountFormState current,
@@ -580,7 +599,10 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         messages[input] = error.message!;
       }
     }
-    final uncertain = _isUncertain(failure);
+    final uncertain =
+        _outcomeOpen(failure) &&
+        failure.kind != FailureKind.unauthenticated &&
+        failure.kind != FailureKind.cancelled;
     final limit = failure.fieldErrors.any(
       (error) => error.code == 'DISCOUNT_LIMIT_REACHED',
     );

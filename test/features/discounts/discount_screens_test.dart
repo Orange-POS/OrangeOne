@@ -848,20 +848,24 @@ void main() {
         expect(discounts.writes, ['create']);
         expect(discounts.discounts, hasLength(1), reason: 'committed');
         expect(find.textContaining('could not be confirmed'), findsOneWidget);
-        // The user changes the value and saves again: the form checks the
-        // server first and finds the committed discount; nothing is sent.
+        // The user changes the value and saves again: the original request
+        // is replayed unchanged first; the server returns what it committed.
         await typePercent(tester, '25');
         await tapKey(tester, 'discount-save');
         await confirm(tester);
-        expect(discounts.writes, ['create']);
+        expect(discounts.writes, ['create', 'create']);
+        expect(
+          [for (final d in discounts.createdDrafts) d.percent],
+          ['20', '20'],
+        );
         expect(discounts.discounts, hasLength(1));
-        expect(find.textContaining('did create this discount'), findsOneWidget);
+        expect(find.textContaining('now confirmed'), findsOneWidget);
         expect(find.text('Edit Discount'), findsOneWidget);
         expect(percentText(tester), '25');
         // Saving now updates that discount with the user's change.
         await tapKey(tester, 'discount-save');
         await confirm(tester);
-        expect(discounts.writes, ['create', 'update']);
+        expect(discounts.writes, ['create', 'create', 'update']);
         expect(discounts.lastDraft?.percent, '25');
         expect(discounts.discounts, hasLength(1));
       });
@@ -886,7 +890,38 @@ void main() {
         expect(find.text('Discount created.'), findsOneWidget);
       });
 
-      testWidgets('an edited retry creates when the lost create did not land', (
+      testWidgets('an edited retry first settles the original request', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        // No answer and nothing committed yet.
+        discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.discounts, isEmpty);
+        discounts.writeError = null;
+        await typePercent(tester, '25');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        // The original request runs now (that is its outcome); the change
+        // becomes an edit of it, never a second create.
+        expect(
+          [for (final d in discounts.createdDrafts) d.percent],
+          ['20', '20'],
+        );
+        expect(discounts.discounts.single.percent, '20');
+        expect(find.text('Edit Discount'), findsOneWidget);
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.discounts.single.percent, '25');
+      });
+
+      // Review follow-up: an equal record by someone else proves nothing.
+      testWidgets('a concurrent identical creation is not taken as ours', (
         tester,
       ) async {
         discounts.discounts = [];
@@ -897,14 +932,83 @@ void main() {
         discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
         await tapKey(tester, 'discount-save');
         await confirm(tester);
-        expect(discounts.discounts, isEmpty);
-        discounts.writeError = null;
+        // Another operator creates a discount with the same values.
+        discounts
+          ..writeError = null
+          ..discounts = [discountOf(id: 50)];
         await typePercent(tester, '25');
         await tapKey(tester, 'discount-save');
         await confirm(tester);
-        expect(discounts.writes, ['create', 'create']);
-        expect(discounts.discounts.single.percent, '25');
-        expect(find.text('Discount created.'), findsOneWidget);
+        // Ours is settled by its own replay; the other one is not touched.
+        expect(discounts.discounts, hasLength(2));
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        final other = discounts.discounts.firstWhere((d) => d.id == 50);
+        final ours = discounts.discounts.firstWhere((d) => d.id != 50);
+        expect(other.percent, '20');
+        expect(other.version, 'v1');
+        expect(ours.percent, '25');
+      });
+
+      // Review follow-up: an empty list must not decide while the original
+      // POST is still running; it commits after any list read.
+      testWidgets('an original create that commits later is not duplicated', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        discounts.deferNextCommit = true;
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(find.textContaining('could not be confirmed'), findsOneWidget);
+        // The server has not committed yet: a list read now is empty.
+        expect((await discounts.list(10)).discounts, isEmpty);
+        await typePercent(tester, '25');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        // The replay waits for the running original and gets it back.
+        expect(discounts.discounts, hasLength(1));
+        expect(
+          [for (final d in discounts.createdDrafts) d.percent],
+          ['20', '20'],
+        );
+        expect(find.text('Edit Discount'), findsOneWidget);
+        expect(percentText(tester), '25');
+      });
+
+      // Review follow-up: a failed confirmation keeps the original request.
+      testWidgets('a failed confirmation keeps the original request', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        discounts.loseCreateAnswer = true;
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        // The confirmation fails too (still offline).
+        discounts.writeError = const AppFailure(FailureKind.network, 'offline');
+        await typePercent(tester, '25');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(find.textContaining('could not be confirmed'), findsOneWidget);
+        expect(discounts.discounts, hasLength(1));
+        // Back online: the next save still replays the original "20", not
+        // the never-sent "25".
+        discounts.writeError = null;
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(
+          [for (final d in discounts.createdDrafts) d.percent],
+          ['20', '20', '20'],
+        );
+        expect(discounts.discounts, hasLength(1));
+        expect(find.text('Edit Discount'), findsOneWidget);
       });
 
       // P1 follow-up: a formatting-only change after a lost create.

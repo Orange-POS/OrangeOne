@@ -1874,7 +1874,7 @@
   "@categoryCreating": {
     "description": "Loading placeholder label for screen readers"
   },
-  "discountCreatedMeanwhile": "Your earlier save did create this discount, its answer was only lost. The form now edits it with your changes; nothing was sent twice. Review and save.",
+  "discountCreatedMeanwhile": "Your earlier request is now confirmed: it created this discount. The form edits it with your changes; nothing was created twice. Review and save.",
   "@discountCreatedMeanwhile": {
     "description": "Discount form: lost create and concurrent change"
   },

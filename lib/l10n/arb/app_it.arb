@@ -386,7 +386,7 @@
   "wifiChecking": "Verifica della connessione Wi-Fi",
   "tutorialsLoading": "Caricamento dei tutorial",
   "categoryCreating": "Creazione della categoria",
-  "discountCreatedMeanwhile": "Il salvataggio precedente ha creato questo sconto, è andata persa solo la risposta. Il modulo ora lo modifica con le tue modifiche; nulla è stato inviato due volte. Controlla e salva.",
+  "discountCreatedMeanwhile": "La richiesta precedente è ora confermata: ha creato questo sconto. Il modulo lo modifica con le tue modifiche; nulla è stato creato due volte. Controlla e salva.",
   "discountConflictTitle": "Modificato altrove",
   "discountConflictBody": "Qualcuno ha salvato questo sconto mentre lo modificavi. Le tue modifiche restano. Dove entrambi avete cambiato la stessa parte, scegli il valore, poi applica e controlla prima di salvare.",
   "discountConflictSaved": "Salvato ora: {value}",

@@ -64,14 +64,21 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
   state (`DiscountFormController`): while either is pending the other, the
   inputs and leaving the form are blocked; a failure keeps the draft.
 - `Idempotency-Key` for every write (`IdempotencyKeys`): new per intent,
-  reused only for the identical request after an uncertain outcome.
-- A create without a confirmed answer may exist on the server. Saving the
-  same values again, also when only formatted differently (`20` and
-  `20.00`), replays the originally sent draft: the identical payload with
-  its original key, so it is applied once. A changed
-  draft is not sent before the product's discounts are read: a new discount
-  equal to the lost request means it landed, and the form switches to
-  editing it (`createdMeanwhile`) instead of creating a second one.
+  reused only for the identical request after an uncertain outcome. A 401
+  or 429 keeps the key too: the server checks those before it reserves the
+  key, so they say nothing about an earlier attempt.
+- A create without a confirmed answer stays pending, exactly as sent. A
+  list read cannot settle it (an equal record may be another operator's;
+  an empty list may race a request still running), so every next save
+  first replays it unchanged with its original key. The server waits for a
+  running original, returns what it committed, or runs it now; only then
+  is the outcome known:
+  - same values (also `20` and `20.00`): the replay is the save;
+  - changed values: a created discount is edited with the changes
+    (`createdMeanwhile`); a refused original lets the changed draft be
+    created;
+  - no answer again: the original stays pending, never replaced by an
+    unsent draft.
 - `If-Match` with the discount `version` of a fresh read (the edit form and
   the details screen load `GET /discounts/{id}`; the list switch uses the
   version of the online list read), never the ETag.

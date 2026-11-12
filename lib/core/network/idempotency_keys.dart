@@ -26,14 +26,25 @@ class IdempotencyKeys {
     try {
       return await write(key);
     } on AppFailure catch (failure) {
-      // Error envelopes carry a code: the server decided, nothing is pending.
-      if (failure.code == null) _remember(operation, key);
+      // Error envelopes carry a code: the server decided, nothing is
+      // pending. Except authentication and rate limits: the server checks
+      // those before it reserves the key, so they say nothing about an
+      // earlier attempt of this request, which may still have committed.
+      if (!settles(failure)) _remember(operation, key);
       rethrow;
     } on Object {
       _remember(operation, key);
       rethrow;
     }
   }
+
+  /// Whether [failure] is a server decision about the write itself, so the
+  /// key is used up. Transport failures, authentication and rate limits
+  /// leave the outcome of the request open.
+  static bool settles(AppFailure failure) =>
+      failure.code != null &&
+      failure.kind != FailureKind.unauthenticated &&
+      failure.kind != FailureKind.rateLimited;
 
   void _remember(String operation, String key) {
     _uncertain[operation] = key;

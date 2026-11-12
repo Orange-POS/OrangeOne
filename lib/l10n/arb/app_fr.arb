@@ -386,7 +386,7 @@
   "wifiChecking": "Vérification de la connexion Wi-Fi",
   "tutorialsLoading": "Chargement des tutoriels",
   "categoryCreating": "Création de la catégorie",
-  "discountCreatedMeanwhile": "Votre enregistrement précédent a bien créé cette remise, seule la réponse a été perdue. Le formulaire la modifie maintenant avec vos changements ; rien n'a été envoyé deux fois. Vérifiez et enregistrez.",
+  "discountCreatedMeanwhile": "Votre demande précédente est maintenant confirmée : elle a créé cette remise. Le formulaire la modifie avec vos changements ; rien n'a été créé deux fois. Vérifiez et enregistrez.",
   "discountConflictTitle": "Modifiée ailleurs",
   "discountConflictBody": "Quelqu'un a enregistré cette remise pendant votre modification. Vos changements sont conservés. Là où vous avez tous deux modifié la même partie, choisissez la valeur, puis appliquez et vérifiez avant d'enregistrer.",
   "discountConflictSaved": "Enregistré : {value}",
