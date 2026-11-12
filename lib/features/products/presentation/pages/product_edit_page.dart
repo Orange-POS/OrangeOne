@@ -3,22 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
-import 'package:orange_one/features/products/presentation/product_success_text.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_category_sheet.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_confirm_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_edit_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_success_text.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_tax_sheet.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/product_action_surface.dart';
+import 'package:orange_one/shared/widgets/product_navbar.dart';
+import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class ProductEditPage extends ConsumerStatefulWidget {
   const new({required this.barcode, super.key});
@@ -283,10 +284,9 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                   child: async.when(
                     skipLoadingOnRefresh: false,
                     skipLoadingOnReload: false,
-                    loading: () => Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: l10n.editLoading,
-                      ),
+                    loading: () => Skeleton(
+                      label: l10n.editLoading,
+                      child: const SkeletonForm(fields: 2),
                     ),
                     error: (error, stack) => Column(
                       children: [

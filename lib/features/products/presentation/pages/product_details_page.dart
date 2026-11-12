@@ -1,48 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
-import 'package:orange_one/features/products/presentation/widgets/mock_discount_dialog.dart';
-import 'package:orange_one/features/products/presentation/widgets/open_scanner_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_success_toast.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/l10n/l10n.dart';
-import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/edit_pencil_button.dart';
+import 'package:orange_one/shared/widgets/info_row_card.dart';
+import 'package:orange_one/shared/widgets/product_navbar.dart';
+import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/scan_dock_bar.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class ProductDetailsPage extends ConsumerStatefulWidget {
-  const new({required this.barcode, super.key});
+  const new({required this.barcode, this.discountsBuilder, super.key});
   final String barcode;
+
+  /// The discount card under the price, composed by the app (the discounts
+  /// feature); null shows none.
+  final Widget Function(ProductDetailsState details)? discountsBuilder;
   @override
   ConsumerState<ProductDetailsPage> createState() => _ProductDetailsPageState();
 }
 
 class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
-  String _discountName = 'Cotton essentials offer';
-  String _discountPercent = '20';
-
-  Future<void> _editDiscount() async {
-    final result = await showDialog<MockDiscount>(
-      context: context,
-      builder: (context) => MockDiscountDialog(
-        initial: (name: _discountName, percent: _discountPercent),
-      ),
-    );
-    if (result != null && mounted) {
-      setState(() {
-        _discountName = result.name;
-        _discountPercent = result.percent;
-      });
-    }
-  }
-
   /// The same way back to the scanner the screen always had.
   void _openScanner() =>
       context.canPop() ? context.pop() : context.goNamed('productScanner');
@@ -56,9 +41,6 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Read the shop's features early, so the stock screen opened from here
-    // shows its operations at once.
-    ref.watch(backendFeaturesProvider);
     final l10n = context.l10n;
     ref.watch(readCacheChangesProvider);
     final offline = ref.watch(readCacheProvider)?.offline ?? false;
@@ -66,18 +48,18 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
     final state = ref.watch(provider);
     final product = state.hasError ? null : state.value?.product;
     return ProductScaffold(
+      // The success of a finished form, above the scan dock.
       floatingActionButton: SizedBox(
         width: MediaQuery.sizeOf(context).width - 32,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            // The success of a finished form, above the Open Scanner button.
-            ProductSuccessToast(barcode: widget.barcode),
-            const SizedBox(height: 12),
-            OpenScannerButton(onPressed: _openScanner),
-          ],
-        ),
+        child: ProductSuccessToast(barcode: widget.barcode),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      // The dock floats: content stays visible through its notch.
+      floatingBottomBar: true,
+      bottomNavigationBar: ScanDockBar(
+        buttonKey: const Key('open-scanner-button'),
+        label: l10n.detailsOpenScanner,
+        onPressed: _openScanner,
       ),
       appBar: ProductNavbar(
         title: l10n.detailsTitle,
@@ -123,11 +105,13 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
+                // Includes the floating dock's height, so the last card can
+                // scroll clear of it.
                 padding: EdgeInsets.fromLTRB(
                   16,
                   16,
                   16,
-                  MediaQuery.paddingOf(context).bottom + 96,
+                  MediaQuery.paddingOf(context).bottom + 16,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -135,9 +119,23 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                     state.when(
                       skipLoadingOnRefresh: false,
                       skipLoadingOnReload: false,
-                      loading: () => Center(
-                        child: CircularProgressIndicator(
-                          semanticsLabel: l10n.detailsLoading,
+                      loading: () => Skeleton(
+                        label: l10n.detailsLoading,
+                        child: const Column(
+                          children: [
+                            SkeletonInfoRow(),
+                            SizedBox(height: 16),
+                            SkeletonCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SkeletonBox(width: 140),
+                                  SizedBox(height: 16),
+                                  SkeletonTiles(count: 2, height: 72),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       error: (error, stack) => Column(
@@ -170,17 +168,11 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _row(
-                                  'assets/icons/product_detail_price.svg',
-                                  l10n.detailsPrice,
-                                  _priceLabel(details.product!.price),
-                                  isPrice: true,
-                                  action: IconButton(
+                                InfoRowCard.price(
+                                  label: l10n.detailsPrice,
+                                  value: _priceLabel(details.product!.price),
+                                  action: EditPencilButton(
                                     tooltip: l10n.detailsUpdatePrice,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 48,
-                                      height: 48,
-                                    ),
                                     onPressed:
                                         !offline && details.access.updatePrice
                                         ? () => context.pushNamed<bool>(
@@ -190,26 +182,9 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                                             },
                                           )
                                         : null,
-                                    icon: Opacity(
-                                      opacity:
-                                          !offline && details.access.updatePrice
-                                          ? 1
-                                          : .38,
-                                      child: SvgPicture.asset(
-                                        'assets/icons/'
-                                        'product_detail_pencil.svg',
-                                        width: 24,
-                                        height: 24,
-                                      ),
-                                    ),
                                   ),
                                 ),
-                                // Keep discounts hidden for future use.
-                                Visibility(
-                                  visible: false,
-                                  maintainState: true,
-                                  child: _discountCard(),
-                                ),
+                                ?widget.discountsBuilder?.call(details),
                               ],
                             ),
                     ),
@@ -224,109 +199,4 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
   }
 
   String _priceLabel(double price) => 'CHF ${price.toStringAsFixed(2)}';
-
-  Widget _row(
-    String asset,
-    String label,
-    String value, {
-    Widget? action,
-    bool isPrice = false,
-  }) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: OrangeTheme.actionDisabled),
-    ),
-    child: Row(
-      children: [
-        SvgPicture.asset(
-          asset,
-          width: isPrice ? 24 : 20,
-          height: isPrice ? 24 : 20,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: OrangeTheme.secondary,
-              fontSize: 14,
-              height: 20 / 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          flex: 2,
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 20 / 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        if (action != null) ...[const SizedBox(width: 8), action],
-      ],
-    ),
-  );
-
-  Widget _discountCard() => Container(
-    padding: const EdgeInsets.all(16),
-    margin: const EdgeInsets.only(bottom: 8),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0xFFDADCE0),
-          offset: Offset(0, 4),
-          blurRadius: 4,
-        ),
-      ],
-      border: Border.all(color: const Color(0xFFDADCE0)),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.sell_outlined, color: OrangeTheme.scannerAccent),
-            const SizedBox(width: 8),
-            const Expanded(child: Text('Discount · Mock data')),
-            IconButton(
-              tooltip: 'Edit mock discount',
-              onPressed: _editDiscount,
-              icon: const Icon(Icons.edit_outlined),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          _discountName,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: OrangeTheme.pale,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            '$_discountPercent% off · Preview only',
-            style: const TextStyle(color: OrangeTheme.dark, fontSize: 20),
-          ),
-        ),
-        const SizedBox(height: 12),
-        const Text('Schedule\n12–18 Oct 2026 · All day'),
-        const SizedBox(height: 8),
-        const Text('Mock discount changes are not saved.'),
-      ],
-    ),
-  );
 }

@@ -4,12 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/app/app.dart';
 import 'package:orange_one/app/providers/product_dependencies.dart';
+import 'package:orange_one/app/providers/session_lifecycle_bindings.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/logging/app_logger.dart';
 import 'package:orange_one/core/monitoring/crash_reporter.dart';
 import 'package:orange_one/core/monitoring/firebase_crash_reporter.dart';
+import 'package:orange_one/core/storage/secret_store.dart';
+import 'package:orange_one/features/startup/data/repositories/stored_startup_configuration_repository.dart';
+import 'package:orange_one/features/startup/presentation/providers/startup_configuration_providers.dart';
 
 Future<void> bootstrap(AppEnvironment environment) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +51,11 @@ Future<void> bootstrap(AppEnvironment environment) async {
     return true;
   };
   logger.event(LogEvent.startup);
+  // Configurable bootstrap: the saved startup workflow decides the starting
+  // component. Read once, bounded, before the first frame.
+  final startup = await loadStartupConfiguration(
+    const StoredStartupConfigurationRepository(platformSecretStore),
+  );
   runApp(
     ProviderScope(
       overrides: [
@@ -58,13 +67,20 @@ Future<void> bootstrap(AppEnvironment environment) async {
         appLoggerProvider.overrideWithValue(logger),
         crashReporterProvider.overrideWithValue(reporter),
         crashTestControlsProvider.overrideWithValue(settings.crashTestEnabled),
+        savedStartupConfigurationProvider.overrideWithValue(startup),
         readCacheOverride,
         unsetStockScopeOverride,
         recentScansRepositoryOverride,
         authenticatedMobileApiOverride,
         backendFeaturesOverride,
+        sessionPermissionsOverride,
+        capabilityScopeOverride,
+        sessionLifecycleOverride,
         productRepositoryOverride,
         productDetailsRepositoryOverride,
+        pendingWritesOverride,
+        idempotencyKeysOverride,
+        discountRepositoryOverride,
       ],
       child: const App(),
     ),

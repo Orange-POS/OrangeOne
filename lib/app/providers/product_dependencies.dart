@@ -4,17 +4,26 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
+import 'package:orange_one/core/capabilities/api_contract.dart';
+import 'package:orange_one/core/capabilities/session_permissions.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/authenticated_mobile_api.dart';
 import 'package:orange_one/core/network/backend_features.dart';
+import 'package:orange_one/core/network/idempotency_keys.dart';
 import 'package:orange_one/core/network/mobile_api_client.dart';
+import 'package:orange_one/core/network/pending_writes.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/core/storage/read_cache_secret.dart';
+import 'package:orange_one/core/storage/secret_store.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/demo/presentation/providers/demo_providers.dart';
+import 'package:orange_one/features/discounts/data/data_sources/discount_remote_data_source.dart';
+import 'package:orange_one/features/discounts/data/repositories/odoo_discount_repository.dart';
+import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 import 'package:orange_one/features/home/data/data_sources/product_remote_data_source.dart';
 import 'package:orange_one/features/home/data/repositories/odoo_product_repository.dart';
 import 'package:orange_one/features/home/data/repositories/recent_scans_repositories.dart';
@@ -111,10 +120,31 @@ final Override backendFeaturesOverride = backendFeaturesProvider.overrideWith((
     // Keep the answer for the rest of this session.
     ref.keepAlive();
     return features;
-  } on AppFailure {
+  } on AppFailure catch (failure) {
+    // Definitive refusals block the session's screens (compatibility
+    // check); every other failure degrades to the unconfirmed baseline.
+    if (failure.kind == FailureKind.upgradeRequired) {
+      return BackendFeatures.refused(BackendRefusal.appUpgradeRequired);
+    }
+    if (failure.code == 'MAINTENANCE') {
+      return BackendFeatures.refused(BackendRefusal.maintenance);
+    }
     return BackendFeatures.baseline;
   }
 });
+
+/// The signed-in user's permissions for the Feature Resolver. Demo Mode and
+/// a signed-out app have none to report (never restricting).
+final Override sessionPermissionsOverride = sessionPermissionsProvider
+    .overrideWith((ref) {
+      if (ref.watch(demoLoginProvider) != null) {
+        return SessionPermissions.unknown;
+      }
+      final session = ref.watch(activeSessionProvider);
+      return session == null
+          ? SessionPermissions.unknown
+          : SessionPermissions(session.permissions);
+    });
 
 final Override productDetailsRepositoryOverride =
     productDetailsRepositoryProvider.overrideWith((ref) {
@@ -126,19 +156,76 @@ final Override productDetailsRepositoryOverride =
       if (session == null) throw invalidSession;
       final cancel = CancelToken();
       ref.onDispose(cancel.cancel);
-      return OdooProductDetailsRepository(
-        ProductCatalogRemoteDataSource(
-          ref.watch(authenticatedMobileApiProvider),
-          cancelToken: cancel,
+      // Contract adapter: one data implementation per supported contract.
+      return switch (ref.watch(apiContractProvider)) {
+        ApiContract.mobileV1 => OdooProductDetailsRepository(
+          ProductCatalogRemoteDataSource(
+            ref.watch(authenticatedMobileApiProvider),
+            cancelToken: cancel,
+          ),
+          cache: ref.watch(readCacheProvider),
+          // Session-lived: closing the product screens disposes this
+          // repository, never the key of a write with an unknown outcome.
+          idempotencyKeys: ref.watch(idempotencyKeysProvider),
+          onSessionRejected: () async {
+            if (ref.mounted &&
+                identical(ref.read(sessionControllerProvider).value, session)) {
+              await ref.read(sessionControllerProvider.notifier).signOut();
+            }
+          },
         ),
-        cache: ref.watch(readCacheProvider),
-        onSessionRejected: () async {
-          if (ref.mounted &&
-              identical(ref.read(sessionControllerProvider).value, session)) {
-            await ref.read(sessionControllerProvider.notifier).signOut();
-          }
-        },
-      );
+      };
+    });
+
+/// Keys of writes whose outcome is unknown belong to one session identity,
+/// like the server's idempotency records (per token family). Another shop,
+/// user or session, logout or expiry start with none.
+final Override idempotencyKeysOverride = idempotencyKeysProvider.overrideWith((
+  ref,
+) {
+  ref.watch(readCacheIdentityProvider);
+  return IdempotencyKeys();
+});
+
+/// Unresolved creates belong to one session identity (environment, server,
+/// company, user, token family), like the server's idempotency records
+/// (per token family). Another shop, user or session, logout or expiry get
+/// a new, empty store; within the session it outlives forms, controllers
+/// and repository rebuilds.
+final Override pendingWritesOverride = pendingWritesProvider.overrideWith((
+  ref,
+) {
+  ref.watch(readCacheIdentityProvider);
+  return PendingWrites(now: ref.watch(utcNowProvider));
+});
+
+/// Product discounts of the signed-in shop. Mobile API 1.1 adds the
+/// discount endpoints to the v1 contract without changing it, so the v1
+/// adapter serves them; the Feature Resolver decides whether they are used
+/// at all. Demo Mode has no discount data, so the feature stays hidden there.
+final Override discountRepositoryOverride = discountRepositoryProvider
+    .overrideWith((ref) {
+      if (ref.watch(demoLoginProvider) != null) throw discountUnavailable;
+      final session = ref.watch(activeSessionProvider);
+      if (session == null) throw invalidSession;
+      final cancel = CancelToken();
+      ref.onDispose(cancel.cancel);
+      return switch (ref.watch(apiContractProvider)) {
+        ApiContract.mobileV1 => OdooDiscountRepository(
+          DiscountRemoteDataSource(
+            ref.watch(authenticatedMobileApiProvider),
+            cancelToken: cancel,
+          ),
+          pendingWrites: ref.watch(pendingWritesProvider),
+          idempotencyKeys: ref.watch(idempotencyKeysProvider),
+          onSessionRejected: () async {
+            if (ref.mounted &&
+                identical(ref.read(sessionControllerProvider).value, session)) {
+              await ref.read(sessionControllerProvider.notifier).signOut();
+            }
+          },
+        ),
+      };
     });
 
 /// Cross-feature composition belongs to app, not either feature's internals.
@@ -151,20 +238,23 @@ final Override productRepositoryOverride = productRepositoryProvider
       if (session == null) throw invalidSession;
       final cancel = CancelToken();
       ref.onDispose(cancel.cancel);
-      return OdooProductRepository(
-        ProductRemoteDataSource(
-          ref.watch(authenticatedMobileApiProvider),
-          cancelToken: cancel,
+      // Contract adapter: one data implementation per supported contract.
+      return switch (ref.watch(apiContractProvider)) {
+        ApiContract.mobileV1 => OdooProductRepository(
+          ProductRemoteDataSource(
+            ref.watch(authenticatedMobileApiProvider),
+            cancelToken: cancel,
+          ),
+          cache: ref.watch(readCacheProvider),
+          onSessionRejected: () async {
+            if (!ref.mounted) return;
+            final current = ref.read(sessionControllerProvider).value;
+            if (identical(current, session)) {
+              await ref.read(sessionControllerProvider.notifier).signOut();
+            }
+          },
         ),
-        cache: ref.watch(readCacheProvider),
-        onSessionRejected: () async {
-          if (!ref.mounted) return;
-          final current = ref.read(sessionControllerProvider).value;
-          if (identical(current, session)) {
-            await ref.read(sessionControllerProvider.notifier).signOut();
-          }
-        },
-      );
+      };
     });
 
 /// Recent scans live in the session's encrypted cache: they survive restarts
@@ -192,10 +282,20 @@ final Override readCacheOverride = readCacheProvider.overrideWith((ref) {
   final identity = ref.watch(readCacheIdentityProvider);
   if (identity == null) return null;
   final session = ref.watch(activeSessionProvider);
+  final secrets = ReadCacheSecret(
+    ref.watch(secretStoreProvider),
+    environment: ref.watch(
+      apiConfigurationProvider.select((config) => config.environment.name),
+    ),
+  );
   final cache = EncryptedReadCache(
     ref.watch(readCacheDatabaseProvider),
     sessionSecret: identity,
+    keySecret: () => secrets.secretFor(identity),
   );
+  // Rows of sessions that never closed their cache (the app was stopped)
+  // or of an older key are removed once this session's key is known.
+  unawaited(cache.purgeOtherOwners());
   final cancel = CancelToken();
   final sync = ProductCacheSynchronizer(
     ProductCatalogRemoteDataSource(
@@ -221,7 +321,14 @@ final Override readCacheOverride = readCacheProvider.overrideWith((ref) {
     cancel.cancel();
     unawaited(subscription.cancel());
     unawaited(recovery.cancel());
-    unawaited(cache.close());
+    // The session ended: its rows are purged first, then its key secret
+    // goes too (best effort; another session's secret is never deleted).
+    unawaited(
+      cache
+          .close()
+          .whenComplete(() => secrets.deleteFor(identity))
+          .then<void>((_) {}, onError: (Object error, StackTrace stack) {}),
+    );
   });
   return cache;
 });

@@ -74,17 +74,17 @@ void main() {
   ) async {
     final container = await pumpApp(tester);
     await openSettings(tester);
-    await choose(tester, settingsRow(), 'nl');
+    await choose(tester, settingsRow(), 'de');
 
     // Settings themselves switch at once.
-    expect(find.text('Instellingen'), findsOneWidget);
-    expect(find.text('Taal'), findsOneWidget);
+    expect(find.text('Einstellungen'), findsOneWidget);
+    expect(find.text('Sprache'), findsOneWidget);
     expect(
       find.descendant(of: settingsRow(), matching: find.text('Hallo')),
       findsOneWidget,
     );
-    expect(container.read(localeControllerProvider), const Locale('nl'));
-    expect(await store.read(localeStorageKey), 'nl');
+    expect(container.read(localeControllerProvider), const Locale('de'));
+    expect(await store.read(localeStorageKey), 'de');
 
     // The login badge shows the same language.
     await back(tester);

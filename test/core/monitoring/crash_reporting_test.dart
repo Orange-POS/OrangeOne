@@ -141,6 +141,24 @@ void main() {
       );
       expect(operationLabel('get', '/oa_SECRET_TOKEN'), 'GET /{id}');
     });
+
+    // AUD-08: discount endpoints keep their fixed names, ids stay hidden.
+    test('discount and meta endpoints keep their fixed words', () {
+      expect(operationLabel('get', '/meta'), 'GET /meta');
+      expect(
+        operationLabel('post', '/products/42/discounts'),
+        'POST /products/{id}/discounts',
+      );
+      expect(operationLabel('put', '/discounts/7'), 'PUT /discounts/{id}');
+      expect(
+        operationLabel('post', '/discounts/7/pause'),
+        'POST /discounts/{id}/pause',
+      );
+      expect(
+        operationLabel('post', '/discounts/7/resume'),
+        'POST /discounts/{id}/resume',
+      );
+    });
   });
 
   group('FirebaseCrashReporter', () {

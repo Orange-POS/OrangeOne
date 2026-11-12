@@ -6,7 +6,18 @@ import 'package:orange_one/core/errors/app_failure.dart';
 /// app shows a capability only when the shop advertises it; user permissions
 /// still decide whether it can be used.
 class BackendFeatures {
-  const new(this.names, {this.apiVersion, this.confirmed = false});
+  const new(
+    this.names, {
+    this.apiVersion,
+    this.confirmed = false,
+    this.refusal,
+  });
+
+  /// The shop answered `GET /meta` with a definitive refusal (the app is too
+  /// old, or the server is under maintenance). Feature names fall back to
+  /// the [baseline]; the compatibility check blocks the session's screens.
+  factory refused(BackendRefusal refusal) =>
+      BackendFeatures(baseline.names, confirmed: true, refusal: refusal);
 
   /// Parses `GET /meta` `data`; anything unexpected is a protocol failure.
   factory fromMeta(Object? data) {
@@ -34,8 +45,17 @@ class BackendFeatures {
   /// a feature read the features again when they open unconfirmed.
   final bool confirmed;
 
+  /// Why the shop refused `GET /meta`, or null when it answered normally (or
+  /// could not be reached, which is never a refusal).
+  final BackendRefusal? refusal;
+
   /// `POST /products/{id}/stock-movements` (stock Add and Remove).
   static const stockMovements = 'stock_movements';
+
+  /// Product discounts (Mobile API 1.1, `mupi_mobile_pos_api` 19.0.2.2.0
+  /// with `mupi_product_discount`). Never part of the [baseline]: a shop
+  /// shows discounts only when its own `GET /meta` lists them.
+  static const productDiscounts = 'product_discounts';
 
   /// The oldest supported addons (`mupi_mobile_pos_api` 19.0.2.0.0). Used
   /// while `GET /meta` has not answered or cannot be read, so a shop never
@@ -50,6 +70,16 @@ class BackendFeatures {
   });
 
   bool supports(String feature) => names.contains(feature);
+}
+
+/// Definitive `GET /meta` refusals. Transport failures and unreadable
+/// replies are not refusals: they keep the unconfirmed baseline.
+enum BackendRefusal {
+  /// `APP_UPGRADE_REQUIRED`: the installed app is below the shop's minimum.
+  appUpgradeRequired,
+
+  /// `MAINTENANCE`: the shop's server is temporarily closed for maintenance.
+  maintenance,
 }
 
 /// The features of the signed-in shop. App composition reads them from the

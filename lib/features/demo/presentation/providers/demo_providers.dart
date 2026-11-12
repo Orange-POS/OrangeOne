@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/features/demo/data/repositories/demo_catalog.dart';
 import 'package:orange_one/features/demo/data/repositories/demo_product_details_repository.dart';
 import 'package:orange_one/features/demo/data/repositories/demo_product_repository.dart';
+import 'package:orange_one/features/demo/data/repositories/demo_recent_scans_repository.dart';
 import 'package:orange_one/features/demo/domain/entities/demo_sample.dart';
 import 'package:orange_one/features/demo/domain/entities/demo_session.dart';
-import 'package:orange_one/features/home/data/repositories/recent_scans_repositories.dart';
 import 'package:orange_one/features/home/domain/repositories/product_repository.dart';
 import 'package:orange_one/features/home/domain/repositories/recent_scans_repository.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
@@ -95,5 +95,5 @@ final Provider<ProductDetailsRepository> demoProductDetailsRepositoryProvider =
 final Provider<RecentScansRepository> demoRecentScansRepositoryProvider =
     Provider<RecentScansRepository>((ref) {
       ref.watch(demoLoginProvider);
-      return MemoryRecentScansRepository();
+      return DemoRecentScansRepository();
     }, name: 'demoRecentScansRepositoryProvider');

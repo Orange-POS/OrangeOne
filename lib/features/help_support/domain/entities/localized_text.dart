@@ -1,5 +1,5 @@
 /// Text managed outside the app, either one value for every language or one
-/// value per language code (`en`, `nl`, `fr`, `it`, `tr`, `ta`).
+/// value per language code (`en`, `de`, `fr`, `it`, `tr`, `ta`).
 class LocalizedText {
   const new(this.values);
 

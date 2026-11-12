@@ -1,5 +1,8 @@
 arb-dir: lib/l10n/arb
 template-arb-file: app_en.arb
+# English stays the fallback for unsupported device languages; without this
+# gen-l10n lists locales alphabetically and Flutter would fall back to German.
+preferred-supported-locales: [en]
 output-localization-file: app_localizations.dart
 output-dir: lib/l10n/gen
 nullable-getter: false

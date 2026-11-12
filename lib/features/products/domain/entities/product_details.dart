@@ -77,6 +77,7 @@ class ProductAccess {
     this.createCategory = false,
     this.adjustStock = false,
     this.readHistory = false,
+    this.manageDiscounts = false,
   });
   final bool editName;
   final bool updatePrice;
@@ -91,6 +92,10 @@ class ProductAccess {
   final bool createCategory;
   final bool adjustStock;
   final bool readHistory;
+
+  /// `discount_manage` for this product: false for products the POS never
+  /// discounts (weighed, combo, gift card) and on backends without discounts.
+  final bool manageDiscounts;
 }
 
 class ProductDetailsState {

@@ -176,11 +176,11 @@ void main() {
     ];
 
     test('videos in the app language plus videos for every language', () {
-      expect(ids(catalog(['en', 'nl', null]), 'nl'), ['v1', 'v2']);
+      expect(ids(catalog(['en', 'de', null]), 'de'), ['v1', 'v2']);
     });
 
     test('without videos in that language, English ones are shown', () {
-      expect(ids(catalog(['en', 'nl', null]), 'ta'), ['v0', 'v2']);
+      expect(ids(catalog(['en', 'de', null]), 'ta'), ['v0', 'v2']);
     });
 
     test('a language never hides every video', () {

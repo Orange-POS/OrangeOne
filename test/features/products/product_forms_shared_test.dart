@@ -113,7 +113,7 @@ void main() {
   }
 
   testWidgets('the price confirmation popup is translated', (tester) async {
-    const locale = Locale('nl');
+    const locale = Locale('de');
     final l10n = await AppLocalizations.delegate.load(locale);
     await mount(
       tester,
