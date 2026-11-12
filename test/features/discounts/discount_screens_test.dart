@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +19,10 @@ import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/core/storage/secret_store.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
+import 'package:orange_one/features/discounts/data/data_sources/discount_remote_data_source.dart';
+import 'package:orange_one/features/discounts/data/repositories/odoo_discount_repository.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
+import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
@@ -29,6 +34,8 @@ import 'package:orange_one/shared/widgets/product_action_surface.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/discount_fakes.dart';
+import '../../support/mobile_api_fakes.dart';
+import '../../support/product_api_fakes.dart';
 import '../../support/product_details_fakes.dart';
 
 const _barcode = '0010101010';
@@ -53,6 +60,7 @@ void main() {
     },
     ProductAccess access = _manage,
     List<Override> more = const [],
+    DiscountRepository? repository,
   }) async {
     tester.view
       ..physicalSize = const Size(900, 2600)
@@ -68,7 +76,7 @@ void main() {
           productDetailsRepositoryProvider.overrideWithValue(
             FakeDetailsRepository()..access = access,
           ),
-          discountRepositoryProvider.overrideWithValue(discounts),
+          discountRepositoryProvider.overrideWithValue(repository ?? discounts),
           backend ?? discountBackend,
           if (permissions != null)
             sessionPermissionsProvider.overrideWithValue(
@@ -896,6 +904,96 @@ void main() {
         await confirm(tester);
         expect(discounts.writes, ['create', 'create']);
         expect(discounts.discounts.single.percent, '25');
+        expect(find.text('Discount created.'), findsOneWidget);
+      });
+
+      // P1 follow-up: a formatting-only change after a lost create.
+      testWidgets('20 to 20.00 after a lost create makes no second one', (
+        tester,
+      ) async {
+        discounts.discounts = [];
+        await open(tester);
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        discounts.loseCreateAnswer = true;
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(discounts.discounts, hasLength(1), reason: 'committed');
+        await typePercent(tester, '20.00');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        // The original request is replayed, not a new "20.00" one.
+        expect(discounts.lastDraft?.percent, '20');
+        expect(discounts.writes, ['create', 'create']);
+        expect(discounts.discounts, hasLength(1));
+        expect(find.text('Discount created.'), findsOneWidget);
+      });
+
+      testWidgets('the retry sends the original payload with its key', (
+        tester,
+      ) async {
+        // A server that commits the first create, loses the answer, and
+        // replays a known Idempotency-Key (like the real one).
+        final server = FakeMobileApiServer();
+        final stored = <Map<String, dynamic>>[];
+        final byKey = <String, Map<String, dynamic>>{};
+        var loseAnswer = true;
+        Map<String, Object?> ok(Object? data) => {
+          'data': data,
+          'meta': {'request_id': 'r', 'server_time': '2026-10-13T08:00:00Z'},
+        };
+        server
+          ..on(
+            'GET /products/10/discounts',
+            (request) => FakeReply(200, ok(discountListPayload(stored))),
+          )
+          ..on('POST /products/10/discounts', (request) {
+            final key = request.headers['Idempotency-Key'] as String;
+            final replay = byKey[key];
+            if (replay != null) return FakeReply(201, ok(replay));
+            final body = request.data is String
+                ? jsonDecode(request.data as String) as Map<String, dynamic>
+                : request.data as Map<String, dynamic>;
+            final created = discountPayload(
+              id: 100 + stored.length,
+              percent: body['percent'] as String?,
+            );
+            stored.add(created);
+            byKey[key] = created;
+            if (loseAnswer) {
+              loseAnswer = false;
+              throw DioException(
+                requestOptions: request,
+                type: DioExceptionType.receiveTimeout,
+              );
+            }
+            return FakeReply(201, ok(created));
+          });
+        await open(
+          tester,
+          repository: OdooDiscountRepository(
+            DiscountRemoteDataSource(fakeProductApi(server)),
+          ),
+        );
+        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'discount-type-percentage');
+        await typePercent(tester, '20');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        expect(find.textContaining('could not be confirmed'), findsOneWidget);
+        expect(stored, hasLength(1), reason: 'the first POST committed');
+        await typePercent(tester, '20.00');
+        await tapKey(tester, 'discount-save');
+        await confirm(tester);
+        final posts = server.called('POST /products/10/discounts');
+        expect(posts, hasLength(2));
+        expect(
+          posts[1].headers['Idempotency-Key'],
+          posts[0].headers['Idempotency-Key'],
+        );
+        expect(jsonEncode(posts[1].data), jsonEncode(posts[0].data));
+        expect(stored, hasLength(1), reason: 'no second discount');
         expect(find.text('Discount created.'), findsOneWidget);
       });
 

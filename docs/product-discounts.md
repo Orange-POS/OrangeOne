@@ -66,7 +66,9 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
 - `Idempotency-Key` for every write (`IdempotencyKeys`): new per intent,
   reused only for the identical request after an uncertain outcome.
 - A create without a confirmed answer may exist on the server. Saving the
-  identical draft repeats the request (same key, applied once). A changed
+  same values again, also when only formatted differently (`20` and
+  `20.00`), replays the originally sent draft: the identical payload with
+  its original key, so it is applied once. A changed
   draft is not sent before the product's discounts are read: a new discount
   equal to the lost request means it landed, and the form switches to
   editing it (`createdMeanwhile`) instead of creating a second one.

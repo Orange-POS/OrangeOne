@@ -413,8 +413,10 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
 
   /// Sends the confirmed draft once.
   ///
-  /// After a create whose answer was lost, an identical retry repeats the
-  /// same request (same `Idempotency-Key`, so the server applies it once).
+  /// After a create whose answer was lost, a retry with the same values
+  /// (also when only formatted differently, "20" and "20.00") replays the
+  /// originally sent draft: the identical payload with the same
+  /// `Idempotency-Key`, so the server applies it once.
   /// A changed draft is not sent until the product's discounts were read:
   /// if the lost create did reach the server, the form switches to editing
   /// that discount instead of creating a second one.
@@ -438,12 +440,19 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     state = AsyncData(
       current.copy(phase: DiscountFormPhase.saving, keepProblem: true),
     );
+    // The draft to send. While a create is unresolved, a retry with the
+    // same values ("20" or "20.00") sends the request exactly as first
+    // sent: same payload, so the repository reuses its Idempotency-Key and
+    // the server applies it once.
+    var toSend = current.draft;
     try {
       final original = current.original;
       if (original == null) {
         final unconfirmed = _unconfirmedCreate;
         if (unconfirmed != null &&
-            _fingerprint(unconfirmed) != _fingerprint(current.draft)) {
+            _fingerprint(unconfirmed) == _fingerprint(current.draft)) {
+          toSend = unconfirmed;
+        } else if (unconfirmed != null) {
           final created = await _findUnconfirmedCreate(unconfirmed);
           if (!ref.mounted || generation != _generation) return;
           _unconfirmedCreate = null;
@@ -464,7 +473,7 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
         }
       }
       final saved = original == null
-          ? await repository.create(args.scope.productId, current.draft)
+          ? await repository.create(args.scope.productId, toSend)
           : await repository.update(original, current.draft);
       if (!ref.mounted || generation != _generation) return;
       _unconfirmedCreate = null;
@@ -475,7 +484,8 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
     } on AppFailure catch (failure) {
       if (!ref.mounted || generation != _generation) return;
       if (current.original == null) {
-        _unconfirmedCreate = _isUncertain(failure) ? current.draft : null;
+        // Remember exactly what was sent, to replay it byte for byte.
+        _unconfirmedCreate = _isUncertain(failure) ? toSend : null;
       }
       await _failed(current, failure, generation);
     }

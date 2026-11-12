@@ -1,11 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/backend_features.dart';
+import 'package:orange_one/features/discounts/data/models/discount_model.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
-import 'package:orange_one/features/discounts/domain/entities/discount_merge.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
 
 /// A `Discount` payload of the Mobile API 1.1 contract (product 10, CHF 100).
@@ -140,8 +141,9 @@ class FakeDiscountRepository implements DiscountRepository {
   int _next = 100;
 
   /// The next create is committed but its answer is lost (a network
-  /// failure after the server saved it). An identical retry is replayed
-  /// like the server does for the same `Idempotency-Key`.
+  /// failure after the server saved it). Only a retry with the exact same
+  /// serialized payload is replayed, as the real repository reuses the
+  /// `Idempotency-Key` only for that; any other payload creates again.
   bool loseCreateAnswer = false;
   final _replay = <String, Discount>{};
 
@@ -149,8 +151,8 @@ class FakeDiscountRepository implements DiscountRepository {
   /// `VERSION_CONFLICT`, like the server's `If-Match` check.
   bool checkVersions = false;
 
-  static String _fingerprint(DiscountDraft draft) =>
-      [for (final part in DiscountPart.values) draft.partKey(part)].join('|');
+  static String _payload(DiscountDraft draft) =>
+      jsonEncode(DiscountInputModel.toJson(draft));
 
   void _checkVersion(Discount current) {
     if (!checkVersions) return;
@@ -250,13 +252,13 @@ class FakeDiscountRepository implements DiscountRepository {
   Future<Discount> create(int productId, DiscountDraft draft) async {
     lastDraft = draft;
     await _write('create', null);
-    final replayed = _replay[_fingerprint(draft)];
+    final replayed = _replay[_payload(draft)];
     if (replayed != null) return replayed;
     final created = _from(_next++, draft, 'v1');
     discounts = [created, ...discounts];
     if (loseCreateAnswer) {
       loseCreateAnswer = false;
-      _replay[_fingerprint(draft)] = created;
+      _replay[_payload(draft)] = created;
       throw const AppFailure(FailureKind.network, 'Connection lost');
     }
     return created;
