@@ -2,39 +2,174 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orange_one/app/router/auth_redirect.dart';
+import 'package:orange_one/app/bootstrap/bootstrap_resolver.dart';
+import 'package:orange_one/core/capabilities/compatibility.dart';
 import 'package:orange_one/core/config/application_settings.dart';
+import 'package:orange_one/core/network/backend_features.dart';
+import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/authentication/presentation/pages/login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/qr_login_page.dart';
 import 'package:orange_one/features/authentication/presentation/pages/splash_page.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
+import 'package:orange_one/features/compatibility/presentation/pages/compatibility_page.dart';
 import 'package:orange_one/features/demo/presentation/providers/demo_providers.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_mode_section.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_sample_barcodes.dart';
 import 'package:orange_one/features/demo/presentation/widgets/demo_sample_qr_list.dart';
+import 'package:orange_one/features/discounts/presentation/pages/discount_details_page.dart';
+import 'package:orange_one/features/discounts/presentation/pages/discount_form_page.dart';
+import 'package:orange_one/features/discounts/presentation/pages/discount_list_page.dart';
+import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_summary_card.dart';
 import 'package:orange_one/features/help_support/presentation/pages/tutorial_page.dart';
 import 'package:orange_one/features/home/presentation/pages/home_page.dart';
 import 'package:orange_one/features/home/presentation/pages/product_scanner_page.dart';
 import 'package:orange_one/features/initialization/presentation/pages/initialization_page.dart';
+import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_creation_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_stock_update_page.dart';
+import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/settings/presentation/pages/settings_page.dart';
+import 'package:orange_one/features/startup/presentation/providers/startup_configuration_providers.dart';
+import 'package:orange_one/features/startup/presentation/widgets/startup_workflow_section.dart';
+
+typedef _DiscountProduct = ({String barcode, int productId});
+
+/// The product's `discount_manage` as the discount screens' scope uses it:
+/// the last value a server-verified Product Details read reported. A failed
+/// refresh or an offline (cache-only) read carries no permissions, so it
+/// keeps the last verified value instead of flipping it to false; that
+/// would change the scope and with it the family key of the open discount
+/// form, which then loses the draft and any save in flight. Offline writes
+/// stay blocked by the discount access check, and the server checks the
+/// permission on every write.
+final NotifierProviderFamily<_DiscountManage, bool, _DiscountProduct>
+_discountManageProvider = NotifierProvider.autoDispose
+    .family<_DiscountManage, bool, _DiscountProduct>(
+      _DiscountManage.new,
+      name: '_discountManageProvider',
+    );
+
+class _DiscountManage extends Notifier<bool> {
+  new(this.product);
+  final _DiscountProduct product;
+
+  @override
+  bool build() {
+    final details = productDetailsControllerProvider(product.barcode);
+    ref.listen(details, (previous, next) {
+      final verified = _verified(next);
+      if (verified != null) state = verified;
+    });
+    // The first value is what Product Details shows now, as before; only
+    // later changes must come from a verified read.
+    final current = ref.read(details);
+    return _verified(current) ??
+        (!current.hasError &&
+            current.value?.product?.id == product.productId &&
+            (current.value?.access.manageDiscounts ?? false));
+  }
+
+  /// The permission of a server-verified read, or null when [details]
+  /// cannot tell (no value, a failure, a cache-only read while offline, or a
+  /// read without this product or of another one: it says nothing about
+  /// this product's permission).
+  bool? _verified(AsyncValue<ProductDetailsState> details) {
+    final value = details.value;
+    if (details.hasError || value == null) return null;
+    if (ref.read(readCacheProvider)?.offline ?? false) return null;
+    if (value.product?.id != product.productId) return null;
+    return value.access.manageDiscounts;
+  }
+}
+
+/// The discount screens of one product: the product's id and its own
+/// `discount_manage` come from Product Details, so the discounts feature
+/// never reads product internals. `editPrice` opens the product's price
+/// screen and tells whether a new price was saved; it is null while the
+/// product's `update_price` is not granted.
+Widget _discountRoute(
+  GoRouterState state,
+  Widget Function(
+    DiscountScope scope,
+    Widget productCard,
+    Widget navTrailing,
+    int? discountId,
+    Future<bool> Function(BuildContext context)? editPrice,
+  )
+  page,
+) {
+  final barcode = state.uri.queryParameters['barcode'] ?? '';
+  final productId = int.tryParse(state.uri.queryParameters['product_id'] ?? '');
+  final discountId = int.tryParse(
+    state.uri.queryParameters['discount_id'] ?? '',
+  );
+  return Consumer(
+    builder: (context, ref, child) {
+      if (productId == null || productId <= 0) {
+        return ProductDetailsPage(barcode: barcode);
+      }
+      final details = ref.watch(productDetailsControllerProvider(barcode));
+      final product = details.hasError ? null : details.value?.product;
+      final scope = DiscountScope(
+        productId: productId,
+        barcode: barcode,
+        manageAllowed: ref.watch(
+          _discountManageProvider((barcode: barcode, productId: productId)),
+        ),
+      );
+      final card = product == null || product.id != productId
+          ? const SizedBox.shrink()
+          : ProductNameCard(product: product, showActions: false);
+      final priceAllowed =
+          product?.id == productId &&
+          (details.value?.access.updatePrice ?? false);
+      return page(
+        scope,
+        card,
+        ProductSyncNavButton(barcode: barcode),
+        discountId,
+        priceAllowed
+            ? (context) async =>
+                  await context.pushNamed<bool>(
+                    'productPrice',
+                    queryParameters: {'barcode': barcode},
+                  ) ??
+                  false
+            : null,
+      );
+    },
+  );
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
   ref
     ..listen(sessionControllerProvider, (previous, next) => refresh.value++)
-    ..listen(demoLoginProvider, (previous, next) => refresh.value++);
+    ..listen(demoLoginProvider, (previous, next) => refresh.value++)
+    ..listen(
+      startupConfigurationControllerProvider,
+      (previous, next) => refresh.value++,
+    )
+    // Listening keeps the Capability Manager's GET /meta read alive for the
+    // whole session: it runs right after sign-in or restore.
+    ..listen(compatibilityProvider, (previous, next) => refresh.value++);
   final router = GoRouter(
     initialLocation: '/startup',
     refreshListenable: refresh,
-    redirect: (context, route) => authenticationRedirect(
-      ref.read(sessionControllerProvider),
-      route.uri.path,
+    redirect: (context, route) => bootstrapRedirect(
+      session: ref.read(sessionControllerProvider),
+      path: route.uri.path,
+      startup: ref.read(startupConfigurationControllerProvider),
+
+      compatibility: ref.read(compatibilityProvider),
       demo: ref.read(demoLoginProvider) != null,
     ),
     errorBuilder: (context, state) => Scaffold(
@@ -117,8 +252,78 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: 'productDetails',
             path: 'products/details',
-            builder: (context, state) => ProductDetailsPage(
-              barcode: state.uri.queryParameters['barcode'] ?? '',
+            builder: (context, state) {
+              final barcode = state.uri.queryParameters['barcode'] ?? '';
+              return ProductDetailsPage(
+                barcode: barcode,
+                discountsBuilder: (details) {
+                  final product = details.product!;
+                  final query = {
+                    'barcode': barcode,
+                    'product_id': '${product.id}',
+                  };
+                  return DiscountSummaryCard(
+                    productId: product.id,
+                    manageAllowed: details.access.manageDiscounts,
+                    onOpen: () => context.pushNamed(
+                      'productDiscounts',
+                      queryParameters: query,
+                    ),
+                    onCreate: () async {
+                      final message = await context.pushNamed<String>(
+                        'productDiscountForm',
+                        queryParameters: query,
+                      );
+                      if (context.mounted) showDiscountResult(context, message);
+                    },
+                  );
+                },
+              );
+            },
+          ),
+          GoRoute(
+            name: 'productDiscounts',
+            path: 'products/discounts',
+            builder: (context, state) => _discountRoute(
+              state,
+              (scope, card, nav, _, _) => DiscountListPage(
+                scope: scope,
+                productCard: card,
+                navTrailing: nav,
+              ),
+            ),
+          ),
+          GoRoute(
+            name: 'productDiscountForm',
+            path: 'products/discounts/form',
+            builder: (context, state) => _discountRoute(
+              state,
+              (scope, card, nav, discountId, editPrice) => DiscountFormPage(
+                scope: scope,
+                discountId: discountId,
+                productCard: card,
+                navTrailing: nav,
+                onEditPrice: editPrice,
+              ),
+            ),
+          ),
+          GoRoute(
+            name: 'productDiscountDetail',
+            path: 'products/discounts/detail',
+            builder: (context, state) => _discountRoute(
+              state,
+              (scope, card, nav, discountId, _) => discountId == null
+                  ? DiscountListPage(
+                      scope: scope,
+                      productCard: card,
+                      navTrailing: nav,
+                    )
+                  : DiscountDetailsPage(
+                      scope: scope,
+                      discountId: discountId,
+                      productCard: card,
+                      navTrailing: nav,
+                    ),
             ),
           ),
           GoRoute(
@@ -149,6 +354,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/startup',
         builder: (context, state) => const SplashPage(),
       ),
+      GoRoute(
+        name: 'compatibility',
+        path: compatibilityPath,
+        builder: (context, state) => Consumer(
+          builder: (context, ref, child) => CompatibilityPage(
+            status: ref.watch(compatibilityProvider),
+            onRetry: () => ref.invalidate(backendFeaturesProvider),
+            onSignOut: () => unawaited(
+              ref.read(sessionControllerProvider.notifier).signOut(),
+            ),
+          ),
+        ),
+      ),
       GoRoute(path: '/', redirect: (context, state) => '/login'),
       // Settings hold Demo Mode in every flavor; the Crashlytics verification
       // inside them exists in development only.
@@ -159,6 +377,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           builder: (context, ref, child) {
             final auth = ref.watch(sessionControllerProvider);
             return SettingsPage(
+              startupSection: const StartupWorkflowSection(),
               demoSection: DemoModeSection(
                 // Never next to a real session, or while one is restored.
                 available: !auth.isLoading && auth.value == null,

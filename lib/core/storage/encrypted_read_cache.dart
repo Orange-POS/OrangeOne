@@ -22,9 +22,21 @@ typedef CacheSyncState = ({String since});
 /// Session-scoped read cache (schema 2: Mobile API v2 product reads).
 /// Tokens, permissions, versions and pending writes are never persisted.
 class EncryptedReadCache {
-  new(this.database, {required String sessionSecret, DateTime Function()? now})
-    : _identity = sessionSecret,
-      _now = now ?? DateTime.now;
+  /// `sessionSecret` is the session identity the rows belong to. With
+  /// `keySecret`, the key and the row owner also depend on that random,
+  /// securely stored secret of the session, so the identity alone (which is
+  /// not secret) cannot decrypt or even locate the rows. Secure storage may
+  /// never answer, so each secret read is bounded by `keySecretTimeout`:
+  /// after it the cache counts as unavailable for that access (a verified
+  /// read is returned uncached, a write is refused before it is sent).
+  new(
+    this.database, {
+    required String sessionSecret,
+    this._keySecret,
+    this._keySecretTimeout = const Duration(seconds: 2),
+    DateTime Function()? now,
+  }) : _identity = sessionSecret,
+       _now = now ?? DateTime.now;
 
   /// Encrypted envelope schema; other envelopes are discarded as misses.
   static const schema = 2;
@@ -56,6 +68,8 @@ class EncryptedReadCache {
 
   final ReadCacheDatabase database;
   final String _identity;
+  final Future<String> Function()? _keySecret;
+  final Duration _keySecretTimeout;
   final DateTime Function() _now;
   final _cipher = AesGcm.with256bits();
   final _events = StreamController<int>.broadcast();
@@ -72,6 +86,7 @@ class EncryptedReadCache {
   bool _writing = false;
   Future<SecretKey>? _key;
   Future<String>? _owner;
+  Future<String>? _material;
   Future<void>? _persistence;
 
   // Order snapshot changes and purges, never backend mutations.
@@ -100,10 +115,56 @@ class EncryptedReadCache {
         verifiedAt: null,
       );
 
-  Future<SecretKey> get key => _key ??= Sha256()
-      .hash(utf8.encode('orangeone.product-cache.v$schema:$_identity'))
+  Future<SecretKey> get key => _key ??= _keyMaterial
+      .then(
+        (material) => Sha256().hash(
+          utf8.encode('orangeone.product-cache.v$schema:$material'),
+        ),
+      )
       .then((hash) => SecretKey(hash.bytes));
-  Future<String> get owner => _owner ??= _hash(_identity);
+  Future<String> get owner => _owner ??= _keyMaterial.then(_hash);
+
+  /// The identity, plus the session's stored secret when one is wired. A
+  /// failed or timed-out secret read is not kept: the next cache access
+  /// tries again.
+  Future<String> get _keyMaterial => _material ??= _loadKeyMaterial();
+
+  Future<String> _loadKeyMaterial() async {
+    final loader = _keySecret;
+    if (loader == null) return _identity;
+    try {
+      final secret = await loader().timeout(
+        _keySecretTimeout,
+        onTimeout: () => throw const _KeyUnavailable(),
+      );
+      return '$_identity|$secret';
+    } on Object {
+      _material = null;
+      _key = null;
+      _owner = null;
+      rethrow;
+    }
+  }
+
+  /// Deletes the rows of every other owner: sessions whose cache was never
+  /// closed (the app was stopped before logout or expiry) and rows under an
+  /// older key. Best effort; the entry cap still bounds the file.
+  Future<void> purgeOtherOwners() async {
+    try {
+      final identity = await owner;
+      await _persist(() async {
+        if (_closed) return;
+        await database.customStatement(
+          'DELETE FROM product_reads WHERE owner != ?',
+          [identity],
+        );
+      });
+    } on Object {
+      // Best effort, also when the database closed meanwhile: other
+      // owners' rows stay unreadable to this one.
+    }
+  }
+
   Future<String> _hash(String value) async =>
       base64UrlEncode((await Sha256().hash(utf8.encode(value))).bytes);
 
@@ -174,15 +235,18 @@ class EncryptedReadCache {
         } else {
           await _store(barcode, approved, time, revision: revision);
         }
-      } on Exception {
+      } on Exception catch (error) {
         // A cache failure must not hide a valid server response.
         if (_closed || revision != _revision) throw cancelledOperation;
         // Block local fallback while removing the old snapshot durably.
         _unavailable.add(barcode);
-        try {
-          await _remove(barcode, revision: revision);
-        } on Exception {
-          // Keep the instance-local guard if durable cleanup also fails.
+        // Without the key no row can be located: do not wait for it again.
+        if (error is! _KeyUnavailable) {
+          try {
+            await _remove(barcode, revision: revision);
+          } on Exception {
+            // Keep the instance-local guard if durable cleanup also fails.
+          }
         }
         if (_closed || revision != _revision) throw cancelledOperation;
         offline = false;
@@ -202,7 +266,8 @@ class EncryptedReadCache {
           await _remove(barcode, revision: revision);
         } on Exception {
           // Preserve authentication rejection even when cache cleanup fails.
-          // Session key removal still makes its encrypted payload inaccessible.
+          // The session's purge on close, or the next session's sweep of
+          // other owners, removes the row later.
         }
         _set(barcode, ReadSyncPhase.failed);
         rethrow;
@@ -378,13 +443,15 @@ class EncryptedReadCache {
       _unavailable.remove(barcode);
       _set(barcode, ReadSyncPhase.online, time);
       await _syncRecents(changed: [product], removedIds: const []);
-    } on Exception {
+    } on Exception catch (error) {
       if (_closed || revision != _revision) return;
       _unavailable.add(barcode);
-      try {
-        await _remove(barcode, revision: revision);
-      } on Exception {
-        // The instance-local guard still blocks the stale snapshot.
+      if (error is! _KeyUnavailable) {
+        try {
+          await _remove(barcode, revision: revision);
+        } on Exception {
+          // The instance-local guard still blocks the stale snapshot.
+        }
       }
       _set(barcode, ReadSyncPhase.failed, time);
     }
@@ -711,10 +778,17 @@ class EncryptedReadCache {
     _closed = true;
     _revision++;
     try {
-      await _purge();
+      // Rows are only ever written under a derived owner: a cache that never
+      // derived one has nothing to purge (and never reads its secret now).
+      if (_owner != null) await _purge();
     } finally {
       await _events.close();
       await _recovery.close();
     }
   }
+}
+
+/// Secure storage did not provide the cache key in time.
+class _KeyUnavailable implements Exception {
+  const new();
 }

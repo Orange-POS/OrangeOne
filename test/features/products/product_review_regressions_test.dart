@@ -8,10 +8,10 @@ import 'package:orange_one/features/products/domain/entities/product_details.dar
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/price_update_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
 import 'package:orange_one/l10n/l10n.dart';
 
 import '../../support/product_details_fakes.dart';

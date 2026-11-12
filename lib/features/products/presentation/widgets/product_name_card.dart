@@ -6,7 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/l10n/l10n.dart';
-import 'package:orange_one/shared/widgets/app_logo.dart';
+import 'package:orange_one/shared/widgets/edit_pencil_button.dart';
 import 'package:orange_one/shared/widgets/info_badge.dart';
 import 'package:orange_one/shared/widgets/stock_badge.dart';
 
@@ -93,44 +93,50 @@ class ProductNameCard extends ConsumerWidget {
     padding: EdgeInsets.fromLTRB(16, 0, 16, detailsLayout ? 16 : 24),
     child: detailsLayout
         ? _glass(_detailsContent(context, stockNotSet))
-        : Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white, width: .5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(children: [AppLogo()]),
-                const SizedBox(height: 16),
-                Text(
-                  product?.name ?? emptyTitle ?? context.l10n.productNotFound,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                if (product?.reference.isNotEmpty ?? false)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      product!.reference,
-                      style: const TextStyle(fontSize: 16, color: Colors.white),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                StockBadge(
-                  quantity: stockNotSet ? null : product?.stock,
-                  unit: product?.unit ?? '',
-                  labels: _stockLabels(context, stockNotSet),
-                ),
-              ],
+        : _glass(_compactContent(context, stockNotSet)),
+  );
+
+  /// The short glass card of the discount screens: name, description (or
+  /// the internal reference) and the stock pill. No logo, no actions.
+  Widget _compactContent(BuildContext context, bool stockNotSet) {
+    final subtitle = product?.description?.trim().isNotEmpty ?? false
+        ? product!.description!.trim()
+        : product?.reference ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          product?.name ?? emptyTitle ?? context.l10n.productNotFound,
+          style: const TextStyle(
+            fontSize: 28,
+            height: 36 / 28,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        if (subtitle.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 16,
+                height: 24 / 16,
+                color: Colors.white,
+              ),
             ),
           ),
-  );
+        const SizedBox(height: 16),
+        StockBadge(
+          quantity: stockNotSet ? null : product?.stock,
+          unit: product?.unit ?? '',
+          compact: true,
+          labels: _stockLabels(context, stockNotSet),
+        ),
+      ],
+    );
+  }
+
   StockBadgeLabels _stockLabels(BuildContext context, bool stockNotSet) {
     final l10n = context.l10n;
     return StockBadgeLabels(
@@ -173,10 +179,9 @@ class ProductNameCard extends ConsumerWidget {
             ),
             if (showActions) ...[
               const SizedBox(width: 10),
-              _pencil(
-                l10n.detailsEditName,
-                'assets/icons/product_detail_name_edit.svg',
-                onEdit,
+              EditPencilButton.onGradient(
+                tooltip: l10n.detailsEditName,
+                onPressed: onEdit,
               ),
             ],
           ],
@@ -205,10 +210,9 @@ class ProductNameCard extends ConsumerWidget {
               ),
             ),
             if (showActions)
-              _pencil(
-                l10n.detailsUpdateStock,
-                'assets/icons/product_detail_stock_edit.svg',
-                onAdjustStock,
+              EditPencilButton.onGradient(
+                tooltip: l10n.detailsUpdateStock,
+                onPressed: onAdjustStock,
               ),
           ],
         ),
@@ -271,22 +275,6 @@ class ProductNameCard extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _pencil(String tooltip, String asset, VoidCallback? onPressed) =>
-      IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-        icon: Opacity(
-          opacity: onPressed == null ? .38 : 1,
-          child: SvgPicture.asset(
-            asset,
-            width: 24,
-            height: 24,
-            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-          ),
-        ),
-      );
 }
 
 /// Everything outside a rounded rectangle of the same size as the child.

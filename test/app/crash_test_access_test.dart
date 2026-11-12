@@ -117,6 +117,7 @@ void main() {
         // Every regular entry exists in every flavor.
         for (final key in [
           'settings-app-version',
+          'startup-workflow-qr_login',
           'demo-mode-switch',
           'settings-tutorial',
           'settings-privacy-policy',
@@ -124,7 +125,12 @@ void main() {
           'settings-about',
           'company-footer',
         ]) {
-          await tester.scrollUntilVisible(find.byKey(Key(key)), 200);
+          // Continuous drags: a fling could pass a short row between checks.
+          await tester.scrollUntilVisible(
+            find.byKey(Key(key)),
+            200,
+            continuous: true,
+          );
           expect(find.byKey(Key(key)), findsOneWidget, reason: key);
         }
         // The exact company name, with "IT" highlighted.

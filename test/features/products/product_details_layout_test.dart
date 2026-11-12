@@ -115,7 +115,14 @@ void main() {
         120,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.ensureVisible(find.byTooltip('Update price'));
+      // The scan dock floats over the content: scroll the pencil clear of it
+      // (the content's bottom padding includes the dock).
+      await tester.runAsync(
+        () => Scrollable.ensureVisible(
+          tester.element(find.byTooltip('Update price')),
+          alignment: .5,
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byTooltip('Update price').hitTestable(), findsOneWidget);
       expect(tester.getTopLeft(find.text('Product')), headerPosition);

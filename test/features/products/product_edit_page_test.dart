@@ -6,6 +6,7 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_edit_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 import '../../support/product_details_fakes.dart';
 import '../../support/product_router.dart';
@@ -47,7 +48,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(Skeleton), findsOneWidget);
     expect(input(), findsNothing);
     repo.pending!.complete(ProductDetailsState(detailsFixture, repo.access));
     await tester.pumpAndSettle();

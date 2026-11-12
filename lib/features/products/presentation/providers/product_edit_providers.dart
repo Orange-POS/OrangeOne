@@ -8,8 +8,8 @@ import 'package:orange_one/features/products/domain/entities/product_details.dar
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
 import 'package:orange_one/features/products/domain/use_cases/edit_product_information.dart';
 import 'package:orange_one/features/products/domain/use_cases/manage_product_details.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
 
 enum ProductEditPhase { editing, saving, checking, saved, uncertain }
 
