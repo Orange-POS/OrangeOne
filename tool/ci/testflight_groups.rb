@@ -1,6 +1,7 @@
 # Trusted-main helper. Spaceship wraps Apple's official App Store Connect API;
 # no app code, Apple-ID sessions or new credentials are used here.
 require 'json'
+require_relative 'app_store_connect_errors'
 
 class OrangeoneTestflight
   CONFIG = JSON.parse(File.read(File.join(__dir__, 'testflight_targets.json'))).freeze
@@ -50,7 +51,7 @@ class OrangeoneTestflight
   # Preflight before uploading, so a missing/automatic group doesn't waste a build.
   def prepare(target)
     @name = self.class.group_name(target)
-    @app = request { @api.app }
+    @app = request('finding the production app') { @api.app }
     raise Error, 'Production App Store Connect app was not found.' unless @app && @app.bundle_id == BUNDLE_ID
     @group = selected_group
     self
@@ -61,7 +62,7 @@ class OrangeoneTestflight
   # have it, or a development build could reach Production Testers.
   def prepare_channel(target)
     prepare(target)
-    others = request { @api.groups(@app) }.reject { |group| group.name == @name }
+    others = request('reading the tester groups') { @api.groups(@app) }.reject { |group| group.name == @name }
     if others.any?(&:has_access_to_all_builds)
       raise Error, 'Disable automatic distribution (access to all builds) on every other tester group before channel delivery; otherwise new builds would reach them too.'
     end
@@ -78,7 +79,7 @@ class OrangeoneTestflight
     @stage = 'not yet listed by App Store Connect'
     loop do
       timed_out if @clock.call >= deadline
-      candidates = request { @api.builds(@app, version, number) }.select do |build|
+      candidates = request('listing the uploaded build') { @api.builds(@app, version, number) }.select do |build|
         build.app_id == @app.id && build.bundle_id == BUNDLE_ID && build.platform == 'IOS' &&
           build.app_version == version && build.version == number
       end
@@ -101,15 +102,15 @@ class OrangeoneTestflight
           @stage = 'not yet ready for testing'
           # Existing access is authoritative even while initial readiness lags.
           # Identity, validity, compliance and group checks must precede this.
-          return build.id if request { @api.assigned?(build, group) }
+          return build.id if request('confirming the group assignment') { @api.assigned?(build, group) }
           if ready
             # Relationship POST is additive and receives only the allowlisted group.
-            request { @api.assign(build, group) }
+            request('assigning the build to the tester group', repeat: false) { @api.assign(build, group) }
             @stage = 'assigned, but the assignment is not yet confirmed'
             loop do
               confirmed_group = selected_group
               raise Error, 'Selected tester group changed during assignment verification.' unless confirmed_group.id == @group.id
-              return build.id if request { @api.assigned?(build, group) }
+              return build.id if request('confirming the group assignment') { @api.assigned?(build, group) }
               pause(deadline)
             end
           end
@@ -164,7 +165,7 @@ class OrangeoneTestflight
   end
 
   def selected_group
-    matches = request { @api.groups(@app) }.select { |group| group.name == @name }
+    matches = request('reading the tester groups') { @api.groups(@app) }.select { |group| group.name == @name }
     raise Error, 'Selected TestFlight group is missing or ambiguous.' unless matches.length == 1
     group = matches.first
     unless [true, false].include?(group.is_internal_group)
@@ -190,10 +191,27 @@ class OrangeoneTestflight
           'once App Store Connect shows it as ready; do not reupload.'
   end
 
-  def request
-    yield
-  rescue StandardError
-    # Do not print API errors, responses, credentials or tester information.
-    raise Error, 'App Store Connect group operation failed. Verify API access and the selected app/build/group in App Store Connect.', cause: nil
+  # Waits between attempts of a read that failed temporarily.
+  RETRY_WAITS = [5, 10].freeze
+
+  # Runs one App Store Connect call. Reads are repeated after temporary Apple
+  # or network errors; the assignment (a write) is never repeated here. A
+  # failure names the operation and its reason only: API errors, responses,
+  # credentials and tester information are never printed.
+  def request(operation, repeat: true)
+    attempt = 0
+    begin
+      yield
+    rescue Error
+      raise
+    rescue StandardError => error
+      if repeat && OrangeoneConnectErrors.transient?(error) && attempt < RETRY_WAITS.length
+        @sleeper.call(RETRY_WAITS[attempt])
+        attempt += 1
+        retry
+      end
+      raise Error, "App Store Connect group operation failed while #{operation}: " \
+                   "#{OrangeoneConnectErrors.reason(error)}", cause: nil
+    end
   end
 end

@@ -593,6 +593,23 @@ still the only way to submit to Apple review. No release or tag trigger exists.
    `dry_run` on. When both succeed, set the repository variable
    `TESTFLIGHT_CD_ENABLED` to `true`; the next push uploads.
 
+### When `allocate` or `deliver` cannot reach App Store Connect
+
+The tester-group preflight and the build-number query (`testflight_groups.rb`,
+`testflight_build_number.rb`) name the failing operation and the reason, without
+Apple's response or any credential (`app_store_connect_errors.rb`):
+
+| Reason in the log | Owner action |
+|---|---|
+| Updated agreements (403 `REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`) | The Account Holder accepts the updated agreements in App Store Connect (Business) and on developer.apple.com; Apple blocks every API call until then |
+| Key rejected (401) | Check that `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID` and `APP_STORE_CONNECT_KEY_BASE64` of the job's environment (`ios-development`, `ios-staging`, `ios-production`) belong to one active, unrevoked key |
+| Not allowed (403) | Give the key App Manager or Admin access (Users and Access > Integrations) |
+| Temporarily unavailable | Read calls were already retried three times (5 s, 10 s); run the workflow again later |
+| Unexpected `<class>` / rejected request | Check the app, build and tester groups in App Store Connect |
+
+Reads are retried after temporary Apple or network errors; the group
+assignment (a write) is never repeated automatically.
+
 Unsigned archive and Flutter's signing check: `flutter build ios --release`
 validates for a development signing certificate (using the flavor's own
 `.dev`/`.stg` bundle ID) unless `--no-codesign` is passed, even with
