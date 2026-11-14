@@ -2,6 +2,7 @@
 require 'minitest/autorun'
 require 'ostruct'
 require_relative 'testflight_groups'
+require_relative 'testflight_build_number'
 
 # Load the actual pinned model and its mapping module, not a fake readiness API.
 # These pure model files perform no authentication or network calls.
@@ -458,5 +459,132 @@ class TestflightGroupsTest < Minitest::Test
                     IN_EXPORT_COMPLIANCE_REVIEW WAITING_FOR_BETA_REVIEW IN_BETA_REVIEW
                     BETA_REJECTED BETA_APPROVED].sort,
                  states.constants.map { |name| states.const_get(name) }.sort
+  end
+end
+
+# App Store Connect failures name the operation and an actionable reason, never
+# Apple's response; temporary errors are retried for reads only.
+class AppStoreConnectFailureTest < Minitest::Test
+  fastlane = Gem::Specification.find_by_name('fastlane', '= 2.241.1')
+  # Spaceship's own error classes (a plain file: no network or authentication).
+  require File.join(fastlane.full_gem_path, 'spaceship/lib/spaceship/errors')
+
+  SECRET = 'private API response must not leak'
+
+  class ScriptedAPI
+    attr_reader :calls
+    def initialize(app:, groups:, app_errors: [], group_errors: [], assign_errors: [])
+      @app, @groups = app, groups
+      @app_errors, @group_errors, @assign_errors = app_errors, group_errors, assign_errors
+      @calls = Hash.new(0)
+    end
+    def app = step(:app, @app_errors) { @app }
+    def groups(*) = step(:groups, @group_errors) { @groups }
+    def builds(*) = []
+    def assign(*) = step(:assign, @assign_errors) { true }
+    def assigned?(*) = false
+
+    private
+
+    def step(name, errors)
+      @calls[name] += 1
+      error = errors.shift
+      raise error if error
+      yield
+    end
+  end
+
+  def setup
+    @app = OpenStruct.new(id: 'production-app', bundle_id: OrangeoneTestflight::BUNDLE_ID)
+    @groups = OrangeoneTestflight::GROUPS.map do |key, name|
+      OpenStruct.new(id: key, name: name, is_internal_group: true, has_access_to_all_builds: false)
+    end
+    @sleeps = []
+  end
+
+  def helper(**errors)
+    @api = ScriptedAPI.new(app: @app, groups: @groups, **errors)
+    OrangeoneTestflight.new(api: @api, sleeper: ->(seconds) { @sleeps << seconds })
+  end
+
+  def failure(**errors)
+    error = assert_raises(OrangeoneTestflight::Error) { helper(**errors).prepare_channel('dev') }
+    refute_includes error.message, SECRET
+    assert_nil error.cause
+    error.message
+  end
+
+  def test_unaccepted_apple_agreements_are_named
+    message = failure(app_errors: [Spaceship::ProgramLicenseAgreementUpdated.new(SECRET)])
+    assert_includes message, 'while finding the production app'
+    assert_includes message, 'updated agreements'
+    assert_includes message, 'Account Holder'
+    assert_empty @sleeps, 'a refusal is not retried'
+  end
+
+  def test_a_rejected_key_names_the_secrets_to_check
+    message = failure(app_errors: [Spaceship::UnauthorizedAccessError.new(SECRET)])
+    assert_includes message, 'rejected (401)'
+    %w[APP_STORE_CONNECT_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_KEY_BASE64].each do |name|
+      assert_includes message, name
+    end
+  end
+
+  def test_a_key_without_access_names_the_role
+    message = failure(group_errors: [Spaceship::AccessForbiddenError.new(SECRET)])
+    assert_includes message, 'while reading the tester groups'
+    assert_includes message, '(403)'
+    assert_includes message, 'App Manager or Admin'
+  end
+
+  def test_temporary_errors_on_reads_are_retried_then_succeed
+    prepared = helper(group_errors: [Spaceship::InternalServerError.new(SECRET),
+                                     Spaceship::BadGatewayError.new(SECRET)]).prepare_channel('dev')
+    assert_instance_of OrangeoneTestflight, prepared
+    assert_equal [5, 10], @sleeps
+  end
+
+  def test_lasting_temporary_errors_fail_after_three_attempts
+    message = failure(app_errors: Array.new(5) { Spaceship::GatewayTimeoutError.new(SECRET) })
+    assert_includes message, 'temporarily unavailable'
+    assert_equal 3, @api.calls[:app]
+    assert_equal [5, 10], @sleeps
+  end
+
+  def test_the_assignment_write_is_never_repeated
+    build = OpenStruct.new(id: 'b', app_id: 'production-app', bundle_id: OrangeoneTestflight::BUNDLE_ID,
+                           platform: 'IOS', app_version: '1.0.0', version: '25', processing_state: 'VALID',
+                           expired: false,
+                           build_beta_detail: OpenStruct.new(internal_build_state: 'READY_FOR_BETA_TESTING',
+                                                             external_build_state: nil))
+    distribution = helper(assign_errors: [Spaceship::InternalServerError.new(SECRET)]).prepare('production')
+    @api.define_singleton_method(:builds) { |*| [build] }
+    error = assert_raises(OrangeoneTestflight::Error) { distribution.distribute(version: '1.0.0', number: '25') }
+    assert_includes error.message, 'while assigning the build to the tester group'
+    assert_equal 1, @api.calls[:assign]
+    assert_empty @sleeps
+  end
+
+  def test_unknown_failures_name_only_the_error_class
+    message = failure(app_errors: [RuntimeError.new(SECRET)])
+    assert_includes message, 'Unexpected RuntimeError'
+  end
+
+  def test_build_number_queries_share_the_reasons_and_retries
+    sleeps = []
+    api = Object.new
+    errors = [Spaceship::InternalServerError.new(SECRET)]
+    app = @app
+    api.define_singleton_method(:app) { errors.empty? ? app : raise(errors.shift) }
+    api.define_singleton_method(:builds) { |_| [OpenStruct.new(version: '41')] }
+    numbers = OrangeoneBuildNumber.new(api: api, sleeper: ->(seconds) { sleeps << seconds })
+    assert_equal 42, numbers.allocate(floor: 34)
+    assert_equal [5], sleeps
+
+    api.define_singleton_method(:app) { raise Spaceship::ProgramLicenseAgreementUpdated, SECRET }
+    error = assert_raises(OrangeoneBuildNumber::Error) { numbers.allocate(floor: 34) }
+    assert_includes error.message, 'App Store Connect build query failed while finding the production app'
+    assert_includes error.message, 'updated agreements'
+    refute_includes error.message, SECRET
   end
 end

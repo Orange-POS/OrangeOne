@@ -382,29 +382,6 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   /// Removes the date & time limits.
   void clearSchedule() => change((draft) => draft.withSchedule(null));
 
-  /// Reads the product's regular price again after it was changed on the
-  /// price screen. The draft, the stored version (If-Match) and all
-  /// messages stay; only validation and the preview follow the new price.
-  Future<void> refreshRegularPrice() async {
-    if (_editable == null) return;
-    final generation = _generation;
-    try {
-      final list = await ref
-          .read(discountRepositoryProvider)
-          .list(args.scope.productId);
-      final current = _editable;
-      if (!ref.mounted || generation != _generation || current == null) {
-        return;
-      }
-      state = AsyncData(
-        current.copy(regularPrice: list.regularPrice, keepProblem: true),
-      );
-      ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
-    } on AppFailure {
-      // The shown price stays; the server validates the save anyway.
-    }
-  }
-
   // --- Conflict resolution ------------------------------------------------
 
   /// Decides a part both sides changed (`true` keeps the user's value).

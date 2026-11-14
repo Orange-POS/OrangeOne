@@ -556,31 +556,86 @@ void main() {
       expect(find.text('Product Discounts'), findsOneWidget);
     });
 
-    testWidgets('the Price card pencil opens the price screen', (tester) async {
+    testWidgets('create: the regular price is shown read-only', (tester) async {
+      // The product has `update_price`, still no edit action here.
       await openCreate(tester);
       await tapKey(tester, 'discount-type-fixed_price');
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('discount-regular-price')))
+            .data,
+        'CHF 100.00',
+      );
+      expect(find.byKey(const Key('discount-edit-price')), findsNothing);
+      expect(find.byTooltip('Update price'), findsNothing);
+      // It is still the reference for validation.
       await tester.enterText(
         find.byKey(const Key('discount-fixed-price')),
         '120',
       );
       await tester.pumpAndSettle();
       expect(find.text('Must be below the regular price.'), findsOneWidget);
-      await tapKey(tester, 'discount-edit-price');
-      expect(find.byType(ProductPriceUpdatePage), findsOneWidget);
-      // A saved price returns true; the form reads the new regular price.
-      discounts.regularPrice = const DiscountMoney(15000, 'CHF');
-      container.read(routerProvider).pop(true);
+      expect(discounts.writes, isEmpty);
+    });
+
+    testWidgets('details: the regular price is shown read-only', (
+      tester,
+    ) async {
+      await open(tester);
+      unawaited(
+        container
+            .read(routerProvider)
+            .pushNamed(
+              'productDiscountDetail',
+              queryParameters: {
+                'barcode': _barcode,
+                'product_id': '10',
+                'discount_id': '1',
+              },
+            ),
+      );
       await tester.pumpAndSettle();
-      expect(find.byType(ProductPriceUpdatePage), findsNothing);
+      expect(find.text('CHF 100.00'), findsWidgets);
+      expect(find.byKey(const Key('discount-edit-price')), findsNothing);
+      expect(find.byTooltip('Update price'), findsNothing);
+    });
+
+    testWidgets('edit: the regular price is read-only; saving keeps it', (
+      tester,
+    ) async {
+      await open(tester);
+      final products = container.read(
+        productDetailsRepositoryProvider,
+      ) as FakeDetailsRepository;
+      await openEditForm(tester);
+      expect(find.text('Edit Discount'), findsOneWidget);
+      // Shown for reference, without any edit action (the product has
+      // `update_price`).
       expect(
         tester
             .widget<Text>(find.byKey(const Key('discount-regular-price')))
             .data,
-        'CHF 150.00',
+        'CHF 100.00',
       );
-      // The typed value stays and is valid against the new price.
-      expect(find.text('Must be below the regular price.'), findsNothing);
-      expect(discounts.writes, isEmpty);
+      expect(find.byKey(const Key('discount-edit-price')), findsNothing);
+      expect(find.byTooltip('Update price'), findsNothing);
+      // The discount itself can still be changed and saved.
+      await tester.enterText(find.byKey(const Key('discount-percent')), '25');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'discount-save');
+      await confirm(tester);
+      expect(discounts.writes, ['update']);
+      expect(find.text('Discount saved.'), findsOneWidget);
+      // The product price was not written and is unchanged.
+      expect(products.writes, 0);
+      expect(products.product!.price, 100);
+      expect(find.text('CHF 100.00'), findsOneWidget);
+      // The product's own price workflow still edits it.
+      await tester.ensureVisible(find.byTooltip('Update price'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Update price'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProductPriceUpdatePage), findsOneWidget);
     });
 
     testWidgets('no price permission: the Price card has no pencil', (

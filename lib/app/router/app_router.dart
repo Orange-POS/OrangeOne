@@ -91,9 +91,8 @@ class _DiscountManage extends Notifier<bool> {
 
 /// The discount screens of one product: the product's id and its own
 /// `discount_manage` come from Product Details, so the discounts feature
-/// never reads product internals. `editPrice` opens the product's price
-/// screen and tells whether a new price was saved; it is null while the
-/// product's `update_price` is not granted.
+/// never reads product internals. The regular price is shown there for
+/// reference only; it is changed on the product's own price screen.
 Widget _discountRoute(
   GoRouterState state,
   Widget Function(
@@ -101,7 +100,6 @@ Widget _discountRoute(
     Widget productCard,
     Widget navTrailing,
     int? discountId,
-    Future<bool> Function(BuildContext context)? editPrice,
   )
   page,
 ) {
@@ -127,22 +125,11 @@ Widget _discountRoute(
       final card = product == null || product.id != productId
           ? const SizedBox.shrink()
           : ProductNameCard(product: product, showActions: false);
-      final priceAllowed =
-          product?.id == productId &&
-          (details.value?.access.updatePrice ?? false);
       return page(
         scope,
         card,
         ProductSyncNavButton(barcode: barcode),
         discountId,
-        priceAllowed
-            ? (context) async =>
-                  await context.pushNamed<bool>(
-                    'productPrice',
-                    queryParameters: {'barcode': barcode},
-                  ) ??
-                  false
-            : null,
       );
     },
   );
@@ -273,12 +260,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'products/discounts/form',
             builder: (context, state) => _discountRoute(
               state,
-              (scope, card, nav, discountId, editPrice) => DiscountFormPage(
+              (scope, card, nav, discountId) => DiscountFormPage(
                 scope: scope,
                 discountId: discountId,
                 productCard: card,
                 navTrailing: nav,
-                onEditPrice: editPrice,
               ),
             ),
           ),
@@ -287,7 +273,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'products/discounts/detail',
             builder: (context, state) => _discountRoute(
               state,
-              (scope, card, nav, discountId, _) => discountId == null
+              (scope, card, nav, discountId) => discountId == null
                   ? _productDetailsPage(scope.barcode)
                   : DiscountDetailsPage(
                       scope: scope,

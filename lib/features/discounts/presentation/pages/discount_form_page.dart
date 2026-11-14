@@ -18,7 +18,6 @@ import 'package:orange_one/features/discounts/presentation/widgets/discount_text
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
-import 'package:orange_one/shared/widgets/edit_pencil_button.dart';
 import 'package:orange_one/shared/widgets/info_row_card.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
@@ -34,16 +33,10 @@ class DiscountFormPage extends ConsumerStatefulWidget {
     this.discountId,
     this.productCard,
     this.navTrailing,
-    this.onEditPrice,
     super.key,
   });
 
   final DiscountScope scope;
-
-  /// Opens the product's price screen (composed by the app) and returns
-  /// whether a new price was saved; null hides the Price card's pencil
-  /// action (no `update_price`).
-  final Future<bool> Function(BuildContext context)? onEditPrice;
 
   /// Null creates a new discount.
   final int? discountId;
@@ -137,16 +130,6 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     } finally {
       _confirming = false;
     }
-  }
-
-  /// The Price card's pencil: the product's own price screen, then the new
-  /// regular price for validation and the preview (typed values stay).
-  Future<void> _editPrice() async {
-    final edit = widget.onEditPrice;
-    if (edit == null || _confirming) return;
-    FocusScope.of(context).unfocus();
-    final changed = await edit(context);
-    if (changed && mounted) await _controller.refreshRegularPrice();
   }
 
   /// Confirms, then archives through the form's own controller: Save,
@@ -504,17 +487,12 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
                 ? _controller.resolveConflict
                 : null,
           ),
+        // Reference only: the regular price is changed on the product's own
+        // price screen, never from a discount screen.
         InfoRowCard.price(
           label: l10n.discountsRegularPrice,
           value: state.regularPrice.display,
           valueKey: const Key('discount-regular-price'),
-          action: widget.onEditPrice == null
-              ? null
-              : EditPencilButton(
-                  key: const Key('discount-edit-price'),
-                  tooltip: l10n.detailsUpdatePrice,
-                  onPressed: editable && !access.offline ? _editPrice : null,
-                ),
         ),
         const SizedBox(height: 16),
         DiscountPreviewCard(draft: draft, preview: preview, currency: currency),
