@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/features/initialization/presentation/providers/initialization_controller.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class InitializationPage extends ConsumerWidget {
   const new({super.key});
@@ -17,8 +18,9 @@ class InitializationPage extends ConsumerWidget {
             child: initialization.when(
               skipLoadingOnRefresh: false,
               skipLoadingOnReload: false,
-              loading: () => const CircularProgressIndicator(
-                semanticsLabel: 'Loading application configuration',
+              loading: () => const Skeleton(
+                label: 'Loading application configuration',
+                child: SizedBox(width: 240, child: SkeletonLines(count: 3)),
               ),
               data: (environment) => Text(
                 'Application initialized\nEnvironment: ${environment.name}',

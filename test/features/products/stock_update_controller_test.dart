@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
 
+import '../../support/backend_features_fakes.dart';
 import '../../support/product_details_fakes.dart';
 
 ProductDetails _with({double? stock = 48, bool adjustable = true}) =>
@@ -32,9 +34,17 @@ void main() {
   StockUpdateState value() => container.read(provider).requireValue;
   setUp(() async {
     repo = FakeDetailsRepository();
-    container = ProviderContainer.test(
-      overrides: [productDetailsRepositoryProvider.overrideWithValue(repo)],
-    )..listen(provider, (_, _) {});
+    container =
+        ProviderContainer.test(
+            overrides: [
+              productDetailsRepositoryProvider.overrideWithValue(repo),
+              // A shop with stock movements: Add and Remove are offered.
+              stockMovementsBackend,
+            ],
+          )
+          ..listen(backendFeaturesProvider, (_, _) {})
+          ..listen(provider, (_, _) {});
+    await container.read(backendFeaturesProvider.future);
     await container.read(provider.future);
   });
 

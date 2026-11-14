@@ -177,6 +177,10 @@
   "@scannerLookingUp": {
     "description": "Shown while a scanned barcode is looked up"
   },
+  "scannerDemoSamples": "Demo Mode · choose a sample barcode below",
+  "@scannerDemoSamples": {
+    "description": "Product scanner status in Demo Mode, where sample barcodes replace the camera"
+  },
   "scannerPaused": "Scan paused · Review the result below",
   "@scannerPaused": {
     "description": "Scanner status while a result is shown"
@@ -929,5 +933,1060 @@
   "mockDiscountNote": "Preview only. This does not change product prices.",
   "@mockDiscountNote": {
     "description": "Note of the discount preview"
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Title of the Settings screen"
+  },
+  "settingsOpenTooltip": "Open settings",
+  "@settingsOpenTooltip": {
+    "description": "Tooltip of the Settings gear on the login screen"
+  },
+  "settingsApplicationSection": "APPLICATION",
+  "@settingsApplicationSection": {
+    "description": "Section heading for application information; kept in capitals"
+  },
+  "settingsLanguageLabel": "Language",
+  "@settingsLanguageLabel": {
+    "description": "Label of the Settings language row; the value shows the greeting of the current language"
+  },
+  "settingsAppVersionLabel": "App Version",
+  "@settingsAppVersionLabel": {
+    "description": "Label of the installed app version row"
+  },
+  "settingsDemonstrationSection": "DEMONSTRATION",
+  "@settingsDemonstrationSection": {
+    "description": "Section heading for Demo Mode; kept in capitals"
+  },
+  "settingsHelpSection": "HELP & SUPPORT",
+  "@settingsHelpSection": {
+    "description": "Section heading for help and support; kept in capitals"
+  },
+  "settingsTutorial": "OrangeOne Tutorial",
+  "@settingsTutorial": {
+    "description": "Help row that opens the tutorial videos"
+  },
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "@settingsPrivacyPolicy": {
+    "description": "Help row; not yet linked"
+  },
+  "settingsContactSupport": "Contact Support",
+  "@settingsContactSupport": {
+    "description": "Help row; not yet linked"
+  },
+  "settingsAboutSection": "ABOUT",
+  "@settingsAboutSection": {
+    "description": "Section heading for information about the app; kept in capitals"
+  },
+  "settingsAbout": "About OrangeOne",
+  "@settingsAbout": {
+    "description": "About row; not yet linked"
+  },
+  "settingsDeveloperSection": "DEVELOPMENT ONLY",
+  "@settingsDeveloperSection": {
+    "description": "Heading of the development-only tools"
+  },
+  "settingsEnvironmentLabel": "Environment",
+  "@settingsEnvironmentLabel": {
+    "description": "Label of the build environment row"
+  },
+  "settingsCrashButton": "Trigger the Crash",
+  "@settingsCrashButton": {
+    "description": "Button that crashes the development app on purpose"
+  },
+  "settingsCrashConfirmTitle": "Trigger a test crash?",
+  "@settingsCrashConfirmTitle": {
+    "description": "Title of the crash test confirmation"
+  },
+  "settingsCrashConfirmBody": "The app will close immediately. This is only for verifying crash reporting.",
+  "@settingsCrashConfirmBody": {
+    "description": "Body of the crash test confirmation"
+  },
+  "settingsCrashConfirm": "Crash the app",
+  "@settingsCrashConfirm": {
+    "description": "Confirm button of the crash test"
+  },
+  "settingsCancel": "Cancel",
+  "@settingsCancel": {
+    "description": "Cancel button of the crash test confirmation"
+  },
+  "settingsNonFatalButton": "Send test error report",
+  "@settingsNonFatalButton": {
+    "description": "Button that sends a non-fatal test report"
+  },
+  "settingsNonFatalSent": "Test error report sent.",
+  "@settingsNonFatalSent": {
+    "description": "Confirmation after the non-fatal test report"
+  },
+  "demoModeTitle": "Demo Mode",
+  "@demoModeTitle": {
+    "description": "Demo Mode of the settings switch"
+  },
+  "demoModeLocked": "Demo Mode can only be changed while you are signed out.",
+  "@demoModeLocked": {
+    "description": "Shown when Demo Mode cannot be changed"
+  },
+  "demoBadge": "Demo",
+  "@demoBadge": {
+    "description": "Small badge beside the navigation title while Demo Mode runs"
+  },
+  "demoSignInTitle": "Demo sign-in",
+  "@demoSignInTitle": {
+    "description": "Title of the sample QR code list on the QR login screen"
+  },
+  "demoSignInBody": "Choose a sample QR code to sign in. No camera, network or server is used.",
+  "@demoSignInBody": {
+    "description": "Explains the sample QR codes"
+  },
+  "demoSampleManagerTitle": "Store manager",
+  "@demoSampleManagerTitle": {
+    "description": "Sample QR code with full access"
+  },
+  "demoSampleManagerBody": "Can look up products, edit them, change prices and count stock.",
+  "@demoSampleManagerBody": {
+    "description": "What the full-access sample may do"
+  },
+  "demoSampleViewerTitle": "Read-only counter",
+  "@demoSampleViewerTitle": {
+    "description": "Sample QR code with read-only access"
+  },
+  "demoSampleViewerBody": "Can look up products but cannot change anything.",
+  "@demoSampleViewerBody": {
+    "description": "What the read-only sample may do"
+  },
+  "demoSampleBarcodesTitle": "Sample barcodes",
+  "@demoSampleBarcodesTitle": {
+    "description": "Heading of the sample barcode list on the scanner"
+  },
+  "tutorialTitle": "Tutorial",
+  "@tutorialTitle": {
+    "description": "Title of the Help & Support tutorial screen"
+  },
+  "tutorialYoutubeGuides": "YouTube Guides",
+  "@tutorialYoutubeGuides": {
+    "description": "Section heading above the YouTube tutorial videos"
+  },
+  "tutorialYoutubeBadge": "YouTube video",
+  "@tutorialYoutubeBadge": {
+    "description": "Red badge marking a tutorial as a YouTube video"
+  },
+  "tutorialWatchVideo": "Watch video",
+  "@tutorialWatchVideo": {
+    "description": "Action that opens the tutorial in the YouTube app"
+  },
+  "tutorialWatchSemantics": "Watch video: {title}",
+  "@tutorialWatchSemantics": {
+    "description": "Screen-reader label of a tutorial card; {title} is the video title",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "tutorialEmpty": "No tutorials are available yet.",
+  "@tutorialEmpty": {
+    "description": "Shown when no tutorial is published"
+  },
+  "tutorialOffline": "Connect to the internet to load the tutorials.",
+  "@tutorialOffline": {
+    "description": "Shown when tutorials were never loaded and the device is offline"
+  },
+  "tutorialError": "The tutorials could not be loaded.",
+  "@tutorialError": {
+    "description": "Shown when the tutorials could not be loaded"
+  },
+  "tutorialRetry": "Try again",
+  "@tutorialRetry": {
+    "description": "Button to load the tutorials again"
+  },
+  "tutorialYoutubeMissing": "The YouTube app is not installed.",
+  "@tutorialYoutubeMissing": {
+    "description": "Snackbar when the YouTube app is not installed"
+  },
+  "tutorialOpenInBrowser": "Open in browser",
+  "@tutorialOpenInBrowser": {
+    "description": "Snackbar action: open the video in the browser instead"
+  },
+  "tutorialOpenFailed": "The video could not be opened.",
+  "@tutorialOpenFailed": {
+    "description": "Snackbar when even the browser could not open the video"
+  },
+  "demoExistingProductBarcode": "Existing product · {barcode}",
+  "@demoExistingProductBarcode": {
+    "description": "Sample barcode on the demo scanner of a sample product, so it opens its details",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "demoNewProductBarcode": "New product · {barcode}",
+  "@demoNewProductBarcode": {
+    "description": "Sample barcode on the demo scanner that no product uses, so it opens product creation",
+    "placeholders": {
+      "barcode": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSignInSection": "SIGN-IN",
+  "@settingsSignInSection": {
+    "description": "Section heading for the sign-in method; kept in capitals"
+  },
+  "startupWorkflowQr": "QR code",
+  "@startupWorkflowQr": {
+    "description": "Sign-in method: scanning the POS QR code"
+  },
+  "startupWorkflowQrDescription": "Scan the QR code shown on your POS.",
+  "@startupWorkflowQrDescription": {
+    "description": "Explains the QR code sign-in method"
+  },
+  "startupWorkflowCredentials": "Username and password",
+  "@startupWorkflowCredentials": {
+    "description": "Sign-in method: user name and password"
+  },
+  "startupWorkflowCredentialsDescription": "Sign in with your username and password.",
+  "@startupWorkflowCredentialsDescription": {
+    "description": "Explains the user name and password sign-in method"
+  },
+  "startupWorkflowUnavailable": "Not available yet",
+  "@startupWorkflowUnavailable": {
+    "description": "Shown under a sign-in method this app version cannot use yet"
+  },
+  "compatibilityUpgradeTitle": "Update required",
+  "@compatibilityUpgradeTitle": {
+    "description": "Title when the shop requires a newer app version"
+  },
+  "compatibilityUpgradeBody": "Your shop needs a newer version of OrangeONE. Update the app to continue.",
+  "@compatibilityUpgradeBody": {
+    "description": "Explains that the app must be updated; never names the server product"
+  },
+  "compatibilityMaintenanceTitle": "Under maintenance",
+  "@compatibilityMaintenanceTitle": {
+    "description": "Title when the shop's server is under maintenance"
+  },
+  "compatibilityMaintenanceBody": "Your shop's server is under maintenance. Try again later.",
+  "@compatibilityMaintenanceBody": {
+    "description": "Explains the maintenance state"
+  },
+  "compatibilityUnsupportedTitle": "Server not supported",
+  "@compatibilityUnsupportedTitle": {
+    "description": "Title when the shop's server is too old for this app"
+  },
+  "compatibilityUnsupportedBody": "Your shop's server is too old for this app. Ask your administrator to update it.",
+  "@compatibilityUnsupportedBody": {
+    "description": "Explains that the server must be updated; never names the server product"
+  },
+  "compatibilityRetry": "Try again",
+  "@compatibilityRetry": {
+    "description": "Button that checks the shop's server again"
+  },
+  "compatibilitySignOut": "Sign out",
+  "@compatibilitySignOut": {
+    "description": "Button that signs out from the compatibility screen"
+  },
+  "startupWorkflowOidc": "Company sign-in (OIDC)",
+  "@startupWorkflowOidc": {
+    "description": "Sign-in method: OpenID Connect through the customer's identity provider"
+  },
+  "startupWorkflowOidcDescription": "Sign in through your company's identity provider.",
+  "@startupWorkflowOidcDescription": {
+    "description": "Description of the OIDC sign-in method"
+  },
+  "startupWorkflowSignOutFirst": "Sign out to change the sign-in method.",
+  "@startupWorkflowSignOutFirst": {
+    "description": "Shown under a sign-in method while a session exists"
+  },
+  "stockFeatureUnavailable": "Stock management is not available for this shop.",
+  "@stockFeatureUnavailable": {
+    "description": "Stock screen notice when the shop's backend does not offer stock management"
+  },
+  "stockOffline": "You are offline. Stock can be changed again once the connection returns.",
+  "@stockOffline": {
+    "description": "Stock screen notice while offline"
+  },
+  "discountsSectionLabel": "PRODUCT DISCOUNTS",
+  "@discountsSectionLabel": {
+    "description": "Small caps label above the discount cards"
+  },
+  "discountsOverviewTitle": "Discount Overview",
+  "@discountsOverviewTitle": {
+    "description": "Title of the discount card on Product Details"
+  },
+  "discountsCreateNewTitle": "Create New Discounts",
+  "@discountsCreateNewTitle": {
+    "description": "Card title when a product has no discounts"
+  },
+  "discountsNone": "No discounts for this product.",
+  "@discountsNone": {
+    "description": "Card text when a product has no discounts and the user cannot create one"
+  },
+  "discountsTotal": "Total Discounts",
+  "@discountsTotal": {
+    "description": "Label of the discount count"
+  },
+  "discountsRegularPrice": "Regular Price",
+  "@discountsRegularPrice": {
+    "description": "Label of the product's regular price"
+  },
+  "discountsListTitle": "Product Discounts",
+  "@discountsListTitle": {
+    "description": "Heading of the discount list"
+  },
+  "discountsCount": "{count, plural, =1{1 discount} other{{count} discounts}}",
+  "@discountsCount": {
+    "description": "Number of discounts",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "discountsPageTitle": "Discount Details",
+  "@discountsPageTitle": {
+    "description": "Navigation title of the discount list screen"
+  },
+  "discountPageTitle": "Discount",
+  "@discountPageTitle": {
+    "description": "Navigation title of one discount"
+  },
+  "discountCreateTitle": "Create Discount",
+  "@discountCreateTitle": {
+    "description": "Title and button of the create form"
+  },
+  "discountEditTitle": "Edit Discount",
+  "@discountEditTitle": {
+    "description": "Title of the edit form and the edit action"
+  },
+  "discountsOpen": "Manage discounts",
+  "@discountsOpen": {
+    "description": "Tooltip of the pencil opening the discount list"
+  },
+  "discountTypeFixedPrice": "Fixed Price",
+  "@discountTypeFixedPrice": {
+    "description": "Discount type tab"
+  },
+  "discountTypePercentage": "Percentage",
+  "@discountTypePercentage": {
+    "description": "Discount type tab"
+  },
+  "discountTypeCollective": "Collective",
+  "@discountTypeCollective": {
+    "description": "Discount type tab (bundle price)"
+  },
+  "discountTypeFixedPriceLong": "Fixed Price Discount",
+  "@discountTypeFixedPriceLong": {
+    "description": "Discount type under a card title"
+  },
+  "discountTypePercentageLong": "Percentage Discount",
+  "@discountTypePercentageLong": {
+    "description": "Discount type under a card title"
+  },
+  "discountTypeCollectiveLong": "Collective Discount",
+  "@discountTypeCollectiveLong": {
+    "description": "Discount type under a card title"
+  },
+  "discountTypeHeading": "Discount Type",
+  "@discountTypeHeading": {
+    "description": "Heading of the type tabs"
+  },
+  "discountChooseType": "Choose a type to enter its discount value.",
+  "@discountChooseType": {
+    "description": "Shown before a type is chosen"
+  },
+  "discountPreviewHint": "Discount Preview appears when a type and value are set.",
+  "@discountPreviewHint": {
+    "description": "Shown until the preview can be calculated"
+  },
+  "discountPreviewTitle": "Discount Preview",
+  "@discountPreviewTitle": {
+    "description": "Title of the preview card"
+  },
+  "discountPreviewFinalPrice": "Final selling price · {price}",
+  "@discountPreviewFinalPrice": {
+    "description": "Final unit price in the preview",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discountPreviewBundlePrice": "Final selling price · {price} / bundle",
+  "@discountPreviewBundlePrice": {
+    "description": "Final bundle price in the preview",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discountPreviewNote": "Preview only: the server confirms the final prices when saving.",
+  "@discountPreviewNote": {
+    "description": "Note that the preview is not authoritative"
+  },
+  "discountPercentOff": "{percent}% off",
+  "@discountPercentOff": {
+    "description": "Percentage discount title",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "discountBundleOffer": "{quantity} for {price}",
+  "@discountBundleOffer": {
+    "description": "Collective discount title, e.g. 5 for CHF 400.00",
+    "placeholders": {
+      "quantity": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discountDiscountedPrice": "Discounted Price",
+  "@discountDiscountedPrice": {
+    "description": "Field label of the fixed price"
+  },
+  "discountPercentageLabel": "Discount Percentage",
+  "@discountPercentageLabel": {
+    "description": "Field label of the percentage"
+  },
+  "discountBundleQuantity": "Bundle Quantity",
+  "@discountBundleQuantity": {
+    "description": "Field label of the bundle size"
+  },
+  "discountBundleTotalPrice": "Bundle Total Price",
+  "@discountBundleTotalPrice": {
+    "description": "Field label of the bundle price"
+  },
+  "discountRegularBundleTotal": "Regular bundle total · {price}",
+  "@discountRegularBundleTotal": {
+    "description": "Regular price of a full bundle",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discountCalculatedPrice": "Calculated price",
+  "@discountCalculatedPrice": {
+    "description": "Label of the price calculated from a percentage"
+  },
+  "discountAmountHelper": "Enter the price in {currency} with up to two decimal places.",
+  "@discountAmountHelper": {
+    "description": "Helper under price fields",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "discountSchedule": "Schedule",
+  "@discountSchedule": {
+    "description": "Label of the schedule summary"
+  },
+  "discountDateTime": "Date & Time",
+  "@discountDateTime": {
+    "description": "Date and time section"
+  },
+  "discountNotSet": "Not set",
+  "@discountNotSet": {
+    "description": "No validity period"
+  },
+  "discountAlwaysValid": "Applies until archived",
+  "@discountAlwaysValid": {
+    "description": "Schedule summary without a period"
+  },
+  "discountSetDateTime": "Set date & time",
+  "@discountSetDateTime": {
+    "description": "Button that adds a validity period"
+  },
+  "discountClearDateTime": "Remove date & time",
+  "@discountClearDateTime": {
+    "description": "Button that removes the validity period"
+  },
+  "discountStartDate": "Start Date",
+  "@discountStartDate": {
+    "description": "Field label"
+  },
+  "discountStartTime": "Start Time",
+  "@discountStartTime": {
+    "description": "Field label"
+  },
+  "discountEndDate": "End Date",
+  "@discountEndDate": {
+    "description": "Field label"
+  },
+  "discountEndTime": "End Time",
+  "@discountEndTime": {
+    "description": "Field label"
+  },
+  "discountNoEndDate": "No End Date",
+  "@discountNoEndDate": {
+    "description": "Checkbox: the discount never expires"
+  },
+  "discountFrom": "From {start}",
+  "@discountFrom": {
+    "description": "Schedule without end",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      }
+    }
+  },
+  "discountRange": "{start} – {end}",
+  "@discountRange": {
+    "description": "Schedule with start and end",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "discountTimezone": "Times in {zone}",
+  "@discountTimezone": {
+    "description": "Timezone the times are in",
+    "placeholders": {
+      "zone": {
+        "type": "String"
+      }
+    }
+  },
+  "discountRepeatSchedule": "Repeat Schedule",
+  "@discountRepeatSchedule": {
+    "description": "Repeat section and dialog title"
+  },
+  "discountRepeatNone": "Does Not Repeat",
+  "@discountRepeatNone": {
+    "description": "Repeat option"
+  },
+  "discountRepeatDaily": "Daily",
+  "@discountRepeatDaily": {
+    "description": "Repeat option"
+  },
+  "discountRepeatWeekly": "Weekly",
+  "@discountRepeatWeekly": {
+    "description": "Repeat option"
+  },
+  "discountRepeatWeekends": "Every Weekend",
+  "@discountRepeatWeekends": {
+    "description": "Repeat option"
+  },
+  "discountRepeatWeekendsHint": "Every Saturday and Sunday",
+  "@discountRepeatWeekendsHint": {
+    "description": "Explains the weekend option"
+  },
+  "discountRepeatYearly": "Yearly / Annual Date",
+  "@discountRepeatYearly": {
+    "description": "Repeat option"
+  },
+  "discountRepeatOn": "Repeat on",
+  "@discountRepeatOn": {
+    "description": "Label above the weekday chips"
+  },
+  "discountRepeatEvery": "Every {days}",
+  "@discountRepeatEvery": {
+    "description": "Weekly repeat summary",
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "discountAnnualDate": "Annual Date",
+  "@discountAnnualDate": {
+    "description": "Field label of the yearly date"
+  },
+  "discountYearlyOn": "Every year on {date}",
+  "@discountYearlyOn": {
+    "description": "Yearly repeat summary",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "discountChooseAnnualDate": "Choose a day",
+  "@discountChooseAnnualDate": {
+    "description": "Button to choose the yearly date"
+  },
+  "discountMinimumQuantity": "Minimum Quantity",
+  "@discountMinimumQuantity": {
+    "description": "Minimum quantity section"
+  },
+  "discountNoMinimum": "No Minimum",
+  "@discountNoMinimum": {
+    "description": "No minimum quantity"
+  },
+  "discountMinimumItems": "Minimum {quantity} items",
+  "@discountMinimumItems": {
+    "description": "Minimum quantity summary",
+    "placeholders": {
+      "quantity": {
+        "type": "String"
+      }
+    }
+  },
+  "discountMinimumHelper": "The discount applies only when a sale has at least this quantity. Leave empty for no minimum.",
+  "@discountMinimumHelper": {
+    "description": "Helper of the minimum quantity field"
+  },
+  "discountEnterValue": "Enter a value",
+  "@discountEnterValue": {
+    "description": "Input hint"
+  },
+  "discountApply": "Apply",
+  "@discountApply": {
+    "description": "Applies the repeat dialog"
+  },
+  "discountStatusActive": "Active",
+  "@discountStatusActive": {
+    "description": "Discount status"
+  },
+  "discountStatusScheduled": "Scheduled",
+  "@discountStatusScheduled": {
+    "description": "Discount status"
+  },
+  "discountStatusExpired": "Expired",
+  "@discountStatusExpired": {
+    "description": "Discount status"
+  },
+  "discountStatusPaused": "Paused",
+  "@discountStatusPaused": {
+    "description": "Discount status"
+  },
+  "discountStatusArchived": "Archived",
+  "@discountStatusArchived": {
+    "description": "Discount status"
+  },
+  "discountStatusUnknown": "Not applying",
+  "@discountStatusUnknown": {
+    "description": "Status this app does not know"
+  },
+  "discountStatusLabel": "Status",
+  "@discountStatusLabel": {
+    "description": "Label of the status row"
+  },
+  "discountAppliesNow": "Applies now",
+  "@discountAppliesNow": {
+    "description": "The POS applies the discount now"
+  },
+  "discountNotNow": "Not applying right now",
+  "@discountNotNow": {
+    "description": "The POS does not apply it right now"
+  },
+  "discountValueLabel": "Discount",
+  "@discountValueLabel": {
+    "description": "Label of the discount value row"
+  },
+  "discountSavingsLabel": "Saving",
+  "@discountSavingsLabel": {
+    "description": "Label of the saving row"
+  },
+  "discountSavings": "{amount} ({percent}%)",
+  "@discountSavings": {
+    "description": "Saving amount and percent",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "discountPause": "Pause Discount",
+  "@discountPause": {
+    "description": "Action"
+  },
+  "discountResume": "Resume Discount",
+  "@discountResume": {
+    "description": "Action"
+  },
+  "discountArchive": "Archive Discount",
+  "@discountArchive": {
+    "description": "Action"
+  },
+  "discountConfirmCreateTitle": "Create this discount?",
+  "@discountConfirmCreateTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmSaveTitle": "Save these changes?",
+  "@discountConfirmSaveTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmChangeBody": "{offer}. Every POS of this shop applies it to new sales.",
+  "@discountConfirmChangeBody": {
+    "description": "Confirmation body for create and save",
+    "placeholders": {
+      "offer": {
+        "type": "String"
+      }
+    }
+  },
+  "discountConfirmPauseTitle": "Pause this discount?",
+  "@discountConfirmPauseTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmPauseBody": "The POS stops applying it. All its values are kept and it can be resumed.",
+  "@discountConfirmPauseBody": {
+    "description": "Confirmation body"
+  },
+  "discountConfirmResumeTitle": "Resume this discount?",
+  "@discountConfirmResumeTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmResumeBody": "The POS applies it again whenever its schedule allows.",
+  "@discountConfirmResumeBody": {
+    "description": "Confirmation body"
+  },
+  "discountConfirmArchiveTitle": "Archive this discount?",
+  "@discountConfirmArchiveTitle": {
+    "description": "Confirmation title"
+  },
+  "discountConfirmArchiveBody": "The POS stops applying it and it can no longer be edited, paused or resumed.",
+  "@discountConfirmArchiveBody": {
+    "description": "Confirmation body"
+  },
+  "discountCreated": "Discount created.",
+  "@discountCreated": {
+    "description": "Success message"
+  },
+  "discountSaved": "Discount saved.",
+  "@discountSaved": {
+    "description": "Success message"
+  },
+  "discountPausedDone": "Discount paused.",
+  "@discountPausedDone": {
+    "description": "Success message"
+  },
+  "discountResumedDone": "Discount resumed.",
+  "@discountResumedDone": {
+    "description": "Success message"
+  },
+  "discountArchivedDone": "Discount archived.",
+  "@discountArchivedDone": {
+    "description": "Success message"
+  },
+  "discountOffline": "You are offline. Discounts can be read and changed again once the connection returns.",
+  "@discountOffline": {
+    "description": "Offline notice"
+  },
+  "discountReadOnly": "You can view discounts but not change them for this product.",
+  "@discountReadOnly": {
+    "description": "Notice when the user may only view discounts"
+  },
+  "discountChanged": "This discount was changed elsewhere. The latest values are shown; review them and try again.",
+  "@discountChanged": {
+    "description": "Version conflict notice"
+  },
+  "discountUncertain": "The change could not be confirmed. Check the discount; trying again sends the same request, so it is applied only once.",
+  "@discountUncertain": {
+    "description": "Write outcome unknown"
+  },
+  "discountLimitReached": "This product already has the maximum number of discounts.",
+  "@discountLimitReached": {
+    "description": "Per-product discount limit"
+  },
+  "discountArchivedNotice": "This discount is archived and can no longer be changed.",
+  "@discountArchivedNotice": {
+    "description": "Archived discount notice"
+  },
+  "discountNotDiscountable": "The POS cannot discount this product.",
+  "@discountNotDiscountable": {
+    "description": "Business rule"
+  },
+  "discountPriceZero": "Discounts need a regular price above zero.",
+  "@discountPriceZero": {
+    "description": "Business rule"
+  },
+  "discountLoadFailed": "Discounts could not be loaded.",
+  "@discountLoadFailed": {
+    "description": "Read failure"
+  },
+  "discountLoading": "Loading discounts",
+  "@discountLoading": {
+    "description": "Loading semantics"
+  },
+  "discountSaving": "Saving…",
+  "@discountSaving": {
+    "description": "Busy button label"
+  },
+  "discountIssueRequired": "Enter a value.",
+  "@discountIssueRequired": {
+    "description": "Field error"
+  },
+  "discountIssueType": "Choose a discount type.",
+  "@discountIssueType": {
+    "description": "Field error"
+  },
+  "discountIssueAmount": "Enter an amount with up to two decimal places.",
+  "@discountIssueAmount": {
+    "description": "Field error"
+  },
+  "discountIssueBelowRegular": "Must be below the regular price.",
+  "@discountIssueBelowRegular": {
+    "description": "Field error"
+  },
+  "discountIssuePercent": "Enter a percentage above 0 and up to 100, with up to two decimals.",
+  "@discountIssuePercent": {
+    "description": "Field error"
+  },
+  "discountIssueBundleQuantity": "Enter a whole number of at least 2.",
+  "@discountIssueBundleQuantity": {
+    "description": "Field error"
+  },
+  "discountIssueEndBeforeStart": "The end must be after the start.",
+  "@discountIssueEndBeforeStart": {
+    "description": "Field error"
+  },
+  "discountIssueEndInPast": "The end must be in the future.",
+  "@discountIssueEndInPast": {
+    "description": "Field error"
+  },
+  "discountIssueTime": "This date or time is not valid in the shop's time zone.",
+  "@discountIssueTime": {
+    "description": "Field error"
+  },
+  "discountIssueWeekdays": "Choose at least one day.",
+  "@discountIssueWeekdays": {
+    "description": "Field error"
+  },
+  "discountIssueAnnualDate": "Choose a real day of the year (not 29 February).",
+  "@discountIssueAnnualDate": {
+    "description": "Field error"
+  },
+  "discountIssueQuantity": "Enter a quantity above zero.",
+  "@discountIssueQuantity": {
+    "description": "Field error"
+  },
+  "discountIssueQuantityStep": "This quantity does not fit the product's unit.",
+  "@discountIssueQuantityStep": {
+    "description": "Field error"
+  },
+  "discountEditingField": "Editing {field}",
+  "@discountEditingField": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "discountTime24": "24-hour time",
+  "@discountTime24": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountSelectTime": "Select Time",
+  "@discountSelectTime": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountHour": "Hour",
+  "@discountHour": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountMinute": "Minute",
+  "@discountMinute": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountTodayValue": "Today · {date}",
+  "@discountTodayValue": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "discountSelectedValue": "Selected · {value}",
+  "@discountSelectedValue": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountPreviousMonth": "Previous month",
+  "@discountPreviousMonth": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountNextMonth": "Next month",
+  "@discountNextMonth": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountSetMinimum": "Set Minimum Quantity",
+  "@discountSetMinimum": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountSelectValue": "Select",
+  "@discountSelectValue": {
+    "description": "Discount date, time and repeat sheets"
+  },
+  "discountIncrease": "Increase {field}",
+  "@discountIncrease": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "discountDecrease": "Decrease {field}",
+  "@discountDecrease": {
+    "description": "Discount date, time and repeat sheets",
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "discountTime12": "12-hour time",
+  "@discountTime12": {
+    "description": "Discount time card"
+  },
+  "discountTime24Short": "24h",
+  "@discountTime24Short": {
+    "description": "Discount time card"
+  },
+  "discountMeridiem": "AM/PM",
+  "@discountMeridiem": {
+    "description": "Discount time card"
+  },
+  "cameraStarting": "Starting camera",
+  "@cameraStarting": {
+    "description": "Loading placeholder label for screen readers"
+  },
+  "wifiChecking": "Checking the Wi-Fi connection",
+  "@wifiChecking": {
+    "description": "Loading placeholder label for screen readers"
+  },
+  "tutorialsLoading": "Loading tutorials",
+  "@tutorialsLoading": {
+    "description": "Loading placeholder label for screen readers"
+  },
+  "categoryCreating": "Creating category",
+  "@categoryCreating": {
+    "description": "Loading placeholder label for screen readers"
+  },
+  "discountCreatedMeanwhile": "Your earlier request is now confirmed: it created this discount. The form edits it with your changes; nothing was created twice. Review and save.",
+  "@discountCreatedMeanwhile": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictTitle": "Changed elsewhere",
+  "@discountConflictTitle": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictBody": "Someone saved this discount while you were editing. Your changes are kept. Where both of you changed the same part, choose which value to keep, then apply and review before saving.",
+  "@discountConflictBody": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictSaved": "Saved now: {value}",
+  "@discountConflictSaved": {
+    "description": "Discount form: lost create and concurrent change",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountConflictYours": "Yours: {value}",
+  "@discountConflictYours": {
+    "description": "Discount form: lost create and concurrent change",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountConflictKeepMine": "Keep mine",
+  "@discountConflictKeepMine": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictUseSaved": "Use saved",
+  "@discountConflictUseSaved": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictTakenOver": "Taken over: you did not change this.",
+  "@discountConflictTakenOver": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountConflictApply": "Apply and review",
+  "@discountConflictApply": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountPartValue": "Discount value",
+  "@discountPartValue": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountArchiving": "Archiving…",
+  "@discountArchiving": {
+    "description": "Discount form: lost create and concurrent change"
+  },
+  "discountPendingCreate": "An earlier save of a new discount for this product has no confirmed answer yet. Its values are shown. Saving first confirms that request, so nothing is created twice.",
+  "@discountPendingCreate": {
+    "description": "Discount form: an unresolved earlier create"
+  },
+  "discountPendingExpired": "An earlier save of a new discount for this product could not be confirmed and can no longer be checked automatically. Look at the product's discounts: if it is there, edit it there. If it is not, discard the earlier save to create this one.",
+  "@discountPendingExpired": {
+    "description": "Discount form: an unresolved earlier create"
+  },
+  "discountPendingDiscard": "It is not there: discard the earlier save",
+  "@discountPendingDiscard": {
+    "description": "Discount form: an unresolved earlier create"
+  },
+  "discountReplayTitle": "Confirm the earlier offer first",
+  "@discountReplayTitle": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountOriginalRefused": "The earlier offer was not created. Your edited offer is kept: save again to create it.",
+  "@discountOriginalRefused": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountPendingRecover": "Confirm earlier discount",
+  "@discountPendingRecover": {
+    "description": "Discount list: recovering an unconfirmed create at the limit"
+  },
+  "discountPendingAtLimit": "This product is at its discount limit, but an earlier save of a new discount has no confirmed answer yet. Confirm it to find out whether it was created; no other discount can be created.",
+  "@discountPendingAtLimit": {
+    "description": "Discount list: recovering an unconfirmed create at the limit"
+  },
+  "discountReplayIntro": "Your earlier save of a new discount has no confirmed answer. Retrying sends exactly that request again: if it did not reach the server before, it creates the discount below now, with all of these terms.",
+  "@discountReplayIntro": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountReplayOriginal": "Earlier offer (sent again)",
+  "@discountReplayOriginal": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountReplayYourEdit": "Your edit: {value}",
+  "@discountReplayYourEdit": {
+    "description": "Discount form: retrying an unconfirmed earlier create",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "discountReplayKept": "Your edited offer (the marked differences) is kept and is only saved after you confirm it separately.",
+  "@discountReplayKept": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountReplayRetry": "Retry earlier offer",
+  "@discountReplayRetry": {
+    "description": "Discount form: retrying an unconfirmed earlier create"
+  },
+  "discountPendingCommitted": "The server received the earlier save of a new discount for this product, but its reply could not be read, so it was most likely created. Check the product's discounts before creating another one.",
+  "@discountPendingCommitted": {
+    "description": "Discount form: a create the server accepted with an unreadable reply"
+  },
+  "discountPendingCommittedResolve": "I checked the discounts: continue",
+  "@discountPendingCommittedResolve": {
+    "description": "Discount form: a create the server accepted with an unreadable reply"
   }
 }

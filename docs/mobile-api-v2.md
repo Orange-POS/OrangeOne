@@ -17,8 +17,10 @@ source of truth for paths, fields and error codes. The legacy JSON-RPC routes
 | `idempotency_keys.dart` | UUID v4 per write; an uncertain outcome keeps the key for the identical retry |
 | `product_payload.dart` | Validates `Product` / `ProductSummary` payloads (decimal strings, ISO currency) |
 
-Base URL: the POS QR `api_base` (`{origin}/api/orangeone/mobile/v1`), checked
-against the flavor's trusted origin. Error codes map as follows:
+Base URL: the POS QR `api_base` (`{origin}/api/orangeone/mobile/v1`). Its
+form is validated (HTTP or HTTPS, host and port, no credentials, query or
+fragment; `docs/authentication.md`), but any host is accepted, because POS
+servers are reached on the shop's local network. Error codes map as follows:
 `VALIDATION_FAILED`, `BUSINESS_RULE_VIOLATION`, `QR_INVALID` → validation;
 `AUTH_REQUIRED`, `TOKEN_*` → unauthenticated; `PERMISSION_DENIED`,
 `COMPANY_MISMATCH`, `DEVICE_MISMATCH` → forbidden; `NOT_FOUND`,
@@ -47,8 +49,48 @@ fallback). Server messages up to 500 characters are shown; traces never are.
 | Create category | `POST /categories` | `{name}` with `Idempotency-Key`; needs `category_create`; the created category is selected in the form |
 | Offline sync | `GET /products/changes` | `since`, `limit`; see [offline data](offline-data.md) |
 
-Not used yet: `GET /meta` (minimum app version, feature flags),
-`GET /products/{id}/history`, `POST /telemetry/events`.
+Not used yet: `GET /products/{id}/history`, `POST /telemetry/events`.
+
+## Backend features and backward compatibility
+
+Shops run different addon versions; one app version serves them all.
+
+- **One API path.** `/api/orangeone/mobile/v1` only grows: the backend adds
+  endpoints and fields, never renames or removes them. The app ignores unknown
+  fields and features.
+- **Feature detection, not version checks.** After a QR sign-in (and a
+  restored session) the app reads the shop's `GET /meta` once per session
+  (`backendFeaturesProvider`, filled in app composition by
+  `backendFeaturesOverride`) and shows a capability only when its feature is
+  listed. User permissions still decide whether it can be used.
+- **Baseline.** Until `/meta` answers, and when it cannot be read, the app
+  assumes `BackendFeatures.baseline`: the features of the oldest supported
+  addon (`mupi_mobile_pos_api` 19.0.2.0.0), marked unconfirmed
+  (`BackendFeatures.confirmed`). A screen that gates a feature asks once more
+  when it opens with unconfirmed features, even while an earlier screen (such
+  as Product Details below Stock) still listens; confirmed answers are kept
+  for the session and never asked again. Retries are reads only, one per
+  opening; writes are never retried. Another sign-in (another shop or session)
+  reads again, so shops never share features. Demo Mode supports its own
+  features offline.
+- **Compatibility, permissions, contracts.** `/meta` refusals (update
+  required, maintenance) and unsupported `api_version` majors block the
+  signed-in screens; session permissions and workflow variants are resolved
+  centrally. See [bootstrap-and-capabilities.md](bootstrap-and-capabilities.md).
+- **Gated today.** `stock_movements` → stock **Add** and **Remove**. Without it
+  the stock screen counts with **Update** only (`stock_adjustments`, every
+  supported addon).
+  `product_discounts` (API 1.1.0) → the discount screens, together with
+  `discount_read` / `discount_manage` (session and per product); endpoints
+  `GET/POST /products/{id}/discounts`, `GET/PUT/DELETE /discounts/{id}`,
+  `POST /discounts/{id}/pause|resume` (see
+  [product-discounts.md](product-discounts.md)). The client sends `DELETE`
+  for archive only.
+- **Adding a backend feature.** List it in the addon's `_get_features()`, add
+  an `AppFeature` entry (Feature Resolver), gate the screen on it (asking again on open
+  when unconfirmed, like the stock screen), and add the
+  endpoint to `tool/e2e/tests/backend-compat.spec.ts`. Raise the addon's
+  `API_VERSION` minor version for additive changes.
 `POST /auth/qr-challenges` is called by the Odoo POS UI, not the app.
 
 ## Concurrency and duplicate protection

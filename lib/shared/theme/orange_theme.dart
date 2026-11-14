@@ -9,11 +9,22 @@ abstract final class OrangeTheme {
   static const camera = Color(0xFF1B120B);
   static const pale = Color(0xFFFFF3E8);
   static const secondary = Color(0xFF5F6368);
+
+  /// Primary text on white surfaces.
+  static const ink = Color(0xFF202124);
   // Supplied button component colors; independent of branded backgrounds.
   static const action = Color(0xFFF56600);
   static const actionPressed = Color(0xFFC84E00);
   static const actionDisabled = Color(0xFFDADCE0);
   static const actionDisabledLabel = Color(0xFF5F6368);
+
+  /// Skeleton loading placeholders: neutral, never tinted. On white the
+  /// blocks are light gray with a lighter sweep; on the orange gradient or
+  /// the camera they are translucent white.
+  static const skeletonBase = Color(0xFFE8EAED);
+  static const skeletonHighlight = Color(0xFFF8F9FA);
+  static const skeletonOnDarkBase = Color(0x38FFFFFF);
+  static const skeletonOnDarkHighlight = Color(0x73FFFFFF);
 
   static Color _actionColor(Set<WidgetState> states) =>
       states.contains(WidgetState.pressed) ||

@@ -10,9 +10,12 @@ import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/authenticated_mobile_api.dart';
 import 'package:orange_one/core/network/dio_provider.dart';
+import 'package:orange_one/core/network/idempotency_keys.dart';
+import 'package:orange_one/core/network/pending_writes.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/core/storage/secret_store.dart';
 import 'package:orange_one/features/authentication/domain/entities/auth_session.dart';
 import 'package:orange_one/features/authentication/presentation/providers/auth_providers.dart';
 import 'package:orange_one/features/home/domain/entities/product.dart';
@@ -149,6 +152,7 @@ void main() {
     late List<String> paths;
     late StreamController<bool> connectivity;
     late ProviderContainer container;
+    late MemorySecretStore secrets;
 
     /// Answers `GET /products/changes` with (status, error code) when set.
     Future<(int, String)> Function()? feedReply;
@@ -157,6 +161,7 @@ void main() {
       dio = Dio();
       database = ReadCacheDatabase(NativeDatabase.memory());
       auth = FakeAuthRepository()..restored = testSession;
+      secrets = MemorySecretStore();
       authorizations = [];
       paths = [];
       feedReply = null;
@@ -202,6 +207,7 @@ void main() {
           authRepositoryProvider.overrideWithValue(auth),
           utcNowProvider.overrideWithValue(() => testNow),
           dioProvider.overrideWithValue(dio),
+          secretStoreProvider.overrideWithValue(secrets),
         ],
       );
     });
@@ -328,6 +334,27 @@ void main() {
         isEmpty,
       );
     });
+
+    // AUD-05: the cache key secret lives in secure storage for the session.
+    test(
+      'the session cache key secret is stored and removed on logout',
+      () async {
+        await container.read(sessionControllerProvider.future);
+        final cache = container.read(readCacheProvider)!;
+        await cache.load(
+          '4006381333931',
+          () async => _product('4006381333931'),
+        );
+        expect(secrets.values.keys, ['orangeone.production.read_cache_secret']);
+        await container.read(sessionControllerProvider.notifier).signOut();
+        await container.pump();
+        expect(container.read(readCacheProvider), isNull);
+        for (var i = 0; i < 20 && secrets.values.isNotEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(secrets.values, isEmpty);
+      },
+    );
 
     test('logout purges the session cache and closes the wiring', () async {
       await container.read(sessionControllerProvider.future);
@@ -557,4 +584,76 @@ void main() {
       });
     });
   });
+
+  group('pending writes', () {
+    test('belong to one session identity; another one starts empty', () {
+      final identity = _Identity.provider;
+      final container = ProviderContainer.test(
+        overrides: [
+          readCacheIdentityProvider.overrideWith((ref) => ref.watch(identity)),
+          pendingWritesOverride,
+        ],
+      );
+      final first = container.read(pendingWritesProvider)
+        ..begin(
+          slot: 'discount-create:product:10',
+          method: 'POST',
+          path: '/products/10/discounts',
+          body: '{}',
+          key: 'k1',
+        );
+      // Token refresh keeps the identity, and so the store.
+      container.read(identity.notifier).identity =
+          'production|shop-a|1|2|family-1';
+      expect(container.read(pendingWritesProvider), same(first));
+      for (final other in [
+        'production|shop-b|1|2|family-1',
+        'production|shop-a|1|3|family-1',
+        'production|shop-a|1|2|family-2',
+        null,
+      ]) {
+        container.read(identity.notifier).identity = other;
+        final store = container.read(pendingWritesProvider);
+        expect(store, isNot(same(first)), reason: '$other');
+        expect(store['discount-create:product:10'], isNull, reason: '$other');
+      }
+    });
+
+    // AUD-09: write keys outlive repositories, never the session identity.
+    test('idempotency keys belong to one session identity', () {
+      final identity = _Identity.provider;
+      final container = ProviderContainer.test(
+        overrides: [
+          readCacheIdentityProvider.overrideWith((ref) => ref.watch(identity)),
+          idempotencyKeysOverride,
+        ],
+      );
+      final first = container.read(idempotencyKeysProvider);
+      container.read(identity.notifier).identity =
+          'production|shop-a|1|2|family-1';
+      expect(container.read(idempotencyKeysProvider), same(first));
+      for (final other in [
+        'production|shop-b|1|2|family-1',
+        'production|shop-a|1|2|family-2',
+        null,
+      ]) {
+        container.read(identity.notifier).identity = other;
+        expect(
+          container.read(idempotencyKeysProvider),
+          isNot(same(first)),
+          reason: '$other',
+        );
+      }
+    });
+  });
+}
+
+class _Identity extends Notifier<String?> {
+  static final provider = NotifierProvider<_Identity, String?>(_Identity.new);
+
+  @override
+  String? build() => 'production|shop-a|1|2|family-1';
+
+  String? get identity => state;
+  set identity(String? value) => state = value;
 }

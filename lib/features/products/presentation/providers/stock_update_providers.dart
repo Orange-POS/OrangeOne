@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
+import 'package:orange_one/core/capabilities/feature_resolver.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
@@ -83,16 +85,33 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
   new(this.barcode);
   final String barcode;
   int _generation = 0;
+  bool _askedShop = false;
 
   @override
   Future<StockUpdateState> build() async {
     _generation++;
+    _askAgainIfFallback();
     ref.listen(readCacheRecoveryProvider, (previous, next) {
       if (next.hasValue) unawaited(refresh());
     });
     final repository = ref.watch(productDetailsRepositoryProvider);
     final details = await ManageProductDetails(repository).load(barcode);
     return StockUpdateState(details: details);
+  }
+
+  /// Add and Remove depend on the shop's features. When they are only the
+  /// fallback (an earlier `GET /meta` failed), ask the shop once more for
+  /// this screen. Bounded: one read per opening, never repeated, never a
+  /// write.
+  void _askAgainIfFallback() {
+    if (_askedShop) return;
+    _askedShop = true;
+    final features = ref.read(backendFeaturesProvider).value;
+    if (features == null || features.confirmed) return;
+    // Not during build: the shop is asked right after this screen starts.
+    scheduleMicrotask(() {
+      if (ref.mounted) ref.invalidate(backendFeaturesProvider);
+    });
   }
 
   /// The state while the quantity can be edited (not saving, saved or unsure).
@@ -146,9 +165,26 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
     );
   }
 
+  /// Whether the central Feature Resolver allows [operation] right now:
+  /// stock management supported by the shop and permitted for the user, the
+  /// operation offered by the shop's workflow, and an online read cache.
+  /// Checked on every confirmation and write, independent of the screen.
+  bool allows(StockOperation operation) {
+    final availability = ref.read(
+      featureAvailabilityProvider(AppFeature.stockUpdate),
+    );
+    if (!availability.usable) return false;
+    if (operation != StockOperation.update &&
+        StockWorkflow.of(availability) == StockWorkflow.countOnly) {
+      return false;
+    }
+    return !(ref.read(readCacheProvider)?.offline ?? false);
+  }
+
   StockCountConfirmation? confirmation() {
     final current = state.value;
     if (state.isLoading || current == null || !current.canSubmit) return null;
+    if (!allows(current.operation)) return null;
     final product = current.details.product!;
     return StockCountConfirmation(
       product: product,
@@ -212,6 +248,17 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
             message:
                 'The stock changed. Review the current quantity '
                 'and confirm again.',
+          ),
+        );
+        return;
+      }
+      if (!allows(confirmation.operation)) {
+        state = AsyncData(
+          _editing(
+            details,
+            current.draft,
+            current.operation,
+            message: 'Stock cannot be changed right now.',
           ),
         );
         return;

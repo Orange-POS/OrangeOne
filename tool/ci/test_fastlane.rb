@@ -4,6 +4,7 @@ require 'minitest/mock'
 require 'tempfile'
 require_relative 'test_testflight_groups'
 require_relative 'test_testflight_build_number'
+require_relative 'test_phased_release'
 
 class FastfileHarness
   attr_reader :lanes, :calls
@@ -231,7 +232,7 @@ class FastfileTest < Minitest::Test
     assert_raises(ArgumentError) { @harness.lanes[:submit].call }
     assert_empty @harness.calls
     ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
-    @harness.lanes[:submit].call
+    run_submit
     submit = @harness.calls.assoc(:submit).last
     assert_equal 'ch.orangepos.productscanner', submit[:app_identifier]
     assert_equal '1.0.0', submit[:app_version]
@@ -240,6 +241,41 @@ class FastfileTest < Minitest::Test
     assert submit[:submit_for_review]
     refute submit[:automatic_release]
     refute @harness.calls.assoc(:build)
+  end
+
+  # deliver (fastlane 2.241.1) applies phased_release inside its metadata
+  # upload, which skip_metadata skips; the lane must not rely on that option.
+  def test_submit_confirms_phased_release_itself_because_metadata_is_skipped
+    ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
+    run_submit
+    submit = @harness.calls.assoc(:submit).last
+    assert submit[:skip_metadata], 'existing metadata stays untouched'
+    refute submit.key?(:phased_release), 'deliver would ignore it with skip_metadata'
+    assert_equal [:key, :phased_release, :submit], @harness.calls.map(&:first)
+    assert_equal [:phased_release, '1.0.0'], @harness.calls.assoc(:phased_release)
+  end
+
+  def test_submit_stops_before_review_when_phased_release_is_not_confirmed
+    ENV['IPHONE_SMOKE_TEST_CONFIRMED'] = 'true'
+    phased = Object.new
+    phased.define_singleton_method(:enable) do |**|
+      raise OrangeonePhasedRelease::Error, 'Phased release could not be confirmed'
+    end
+    error = assert_raises(ArgumentError) do
+      OrangeonePhasedRelease.stub(:new, phased) { @harness.lanes[:submit].call }
+    end
+    assert_includes error.message, 'could not be confirmed'
+    refute @harness.calls.assoc(:submit)
+  end
+
+  def run_submit
+    calls = @harness.calls
+    phased = Object.new
+    phased.define_singleton_method(:enable) do |version:|
+      calls << [:phased_release, version]
+      'INACTIVE'
+    end
+    OrangeonePhasedRelease.stub(:new, phased) { @harness.lanes[:submit].call }
   end
 end
 
@@ -465,6 +501,26 @@ class ChannelLaneTest < Minitest::Test
       assert_includes text, 'distribute_existing'
       assert_includes text, 'version 1.1.0, build 36'
       assert_includes text, 'without rebuilding or uploading'
+    end
+    assert_equal 1, @harness.calls.count { |call| call.first == :testflight }
+    refute @harness.calls.assoc(:assign)
+  ensure
+    ENV.delete('GITHUB_STEP_SUMMARY')
+  end
+
+  def test_a_processing_timeout_after_upload_reports_the_resume_and_never_uploads_again
+    ENV.update('DRY_RUN' => 'false', 'TESTFLIGHT_CD_ENABLED' => 'true')
+    @distribution.define_singleton_method(:distribute) do |**|
+      raise OrangeoneTestflight::ProcessingTimeout, 'The exact build was still processing after 30 minutes.'
+    end
+    Tempfile.create('summary') do |file|
+      ENV['GITHUB_STEP_SUMMARY'] = file.path
+      output, = capture_io { run_with_ipa(:testflight_channel) }
+      assert_match(/::warning/, output)
+      text = File.read(file.path)
+      assert_includes text, 'still processing'
+      assert_includes text, 'operation distribute_existing'
+      assert_includes text, 'version 1.1.0, build 36 and target group dev'
     end
     assert_equal 1, @harness.calls.count { |call| call.first == :testflight }
     refute @harness.calls.assoc(:assign)

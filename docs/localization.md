@@ -2,7 +2,7 @@
 
 ## Languages
 
-OrangeONE ships six languages: English (`en`, the template), Dutch (`nl`),
+OrangeONE ships six languages: English (`en`, the template), German (`de`, Deutsch),
 French (`fr`), Italian (`it`), Turkish (`tr`) and Tamil (`ta`). The app uses the
 Very Good CLI / Flutter `gen-l10n` setup (`l10n.yaml`, `lib/l10n/arb/*.arb`,
 generated code in the git-ignored `lib/l10n/gen/`). The leftover Spanish
@@ -14,6 +14,10 @@ template file was removed so that the supported set is exactly these six.
 - `test/l10n/locale_controller_test.dart` checks that every language
   translates every message. The translations were written without a native
   review: have native speakers check them before release.
+- German replaced the former Dutch (`nl`) translation. The German texts use
+  the formal *Sie* and Swiss spelling (`ss`, no `ß`) because prices are in
+  CHF. A device that had Dutch saved ignores that unsupported value and
+  follows the device language (English when it is not supported).
 
 Localized so far: the Login home screen, the QR scanner screen, the Barcode
 Home screen and the Barcode scanner screen, including the "Last scanned" card,
@@ -33,10 +37,17 @@ defaults for them (labels are passed in by localized screens). Sending `Accept-L
 `LanguageSelector` (`features/authentication/presentation/widgets`) is the white
 pill under the login subtitle. It shows a greeting in the current language
 (Hello, Hallo, Bonjour, Ciao, Merhaba, வணக்கம்); tapping it opens a menu of the
-six greetings. A choice applies immediately to the Login and QR scanner
-screens. The visible pill is 40 points high inside a 48 point touch target;
+six greetings. A choice applies immediately to every screen.
+
+Settings show the same choice in the **Language** row (greeting and a
+chevron). Both open the one shared menu (`shared/widgets/language_menu.dart`,
+`LanguageMenu`) and change the one `LocaleController` selection; neither keeps
+its own copy, so the login pill and Settings always show the same language
+(`test/features/settings/settings_language_test.dart`). The Settings labels
+are localized; their section headings are stored in capitals for each language
+because Dart's `toUpperCase` is not locale-aware (Turkish dotted İ). The visible pill is 40 points high inside a 48 point touch target;
 screen readers announce "Language: <name>" and read the menu entries by the
-language's own name (English, Nederlands, Français, Italiano, Türkçe, தமிழ்).
+language's own name (English, Deutsch, Français, Italiano, Türkçe, தமிழ்).
 
 ## Persistence and fallback
 

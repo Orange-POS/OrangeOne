@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orange_one/core/capabilities/feature_resolver.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/widgets/stock_count_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/stock_operation_selector.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/product_action_surface.dart';
+import 'package:orange_one/shared/widgets/product_navbar.dart';
+import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 /// Updates, adds to or removes from the on-hand stock, following the Update
 /// Price layout.
@@ -123,6 +125,19 @@ class _ProductStockUpdatePageState
     final view = async.isLoading || async.hasError ? null : async.value;
     final product = view?.details.product;
     final busy = view?.busy ?? false;
+    // The central Feature Resolver decides whether stock management can be
+    // used at all (shop support and session permission); the workflow
+    // variant only selects the operations. Update exists in every
+    // supported backend.
+    final availability = ref.watch(
+      featureAvailabilityProvider(AppFeature.stockUpdate),
+    );
+    final allowed = availability.usable;
+    final workflow = StockWorkflow.of(availability);
+    final operations = switch (workflow) {
+      StockWorkflow.countAddRemove => StockOperation.values,
+      StockWorkflow.countOnly => const [StockOperation.update],
+    };
     final saved = view?.phase == StockUpdatePhase.saved;
     final uncertain = view?.phase == StockUpdatePhase.uncertain;
     ref.listen(provider, (previous, next) {
@@ -173,7 +188,7 @@ class _ProductStockUpdatePageState
                   ? () => _leave(true)
                   : uncertain
                   ? _refresh
-                  : view?.canSubmit == true && !offline
+                  : view?.canSubmit == true && allowed && !offline
                   ? _confirm
                   : null,
               child: Text(
@@ -218,9 +233,16 @@ class _ProductStockUpdatePageState
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   child: async.when(
-                    loading: () => Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: l10n.stockLoading,
+                    loading: () => Skeleton(
+                      label: l10n.stockLoading,
+                      child: const Column(
+                        children: [
+                          SkeletonTiles(height: 48),
+                          SizedBox(height: 20),
+                          SkeletonForm(fields: 1),
+                          SizedBox(height: 16),
+                          SkeletonCard(child: SkeletonLines(count: 1)),
+                        ],
                       ),
                     ),
                     error: (error, stack) => Column(
@@ -263,16 +285,21 @@ class _ProductStockUpdatePageState
                                   ),
                           ),
                           const Divider(color: Color(0xFFDADCE0), height: 24),
-                          StockOperationSelector(
-                            selected: value.operation,
-                            onChanged: ref
-                                .read(provider.notifier)
-                                .changeOperation,
-                            enabled:
-                                value.permitted &&
-                                !value.busy &&
-                                value.phase == StockUpdatePhase.editing,
-                          ),
+                          // Add and Remove need a backend with stock
+                          // movements; older shops count with Update only.
+                          if (operations.length > 1)
+                            StockOperationSelector(
+                              selected: value.operation,
+                              operations: operations,
+                              onChanged: ref
+                                  .read(provider.notifier)
+                                  .changeOperation,
+                              enabled:
+                                  allowed &&
+                                  value.permitted &&
+                                  !value.busy &&
+                                  value.phase == StockUpdatePhase.editing,
+                            ),
                           const Divider(color: Color(0xFFDADCE0), height: 24),
                           Padding(
                             padding: const EdgeInsets.symmetric(
@@ -286,6 +313,7 @@ class _ProductStockUpdatePageState
                                   .read(provider.notifier)
                                   .changeQuantity,
                               enabled:
+                                  allowed &&
                                   value.permitted &&
                                   !value.busy &&
                                   value.phase == StockUpdatePhase.editing,
@@ -296,10 +324,18 @@ class _ProductStockUpdatePageState
                               preview: value.previewStock,
                             ),
                           ),
-                          if (!value.permitted)
+                          if (!availability.visible)
+                            PriceUpdateNotice(
+                              message: l10n.stockFeatureUnavailable,
+                            )
+                          else if (!allowed)
+                            PriceUpdateNotice(message: l10n.stockNoPermission)
+                          else if (!value.permitted)
                             PriceUpdateNotice(
                               message: _blockedMessage(l10n, value),
-                            ),
+                            )
+                          else if (offline)
+                            PriceUpdateNotice(message: l10n.stockOffline),
                           if (value.message != null)
                             PriceUpdateNotice(message: value.message!),
                         ],

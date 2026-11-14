@@ -21,7 +21,7 @@ void main() {
   test('offers exactly the six languages, all supported by the app', () {
     expect(appLanguages.map((l) => l.locale.languageCode), [
       'en',
-      'nl',
+      'de',
       'fr',
       'it',
       'tr',
@@ -55,7 +55,7 @@ void main() {
     expect(container.read(localeControllerProvider), const Locale('fr'));
   });
 
-  for (final saved in ['es', '', 'nl-BE', 'xx']) {
+  for (final saved in ['es', '', 'nl', 'de-CH', 'xx']) {
     test('ignores an unsupported saved value "$saved"', () async {
       store.values[localeStorageKey] = saved;
       final container = newContainer();
@@ -106,8 +106,8 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await container
         .read(localeControllerProvider.notifier)
-        .select(const Locale('nl'));
-    expect(container.read(localeControllerProvider), const Locale('nl'));
+        .select(const Locale('de'));
+    expect(container.read(localeControllerProvider), const Locale('de'));
     expect(store.values, isEmpty);
   });
 
