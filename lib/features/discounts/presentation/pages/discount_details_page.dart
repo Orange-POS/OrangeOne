@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
-import 'package:orange_one/features/discounts/presentation/pages/discount_list_page.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_details_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_navigation.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
@@ -115,8 +115,8 @@ class DiscountDetailsPage extends ConsumerWidget {
               : () => context.canPop()
                     ? context.pop()
                     : context.goNamed(
-                        'productDiscounts',
-                        queryParameters: discountRouteQuery(scope),
+                        'productDetails',
+                        queryParameters: {'barcode': scope.barcode},
                       ),
         ),
         bottomNavigationBar: access.manage && discount != null

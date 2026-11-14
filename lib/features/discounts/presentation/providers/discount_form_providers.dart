@@ -7,11 +7,13 @@ import 'package:orange_one/features/discounts/domain/entities/discount_draft.dar
 import 'package:orange_one/features/discounts/domain/entities/discount_merge.dart';
 import 'package:orange_one/features/discounts/domain/entities/pending_discount_create.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
+import 'package:orange_one/features/discounts/presentation/providers/discount_details_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 
-/// [saving] and [archiving] are the two writes of the form; while one runs,
-/// every other action and leaving the form are blocked.
-enum DiscountFormPhase { editing, saving, archiving, saved, archived }
+/// [saving], [archiving] and [toggling] (pause or resume) are the writes of
+/// the form; while one runs, every other action and leaving the form are
+/// blocked.
+enum DiscountFormPhase { editing, saving, archiving, toggling, saved, archived }
 
 /// What stops or stopped saving, beyond field errors.
 enum DiscountFormProblem {
@@ -85,6 +87,7 @@ class DiscountFormState {
     this.problemMessage,
     this.ruleCode,
     this.saved,
+    this.toggled,
     this.limitReached = false,
     this.recoverable = false,
     this.conflict,
@@ -116,6 +119,10 @@ class DiscountFormState {
 
   /// The discount the server confirmed (saved or archived).
   final Discount? saved;
+
+  /// The pause or resume the server just confirmed (the form stays open on
+  /// the server's reply); null after any other change.
+  final DiscountAction? toggled;
   final bool limitReached;
 
   /// An earlier create of this product is unresolved and can still be
@@ -128,7 +135,9 @@ class DiscountFormState {
 
   bool get editing => original != null;
   bool get busy =>
-      phase == DiscountFormPhase.saving || phase == DiscountFormPhase.archiving;
+      phase == DiscountFormPhase.saving ||
+      phase == DiscountFormPhase.archiving ||
+      phase == DiscountFormPhase.toggling;
 
   /// Client checks of the current draft.
   Map<String, DiscountIssue> get issues => draft.validate(regularPrice.cents);
@@ -177,6 +186,13 @@ class DiscountFormState {
       original != null &&
       !original!.archived;
 
+  /// Pause or resume of the stored discount, under the same conditions as
+  /// archive and only when the server allows it ([Discount.canPause],
+  /// [Discount.canResume]).
+  bool get canToggle =>
+      canArchive &&
+      (original!.paused ? original!.canResume : original!.canPause);
+
   DiscountFormState copy({
     DiscountMoney? regularPrice,
     DiscountDraft? draft,
@@ -188,6 +204,7 @@ class DiscountFormState {
     String? problemMessage,
     String? ruleCode,
     Discount? saved,
+    DiscountAction? toggled,
     bool? limitReached,
     bool? recoverable,
     DiscountFormConflict? conflict,
@@ -205,6 +222,7 @@ class DiscountFormState {
         problemMessage ?? (keepProblem ? this.problemMessage : null),
     ruleCode: ruleCode ?? (keepProblem ? this.ruleCode : null),
     saved: saved,
+    toggled: toggled,
     limitReached: limitReached ?? this.limitReached,
     recoverable: recoverable ?? this.recoverable,
     conflict: conflict ?? (keepConflict ? this.conflict : null),
@@ -364,29 +382,6 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   /// Removes the date & time limits.
   void clearSchedule() => change((draft) => draft.withSchedule(null));
 
-  /// Reads the product's regular price again after it was changed on the
-  /// price screen. The draft, the stored version (If-Match) and all
-  /// messages stay; only validation and the preview follow the new price.
-  Future<void> refreshRegularPrice() async {
-    if (_editable == null) return;
-    final generation = _generation;
-    try {
-      final list = await ref
-          .read(discountRepositoryProvider)
-          .list(args.scope.productId);
-      final current = _editable;
-      if (!ref.mounted || generation != _generation || current == null) {
-        return;
-      }
-      state = AsyncData(
-        current.copy(regularPrice: list.regularPrice, keepProblem: true),
-      );
-      ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
-    } on AppFailure {
-      // The shown price stays; the server validates the save anyway.
-    }
-  }
-
   // --- Conflict resolution ------------------------------------------------
 
   /// Decides a part both sides changed (`true` keeps the user's value).
@@ -457,6 +452,12 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   bool get canArchive {
     final current = _editable;
     return current != null && current.canArchive && _writable;
+  }
+
+  /// Whether the pause/resume confirmation may be shown now.
+  bool get canToggle {
+    final current = _editable;
+    return current != null && current.canToggle && _writable;
   }
 
   static String _fingerprint(DiscountDraft draft) =>
@@ -668,6 +669,44 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
       if (!ref.mounted || generation != _generation) return;
       state = AsyncData(
         current.copy(phase: DiscountFormPhase.archived, saved: archived),
+      );
+      ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
+    } on AppFailure catch (failure) {
+      if (!ref.mounted || generation != _generation) return;
+      await _failed(current, failure, generation);
+    }
+  }
+
+  /// Pauses or resumes the stored discount once (`POST
+  /// /discounts/{id}/pause|resume` with its version). Save, Archive and
+  /// leaving the form are blocked until it is answered. On success the form
+  /// stays open on the server's reply (its version guards the next save)
+  /// and keeps the entered values; on failure the draft stays.
+  Future<void> toggle() async {
+    final current = _editable;
+    if (current == null) return;
+    if (!current.canToggle || !_writable) {
+      state = AsyncData(current.copy(problem: DiscountFormProblem.notAllowed));
+      return;
+    }
+    final generation = ++_generation;
+    final original = current.original!;
+    final action = original.paused
+        ? DiscountAction.resume
+        : DiscountAction.pause;
+    state = AsyncData(current.copy(phase: DiscountFormPhase.toggling));
+    try {
+      final repository = ref.read(discountRepositoryProvider);
+      final updated = action == DiscountAction.pause
+          ? await repository.pause(original)
+          : await repository.resume(original);
+      if (!ref.mounted || generation != _generation) return;
+      state = AsyncData(
+        current.copy(
+          phase: DiscountFormPhase.editing,
+          original: updated,
+          toggled: action,
+        ),
       );
       ref.invalidate(productDiscountsControllerProvider(args.scope.productId));
     } on AppFailure catch (failure) {

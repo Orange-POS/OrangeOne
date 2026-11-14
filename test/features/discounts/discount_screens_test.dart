@@ -25,8 +25,10 @@ import 'package:orange_one/features/discounts/data/repositories/odoo_discount_re
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
+import 'package:orange_one/features/discounts/presentation/pages/discount_details_page.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/product_discounts_section.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
@@ -108,6 +110,17 @@ void main() {
   Future<void> confirm(WidgetTester tester) =>
       tapKey(tester, 'discount-confirm');
 
+  /// The action of the "Create New Discounts" card on Product Details.
+  VoidCallback? createAction(WidgetTester tester) => tester
+      .widget<DiscountCreateCard>(
+        find.byKey(const Key('product-discounts-create')),
+      )
+      .onPressed;
+
+  /// Opens the edit form of the discount from its card on Product Details.
+  Future<void> openEditForm(WidgetTester tester, [int id = 1]) =>
+      tapKey(tester, 'discount-edit-$id');
+
   setUp(() => discounts = FakeDiscountRepository());
 
   group('capability and permissions', () {
@@ -122,7 +135,7 @@ void main() {
         ),
       );
       expect(find.text('Aachi Fish Fry Masala'), findsWidgets);
-      expect(find.byKey(const Key('discount-summary')), findsNothing);
+      expect(find.byKey(const Key('product-discounts')), findsNothing);
       expect(discounts.lists, 0, reason: 'no discount endpoint is called');
       // Existing product actions are unchanged.
       expect(find.byTooltip('Update stock'), findsOneWidget);
@@ -135,11 +148,11 @@ void main() {
         tester,
         permissions: const {'product_read': true, 'discount_read': false},
       );
-      expect(find.byKey(const Key('discount-summary')), findsNothing);
+      expect(find.byKey(const Key('product-discounts')), findsNothing);
       expect(discounts.lists, 0);
     });
 
-    testWidgets('read only: overview and list without any write action', (
+    testWidgets('read only: the list on Product Details without any write', (
       tester,
     ) async {
       await open(
@@ -147,23 +160,23 @@ void main() {
         permissions: const {'discount_read': true, 'discount_manage': false},
         access: _readOnly,
       );
-      expect(find.text('Discount Overview'), findsOneWidget);
-      expect(find.byKey(const Key('discount-total')), findsOneWidget);
-      await tapKey(tester, 'discount-open');
-      expect(find.text('Discount Details'), findsOneWidget);
+      expect(find.text('Product Discounts'), findsOneWidget);
+      expect(find.byKey(const Key('product-discounts-count')), findsOneWidget);
       expect(
         find.text(
           'You can view discounts but not change them for this product.',
         ),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('discount-list-create')), findsNothing);
+      expect(find.byKey(const Key('product-discounts-create')), findsNothing);
       final edit = tester.widget<EditPencilButton>(
         find.byKey(const Key('discount-edit-1')),
       );
       expect(edit.onPressed, isNull);
-      expect(find.byKey(const Key('discount-toggle-1')), findsNothing);
+      expect(find.byType(OrangeSwitch), findsNothing);
+      // Without write access a card opens the read-only details.
       await tapKey(tester, 'discount-1');
+      expect(find.byType(DiscountDetailsPage), findsOneWidget);
       expect(find.byKey(const Key('discount-pause')), findsNothing);
       expect(discounts.writes, isEmpty);
     });
@@ -172,8 +185,7 @@ void main() {
       tester,
     ) async {
       await open(tester, access: _readOnly);
-      await tapKey(tester, 'discount-open');
-      expect(find.byKey(const Key('discount-list-create')), findsNothing);
+      expect(find.byKey(const Key('product-discounts-create')), findsNothing);
     });
   });
 
@@ -184,7 +196,7 @@ void main() {
       discounts.discounts = [];
       await open(tester);
       expect(find.text('Create New Discounts'), findsOneWidget);
-      await tapKey(tester, 'discount-create-new');
+      await tapKey(tester, 'product-discounts-create');
       expect(
         find.text('Choose a type to enter its discount value.'),
         findsOneWidget,
@@ -199,13 +211,66 @@ void main() {
       ];
       await open(tester);
       expect(
-        tester.widget<Text>(find.byKey(const Key('discount-total'))).data,
-        '3',
+        tester
+            .widget<Text>(find.byKey(const Key('product-discounts-count')))
+            .data,
+        '3 discounts',
       );
       expect(find.text('20% off'), findsOneWidget);
       expect(find.text('5 for CHF 400.00'), findsOneWidget);
       expect(find.text('CHF 80.00'), findsOneWidget);
+      // Every card shows its type and status pill; no switches.
+      expect(find.text('Percentage Discount'), findsOneWidget);
+      expect(find.text('Collective Discount'), findsOneWidget);
+      expect(find.text('Fixed Price Discount'), findsOneWidget);
+      expect(find.text('Active'), findsNWidgets(2));
       expect(find.text('Paused'), findsOneWidget);
+      expect(find.byType(OrangeSwitch), findsNothing);
+      for (final id in [1, 2, 3]) {
+        expect(find.byKey(Key('discount-edit-$id')), findsOneWidget);
+      }
+      // The compact card replaces the large bottom button.
+      expect(find.text('Create New Discounts'), findsOneWidget);
+      expect(createAction(tester), isNotNull);
+      expect(find.text('Create Discount'), findsNothing);
+      // No intermediate overview screen anywhere.
+      expect(find.text('Discount Overview'), findsNothing);
+    });
+
+    testWidgets('a card opens the edit form; saving returns to details', (
+      tester,
+    ) async {
+      await open(tester);
+      await tapKey(tester, 'discount-1');
+      expect(find.text('Edit Discount'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('discount-percent')), '25');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'discount-save');
+      await confirm(tester);
+      expect(discounts.writes, ['update']);
+      // Straight back to Product Details, with the list read again.
+      expect(
+        container.read(routerProvider).routeInformationProvider.value.uri.path,
+        '/home/products/details',
+      );
+      expect(find.text('Discount saved.'), findsOneWidget);
+      expect(find.text('25% off'), findsOneWidget);
+    });
+
+    testWidgets('cancelling the edit form returns to details unchanged', (
+      tester,
+    ) async {
+      await open(tester);
+      await openEditForm(tester);
+      expect(find.text('Edit Discount'), findsOneWidget);
+      container.read(routerProvider).pop();
+      await tester.pumpAndSettle();
+      expect(
+        container.read(routerProvider).routeInformationProvider.value.uri.path,
+        '/home/products/details',
+      );
+      expect(find.text('20% off'), findsOneWidget);
+      expect(discounts.writes, isEmpty);
     });
 
     testWidgets('a read failure offers a retry, other details stay', (
@@ -215,17 +280,30 @@ void main() {
       await open(tester);
       expect(find.text('Discounts could not be loaded.'), findsOneWidget);
       discounts.readError = null;
-      await tapKey(tester, 'discount-summary-retry');
-      expect(find.text('Discount Overview'), findsOneWidget);
+      await tapKey(tester, 'product-discounts-retry');
+      expect(find.text('Product Discounts'), findsOneWidget);
       expect(find.text('20% off'), findsOneWidget);
     });
   });
 
   group('details actions', () {
+    // The read-only details screen stays reachable by its route (a
+    // manager's card opens the edit form instead).
     Future<void> openDiscount(WidgetTester tester) async {
       await open(tester);
-      await tapKey(tester, 'discount-open');
-      await tapKey(tester, 'discount-1');
+      unawaited(
+        container
+            .read(routerProvider)
+            .pushNamed(
+              'productDiscountDetail',
+              queryParameters: {
+                'barcode': _barcode,
+                'product_id': '10',
+                'discount_id': '1',
+              },
+            ),
+      );
+      await tester.pumpAndSettle();
     }
 
     testWidgets('details show price, value, preview and status', (
@@ -270,14 +348,17 @@ void main() {
       expect(discounts.writes, isEmpty);
     });
 
-    testWidgets('archive returns to the list without the discount', (
+    testWidgets('archive returns to Product Details without the discount', (
       tester,
     ) async {
       await openDiscount(tester);
       await tapKey(tester, 'discount-archive');
       await confirm(tester);
       expect(discounts.writes, ['archive']);
-      expect(find.text('Discount archived.'), findsOneWidget);
+      expect(
+        container.read(routerProvider).routeInformationProvider.value.uri.path,
+        '/home/products/details',
+      );
       expect(find.byKey(const Key('discount-1')), findsNothing);
     });
 
@@ -307,44 +388,59 @@ void main() {
     });
   });
 
-  group('list pause switch', () {
-    OrangeSwitch toggleOf(WidgetTester tester, int id) =>
-        tester.widget<OrangeSwitch>(find.byKey(Key('discount-toggle-$id')));
+  group('form pause and resume', () {
+    OutlinedButton toggleButton(WidgetTester tester) => tester
+        .widget<OutlinedButton>(find.byKey(const Key('discount-form-toggle')));
 
-    Future<void> openList(WidgetTester tester) async {
-      await open(tester);
-      await tapKey(tester, 'discount-open');
-    }
+    Finder statusPill(String text) => find.descendant(
+      of: find.byKey(const Key('discount-form-status')),
+      matching: find.text(text),
+    );
 
-    testWidgets('pause, then resume: confirmed, status pill kept', (
+    testWidgets('pause, then resume: confirmed, the form stays with edits', (
       tester,
     ) async {
-      await openList(tester);
-      expect(toggleOf(tester, 1).value, isTrue);
-      expect(find.text('Active'), findsOneWidget);
-      await tapKey(tester, 'discount-toggle-1');
+      await open(tester);
+      await openEditForm(tester);
+      expect(statusPill('Active'), findsOneWidget);
+      // An unsaved edit survives pause and resume.
+      await tester.enterText(find.byKey(const Key('discount-percent')), '25');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'discount-form-toggle');
       expect(find.text('Pause this discount?'), findsOneWidget);
       await confirm(tester);
       expect(discounts.writes, ['pause']);
-      expect(toggleOf(tester, 1).value, isFalse);
-      expect(find.text('Paused'), findsOneWidget);
+      expect(statusPill('Paused'), findsOneWidget);
       expect(find.text('Discount paused.'), findsOneWidget);
-      await tapKey(tester, 'discount-toggle-1');
+      expect(find.text('Edit Discount'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('discount-percent')))
+            .controller
+            ?.text,
+        '25',
+      );
+      await tapKey(tester, 'discount-form-toggle');
       expect(find.text('Resume this discount?'), findsOneWidget);
       await confirm(tester);
       expect(discounts.writes, ['pause', 'resume']);
       expect(discounts.versions, ['v1', 'v1+']);
-      expect(toggleOf(tester, 1).value, isTrue);
-      expect(find.text('Active'), findsOneWidget);
+      expect(statusPill('Active'), findsOneWidget);
+      // Saving afterwards uses the version of the last reply.
+      await tapKey(tester, 'discount-save');
+      await confirm(tester);
+      expect(discounts.writes, ['pause', 'resume', 'update']);
+      expect(discounts.versions, ['v1', 'v1+', 'v1++']);
     });
 
     testWidgets('cancelling the confirmation sends nothing', (tester) async {
-      await openList(tester);
-      await tapKey(tester, 'discount-toggle-1');
+      await open(tester);
+      await openEditForm(tester);
+      await tapKey(tester, 'discount-form-toggle');
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(discounts.writes, isEmpty);
-      expect(toggleOf(tester, 1).value, isTrue);
+      expect(statusPill('Active'), findsOneWidget);
     });
 
     testWidgets('a version conflict writes once and never shows success', (
@@ -355,52 +451,70 @@ void main() {
         'Changed',
         code: 'VERSION_CONFLICT',
       );
-      await openList(tester);
-      await tapKey(tester, 'discount-toggle-1');
+      await open(tester);
+      await openEditForm(tester);
+      await tapKey(tester, 'discount-form-toggle');
       await confirm(tester);
       expect(discounts.writes, ['pause']);
-      expect(find.textContaining('changed elsewhere'), findsOneWidget);
+      // The form's conflict panel shows the saved values; nothing retried.
+      expect(find.byKey(const Key('discount-conflict')), findsOneWidget);
       expect(find.text('Discount paused.'), findsNothing);
     });
 
-    testWidgets('an unconfirmed outcome keeps the switch unchanged', (
+    testWidgets('an unconfirmed outcome keeps the status and the form', (
       tester,
     ) async {
       discounts.writeError = const AppFailure(FailureKind.network, 'offline');
-      await openList(tester);
-      await tapKey(tester, 'discount-toggle-1');
+      await open(tester);
+      await openEditForm(tester);
+      await tapKey(tester, 'discount-form-toggle');
       await confirm(tester);
       expect(find.textContaining('could not be confirmed'), findsOneWidget);
       expect(find.text('Discount paused.'), findsNothing);
-      expect(toggleOf(tester, 1).value, isTrue);
+      expect(statusPill('Active'), findsOneWidget);
+      expect(find.text('Edit Discount'), findsOneWidget);
     });
 
-    // AUD-07: an open outcome reads the list again.
-    testWidgets('an unconfirmed outcome shows what the server holds now', (
-      tester,
-    ) async {
-      await openList(tester);
-      final lists = discounts.lists;
-      // The pause reached the server, but its answer is lost.
-      discounts
-        ..writeError = const AppFailure(FailureKind.timeout, 'slow')
-        ..discounts = [discountOf(paused: true)];
-      await tapKey(tester, 'discount-toggle-1');
-      await confirm(tester);
-      expect(discounts.lists, greaterThan(lists));
-      expect(find.textContaining('could not be confirmed'), findsOneWidget);
-      expect(toggleOf(tester, 1).value, isFalse);
-      expect(find.text('Discount paused.'), findsNothing);
-    });
-
-    testWidgets('a cancelled write is unconfirmed, not refused', (
+    testWidgets('a cancelled write never shows success; the form stays', (
       tester,
     ) async {
       discounts.writeError = cancelledOperation;
-      await openList(tester);
-      await tapKey(tester, 'discount-toggle-1');
+      await open(tester);
+      await openEditForm(tester);
+      await tapKey(tester, 'discount-form-toggle');
       await confirm(tester);
-      expect(find.textContaining('could not be confirmed'), findsOneWidget);
+      expect(discounts.writes, ['pause']);
+      expect(find.text('Discount paused.'), findsNothing);
+      expect(statusPill('Active'), findsOneWidget);
+      expect(find.text('Edit Discount'), findsOneWidget);
+    });
+
+    testWidgets('while a pause is pending, Save and Archive are blocked', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      discounts.pendingWrite = gate;
+      await open(tester);
+      await openEditForm(tester);
+      await tapKey(tester, 'discount-form-toggle');
+      await confirm(tester);
+      expect(toggleButton(tester).onPressed, isNull);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('discount-save')))
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('discount-form-archive')))
+            .onPressed,
+        isNull,
+      );
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(discounts.writes, ['pause']);
+      expect(toggleButton(tester).onPressed, isNotNull);
     });
   });
 
@@ -408,7 +522,7 @@ void main() {
     Future<void> openCreate(WidgetTester tester) async {
       discounts.discounts = [];
       await open(tester);
-      await tapKey(tester, 'discount-create-new');
+      await tapKey(tester, 'product-discounts-create');
     }
 
     FilledButton save(WidgetTester tester) =>
@@ -439,34 +553,89 @@ void main() {
       expect(discounts.writes, ['create']);
       expect(discounts.lastDraft?.fixedPrice, '80');
       expect(find.text('Discount created.'), findsOneWidget);
-      expect(find.text('Discount Overview'), findsOneWidget);
+      expect(find.text('Product Discounts'), findsOneWidget);
     });
 
-    testWidgets('the Price card pencil opens the price screen', (tester) async {
+    testWidgets('create: the regular price is shown read-only', (tester) async {
+      // The product has `update_price`, still no edit action here.
       await openCreate(tester);
       await tapKey(tester, 'discount-type-fixed_price');
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('discount-regular-price')))
+            .data,
+        'CHF 100.00',
+      );
+      expect(find.byKey(const Key('discount-edit-price')), findsNothing);
+      expect(find.byTooltip('Update price'), findsNothing);
+      // It is still the reference for validation.
       await tester.enterText(
         find.byKey(const Key('discount-fixed-price')),
         '120',
       );
       await tester.pumpAndSettle();
       expect(find.text('Must be below the regular price.'), findsOneWidget);
-      await tapKey(tester, 'discount-edit-price');
-      expect(find.byType(ProductPriceUpdatePage), findsOneWidget);
-      // A saved price returns true; the form reads the new regular price.
-      discounts.regularPrice = const DiscountMoney(15000, 'CHF');
-      container.read(routerProvider).pop(true);
+      expect(discounts.writes, isEmpty);
+    });
+
+    testWidgets('details: the regular price is shown read-only', (
+      tester,
+    ) async {
+      await open(tester);
+      unawaited(
+        container
+            .read(routerProvider)
+            .pushNamed(
+              'productDiscountDetail',
+              queryParameters: {
+                'barcode': _barcode,
+                'product_id': '10',
+                'discount_id': '1',
+              },
+            ),
+      );
       await tester.pumpAndSettle();
-      expect(find.byType(ProductPriceUpdatePage), findsNothing);
+      expect(find.text('CHF 100.00'), findsWidgets);
+      expect(find.byKey(const Key('discount-edit-price')), findsNothing);
+      expect(find.byTooltip('Update price'), findsNothing);
+    });
+
+    testWidgets('edit: the regular price is read-only; saving keeps it', (
+      tester,
+    ) async {
+      await open(tester);
+      final products = container.read(
+        productDetailsRepositoryProvider,
+      ) as FakeDetailsRepository;
+      await openEditForm(tester);
+      expect(find.text('Edit Discount'), findsOneWidget);
+      // Shown for reference, without any edit action (the product has
+      // `update_price`).
       expect(
         tester
             .widget<Text>(find.byKey(const Key('discount-regular-price')))
             .data,
-        'CHF 150.00',
+        'CHF 100.00',
       );
-      // The typed value stays and is valid against the new price.
-      expect(find.text('Must be below the regular price.'), findsNothing);
-      expect(discounts.writes, isEmpty);
+      expect(find.byKey(const Key('discount-edit-price')), findsNothing);
+      expect(find.byTooltip('Update price'), findsNothing);
+      // The discount itself can still be changed and saved.
+      await tester.enterText(find.byKey(const Key('discount-percent')), '25');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'discount-save');
+      await confirm(tester);
+      expect(discounts.writes, ['update']);
+      expect(find.text('Discount saved.'), findsOneWidget);
+      // The product price was not written and is unchanged.
+      expect(products.writes, 0);
+      expect(products.product!.price, 100);
+      expect(find.text('CHF 100.00'), findsOneWidget);
+      // The product's own price workflow still edits it.
+      await tester.ensureVisible(find.byTooltip('Update price'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Update price'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProductPriceUpdatePage), findsOneWidget);
     });
 
     testWidgets('no price permission: the Price card has no pencil', (
@@ -477,7 +646,7 @@ void main() {
         tester,
         access: const ProductAccess(adjustStock: true, manageDiscounts: true),
       );
-      await tapKey(tester, 'discount-create-new');
+      await tapKey(tester, 'product-discounts-create');
       await tapKey(tester, 'discount-type-percentage');
       expect(find.byKey(const Key('discount-regular-price')), findsOneWidget);
       expect(find.byKey(const Key('discount-edit-price')), findsNothing);
@@ -659,7 +828,6 @@ void main() {
       // A phone-sized screen where the open cards need scrolling.
       tester.view.physicalSize = const Size(390, 844);
       await tester.pumpAndSettle();
-      await tapKey(tester, 'discount-open');
       await tapKey(tester, 'discount-edit-1');
       for (final key in [
         'discount-section-schedule',
@@ -684,7 +852,6 @@ void main() {
       await open(tester);
       tester.view.physicalSize = const Size(390, 844);
       await tester.pumpAndSettle();
-      await tapKey(tester, 'discount-open');
       await tapKey(tester, 'discount-edit-1');
       // Minimum Quantity just visible at the bottom, above the save bar.
       final header = find.byKey(const Key('discount-section-minimum'));
@@ -704,7 +871,7 @@ void main() {
       final store = MemorySecretStore();
       discounts.discounts = [];
       await open(tester, more: [secretStoreProvider.overrideWithValue(store)]);
-      await tapKey(tester, 'discount-create-new');
+      await tapKey(tester, 'product-discounts-create');
       await tapKey(tester, 'discount-type-percentage');
       await tester.enterText(find.byKey(const Key('discount-percent')), '20');
       await tester.pumpAndSettle();
@@ -762,7 +929,6 @@ void main() {
       tester,
     ) async {
       await open(tester);
-      await tapKey(tester, 'discount-open');
       await tapKey(tester, 'discount-edit-1');
       await tapKey(tester, 'discount-form-archive');
       expect(find.text('Archive this discount?'), findsOneWidget);
@@ -890,7 +1056,6 @@ void main() {
 
       Future<void> openEdit(WidgetTester tester) async {
         await open(tester);
-        await tapKey(tester, 'discount-open');
         await tapKey(tester, 'discount-edit-1');
       }
 
@@ -987,7 +1152,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         discounts.loseCreateAnswer = true;
@@ -1023,7 +1188,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         discounts.loseCreateAnswer = true;
@@ -1043,7 +1208,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         // No answer and nothing committed yet.
@@ -1074,7 +1239,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
@@ -1105,7 +1270,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         discounts.deferNextCommit = true;
@@ -1133,7 +1298,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         discounts.loseCreateAnswer = true;
@@ -1165,7 +1330,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         discounts.loseCreateAnswer = true;
@@ -1228,7 +1393,7 @@ void main() {
             pendingWrites: session,
           ),
         );
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         await tapKey(tester, 'discount-save');
@@ -1326,7 +1491,7 @@ void main() {
             pendingWrites: session,
           ),
         );
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         await tapKey(tester, 'discount-save');
@@ -1334,19 +1499,14 @@ void main() {
         expect(stored, hasLength(1), reason: 'it committed the last slot');
         container.read(routerProvider).pop();
         await tester.pumpAndSettle();
-        // The list is at its limit: only the recovery is offered.
-        unawaited(
-          container
-              .read(routerProvider)
-              .pushNamed(
-                'productDiscounts',
-                queryParameters: {'barcode': _barcode, 'product_id': '10'},
-              ),
+        // Back on Product Details, at the limit: only the recovery is
+        // offered.
+        expect(
+          find.byKey(const Key('product-discounts-pending')),
+          findsOneWidget,
         );
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('discount-list-pending')), findsOneWidget);
-        final entry = find.byKey(const Key('discount-list-create'));
-        expect(tester.widget<FilledButton>(entry).onPressed, isNotNull);
+        final entry = find.byKey(const Key('product-discounts-create'));
+        expect(createAction(tester), isNotNull);
         expect(
           find.descendant(
             of: entry,
@@ -1354,8 +1514,7 @@ void main() {
           ),
           findsOneWidget,
         );
-        await tester.tap(entry);
-        await tester.pumpAndSettle();
+        await tapKey(tester, 'product-discounts-create');
         // The form shows the earlier values and allows only their replay.
         expect(find.byKey(const Key('discount-pending')), findsOneWidget);
         expect(percentText(tester), '20');
@@ -1378,18 +1537,15 @@ void main() {
         expect(jsonEncode(posts[1].data), jsonEncode(posts[0].data));
         expect(stored, hasLength(1), reason: 'no second discount');
         expect(session['discount-create:product:10'], isNull);
-        // Back on the list: settled, so a fresh create is blocked again.
+        // Back on Product Details: settled, so a fresh create is blocked
+        // again.
         expect(find.text('Discount created.'), findsOneWidget);
-        expect(find.byKey(const Key('discount-list-pending')), findsNothing);
         expect(
-          tester
-              .widget<FilledButton>(
-                find.byKey(const Key('discount-list-create')),
-              )
-              .onPressed,
-          isNull,
+          find.byKey(const Key('product-discounts-pending')),
+          findsNothing,
         );
-        expect(find.text('Create Discount'), findsOneWidget);
+        expect(createAction(tester), isNull);
+        expect(find.text('Create New Discounts'), findsOneWidget);
       });
 
       testWidgets('at the limit a changed draft replays only the original', (
@@ -1399,7 +1555,7 @@ void main() {
           ..discounts = []
           ..limit = 1;
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         // No answer, and it never committed.
@@ -1448,7 +1604,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         // An open-ended 20% offer times out without committing.
@@ -1502,7 +1658,7 @@ void main() {
           ..discounts = []
           ..limit = 1;
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         // Another operator takes the last slot meanwhile.
@@ -1514,32 +1670,19 @@ void main() {
         discounts.writeError = null;
         container.read(routerProvider).pop();
         await tester.pumpAndSettle();
-        // The list is at its limit and offers the recovery.
-        unawaited(
-          container
-              .read(routerProvider)
-              .pushNamed(
-                'productDiscounts',
-                queryParameters: {'barcode': _barcode, 'product_id': '10'},
-              ),
-        );
-        await tester.pumpAndSettle();
+        // Product Details is at its limit and offers the recovery.
         expect(find.text('Confirm earlier discount'), findsOneWidget);
-        await tapKey(tester, 'discount-list-create');
+        await tapKey(tester, 'product-discounts-create');
         expect(find.byKey(const Key('discount-pending')), findsOneWidget);
       }
 
       void expectFreshCreateBlocked(WidgetTester tester) {
-        expect(find.byKey(const Key('discount-list-pending')), findsNothing);
-        expect(find.text('Confirm earlier discount'), findsNothing);
         expect(
-          tester
-              .widget<FilledButton>(
-                find.byKey(const Key('discount-list-create')),
-              )
-              .onPressed,
-          isNull,
+          find.byKey(const Key('product-discounts-pending')),
+          findsNothing,
         );
+        expect(find.text('Confirm earlier discount'), findsNothing);
+        expect(createAction(tester), isNull);
       }
 
       testWidgets('a refused edited replay clears the list recovery', (
@@ -1610,7 +1753,7 @@ void main() {
             pendingWrites: session,
           ),
         );
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         await tapKey(tester, 'discount-save');
@@ -1663,7 +1806,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         // Times out without committing: a replay would create 20% now.
@@ -1711,7 +1854,7 @@ void main() {
       ) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         discounts.writeError = const AppFailure(FailureKind.timeout, 'slow');
@@ -1749,7 +1892,7 @@ void main() {
       testWidgets('rapid repeated Save sends one create', (tester) async {
         discounts.discounts = [];
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         final gate = Completer<void>();
@@ -1782,7 +1925,7 @@ void main() {
             percent: '20',
           );
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         expect(find.byKey(const Key('discount-pending')), findsOneWidget);
         expect(percentText(tester), '20');
         await typePercent(tester, '30');
@@ -1806,7 +1949,7 @@ void main() {
           )
           ..expiredPending.add(10);
         await open(tester);
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         expect(
           find.textContaining('no longer be checked automatically'),
           findsOneWidget,
@@ -1873,7 +2016,7 @@ void main() {
             DiscountRemoteDataSource(fakeProductApi(server)),
           ),
         );
-        await tapKey(tester, 'discount-create-new');
+        await tapKey(tester, 'product-discounts-create');
         await tapKey(tester, 'discount-type-percentage');
         await typePercent(tester, '20');
         await tapKey(tester, 'discount-save');
@@ -1966,7 +2109,6 @@ void main() {
       tester,
     ) async {
       await open(tester);
-      await tapKey(tester, 'discount-open');
       await tapKey(tester, 'discount-edit-1');
       expect(find.text('Edit Discount'), findsOneWidget);
       expect(
@@ -1989,13 +2131,7 @@ void main() {
     testWidgets('a limit reached product cannot create more', (tester) async {
       discounts.limit = 1;
       await open(tester);
-      await tapKey(tester, 'discount-open');
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('discount-list-create')))
-            .onPressed,
-        isNull,
-      );
+      expect(createAction(tester), isNull);
       expect(
         find.text('This product already has the maximum number of discounts.'),
         findsOneWidget,
@@ -2014,26 +2150,15 @@ void main() {
     });
     cache.connectionChanged(connected: false);
     await open(tester, more: [readCacheProvider.overrideWithValue(cache)]);
-    await tapKey(tester, 'discount-open');
     expect(find.textContaining('You are offline'), findsWidgets);
-    expect(
-      tester
-          .widget<FilledButton>(find.byKey(const Key('discount-list-create')))
-          .onPressed,
-      isNull,
-    );
+    expect(createAction(tester), isNull);
     expect(
       tester
           .widget<EditPencilButton>(find.byKey(const Key('discount-edit-1')))
           .onPressed,
       isNull,
     );
-    expect(
-      tester
-          .widget<OrangeSwitch>(find.byKey(const Key('discount-toggle-1')))
-          .onChanged,
-      isNull,
-    );
+    // Offline a card opens the read-only details, where nothing is enabled.
     await tapKey(tester, 'discount-1');
     expect(
       tester

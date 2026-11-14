@@ -5,18 +5,19 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/preferences/time_format_controller.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
+import 'package:orange_one/features/discounts/presentation/providers/discount_details_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_form_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_conflict_panel.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_sections.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_navigation.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_pickers.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_replay_dialog.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
-import 'package:orange_one/shared/widgets/edit_pencil_button.dart';
 import 'package:orange_one/shared/widgets/info_row_card.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
@@ -32,16 +33,10 @@ class DiscountFormPage extends ConsumerStatefulWidget {
     this.discountId,
     this.productCard,
     this.navTrailing,
-    this.onEditPrice,
     super.key,
   });
 
   final DiscountScope scope;
-
-  /// Opens the product's price screen (composed by the app) and returns
-  /// whether a new price was saved; null hides the Price card's pencil
-  /// action (no `update_price`).
-  final Future<bool> Function(BuildContext context)? onEditPrice;
 
   /// Null creates a new discount.
   final int? discountId;
@@ -137,16 +132,6 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     }
   }
 
-  /// The Price card's pencil: the product's own price screen, then the new
-  /// regular price for validation and the preview (typed values stay).
-  Future<void> _editPrice() async {
-    final edit = widget.onEditPrice;
-    if (edit == null || _confirming) return;
-    FocusScope.of(context).unfocus();
-    final changed = await edit(context);
-    if (changed && mounted) await _controller.refreshRegularPrice();
-  }
-
   /// Confirms, then archives through the form's own controller: Save,
   /// Archive and leaving the form share its busy state, so nothing overlaps
   /// while the archive is pending. A failure keeps the draft.
@@ -162,6 +147,31 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
         message: l10n.discountConfirmArchiveBody,
       );
       if (confirmed && mounted) await _controller.archive();
+    } finally {
+      _confirming = false;
+    }
+  }
+
+  /// Confirms, then pauses or resumes through the form's own controller.
+  /// The form stays open on the server's reply and keeps the entered
+  /// values; a failure keeps the draft.
+  Future<void> _toggle(Discount discount) async {
+    if (_confirming || !_controller.canToggle) return;
+    final l10n = context.l10n;
+    final pause = !discount.paused;
+    _confirming = true;
+    FocusScope.of(context).unfocus();
+    try {
+      final confirmed = await DiscountConfirmDialog.show(
+        context,
+        title: pause
+            ? l10n.discountConfirmPauseTitle
+            : l10n.discountConfirmResumeTitle,
+        message: pause
+            ? l10n.discountConfirmPauseBody
+            : l10n.discountConfirmResumeBody,
+      );
+      if (confirmed && mounted) await _controller.toggle();
     } finally {
       _confirming = false;
     }
@@ -229,6 +239,13 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
       } else if (value.phase == DiscountFormPhase.archived &&
           before?.phase != DiscountFormPhase.archived) {
         context.pop(l10n.discountArchivedDone);
+      } else if (value.toggled != null && before?.toggled == null) {
+        showDiscountResult(
+          context,
+          value.toggled == DiscountAction.pause
+              ? l10n.discountPausedDone
+              : l10n.discountResumedDone,
+        );
       } else if (before?.conflict != null && value.conflict == null) {
         // The merged values replace what the inputs show.
         _fill(value.draft);
@@ -295,6 +312,8 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
                   ? l10n.discountSaving
                   : state?.phase == DiscountFormPhase.archiving
                   ? l10n.discountArchiving
+                  : state?.phase == DiscountFormPhase.toggling
+                  ? l10n.discountSaving
                   : editingStored
                   ? l10n.commonSaveChanges
                   : l10n.discountCreateTitle,
@@ -404,9 +423,25 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     final pendingResolvable =
         state.problem == DiscountFormProblem.pendingExpired ||
         state.problem == DiscountFormProblem.pendingCommitted;
+    final stored = state.original;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The stored discount's status with its Pause/Resume action (the
+        // list on Product Details has no switches).
+        if (stored != null && !stored.archived) ...[
+          _StatusCard(
+            discount: stored,
+            busy: state.phase == DiscountFormPhase.toggling,
+            onToggle: access.manage
+                ? (state.canToggle && access.canWrite
+                      ? () => _toggle(stored)
+                      : null)
+                : null,
+            showAction: access.manage,
+          ),
+          const SizedBox(height: 16),
+        ],
         // An earlier create of this product is unresolved: said first.
         if (pendingProblem) ...[
           DiscountNotice(
@@ -452,17 +487,12 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
                 ? _controller.resolveConflict
                 : null,
           ),
+        // Reference only: the regular price is changed on the product's own
+        // price screen, never from a discount screen.
         InfoRowCard.price(
           label: l10n.discountsRegularPrice,
           value: state.regularPrice.display,
           valueKey: const Key('discount-regular-price'),
-          action: widget.onEditPrice == null
-              ? null
-              : EditPencilButton(
-                  key: const Key('discount-edit-price'),
-                  tooltip: l10n.detailsUpdatePrice,
-                  onPressed: editable && !access.offline ? _editPrice : null,
-                ),
         ),
         const SizedBox(height: 16),
         DiscountPreviewCard(draft: draft, preview: preview, currency: currency),
@@ -810,6 +840,68 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// The stored discount's status and, for managers, its Pause/Resume action.
+class _StatusCard extends StatelessWidget {
+  const new({
+    required this.discount,
+    required this.busy,
+    required this.onToggle,
+    required this.showAction,
+  });
+
+  final Discount discount;
+
+  /// A pause or resume is being sent.
+  final bool busy;
+
+  /// Null keeps the action disabled.
+  final VoidCallback? onToggle;
+  final bool showAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return DiscountPanel(
+      key: const Key('discount-form-status'),
+      // Wraps the action below the status when a language's labels do not
+      // fit on one line.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l10n.discountStatusLabel,
+                style: const TextStyle(color: OrangeTheme.secondary),
+              ),
+              const SizedBox(width: 12),
+              DiscountStatusPill(status: discount.status),
+            ],
+          ),
+          if (showAction)
+            OutlinedButton(
+              key: const Key('discount-form-toggle'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: busy ? null : onToggle,
+              child: Text(
+                discount.paused ? l10n.discountResume : l10n.discountPause,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
