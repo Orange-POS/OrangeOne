@@ -24,22 +24,33 @@ class ScanDockBar extends StatelessWidget {
   final String icon;
 
   /// Diameter of the round action.
-  static const buttonSize = 72.0;
+  static const buttonSize = 60.0;
 
   /// White ring between the action and the bar.
-  static const gap = 6.0;
+  static const gap = 5.0;
 
-  /// Height of the orange bar below the safe-area inset.
-  static const barHeight = 34.0;
+  /// Height of the orange bar without a bottom safe-area inset (Android
+  /// button navigation).
+  static const minBarHeight = 24.0;
 
   /// How far the action rises above the bar.
-  static const rise = 52.0;
+  static const rise = 40.0;
+
+  /// The part of the action sunk into the bar: the bar shows this much
+  /// above a bottom safe-area inset (the iOS home indicator, Android
+  /// gesture navigation), so the action ends exactly where the inset
+  /// starts and never reaches into it.
+  static const double sunk = buttonSize - rise;
+
+  /// Total height of the dock for a bottom safe-area inset of [bottomInset].
+  static double heightFor(double bottomInset) =>
+      rise + math.max(bottomInset + sunk, minBarHeight);
 
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
     return SizedBox(
-      height: rise + barHeight + bottom,
+      height: heightFor(bottom),
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.topCenter,
@@ -74,8 +85,8 @@ class ScanDockBar extends StatelessWidget {
                       child: Center(
                         child: SvgPicture.asset(
                           icon,
-                          width: 38,
-                          height: 38,
+                          width: 32,
+                          height: 32,
                           colorFilter: const ColorFilter.mode(
                             Colors.white,
                             BlendMode.srcIn,

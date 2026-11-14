@@ -20,9 +20,8 @@ import 'package:orange_one/features/demo/presentation/widgets/demo_sample_barcod
 import 'package:orange_one/features/demo/presentation/widgets/demo_sample_qr_list.dart';
 import 'package:orange_one/features/discounts/presentation/pages/discount_details_page.dart';
 import 'package:orange_one/features/discounts/presentation/pages/discount_form_page.dart';
-import 'package:orange_one/features/discounts/presentation/pages/discount_list_page.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
-import 'package:orange_one/features/discounts/presentation/widgets/discount_summary_card.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/product_discounts_section.dart';
 import 'package:orange_one/features/help_support/presentation/pages/tutorial_page.dart';
 import 'package:orange_one/features/home/presentation/pages/home_page.dart';
 import 'package:orange_one/features/home/presentation/pages/product_scanner_page.dart';
@@ -114,7 +113,7 @@ Widget _discountRoute(
   return Consumer(
     builder: (context, ref, child) {
       if (productId == null || productId <= 0) {
-        return ProductDetailsPage(barcode: barcode);
+        return _productDetailsPage(barcode);
       }
       final details = ref.watch(productDetailsControllerProvider(barcode));
       final product = details.hasError ? null : details.value?.product;
@@ -148,6 +147,20 @@ Widget _discountRoute(
     },
   );
 }
+
+/// Product Details with its "Product Discounts" section, scoped by the
+/// product's `discount_manage` of the read it shows (the discount screens
+/// keep their own verified value, [_discountManageProvider]).
+Widget _productDetailsPage(String barcode) => ProductDetailsPage(
+  barcode: barcode,
+  discountsBuilder: (details) => ProductDiscountsSection(
+    scope: DiscountScope(
+      productId: details.product!.id,
+      barcode: barcode,
+      manageAllowed: details.access.manageDiscounts,
+    ),
+  ),
+);
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
@@ -252,46 +265,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: 'productDetails',
             path: 'products/details',
-            builder: (context, state) {
-              final barcode = state.uri.queryParameters['barcode'] ?? '';
-              return ProductDetailsPage(
-                barcode: barcode,
-                discountsBuilder: (details) {
-                  final product = details.product!;
-                  final query = {
-                    'barcode': barcode,
-                    'product_id': '${product.id}',
-                  };
-                  return DiscountSummaryCard(
-                    productId: product.id,
-                    manageAllowed: details.access.manageDiscounts,
-                    onOpen: () => context.pushNamed(
-                      'productDiscounts',
-                      queryParameters: query,
-                    ),
-                    onCreate: () async {
-                      final message = await context.pushNamed<String>(
-                        'productDiscountForm',
-                        queryParameters: query,
-                      );
-                      if (context.mounted) showDiscountResult(context, message);
-                    },
-                  );
-                },
-              );
-            },
-          ),
-          GoRoute(
-            name: 'productDiscounts',
-            path: 'products/discounts',
-            builder: (context, state) => _discountRoute(
-              state,
-              (scope, card, nav, _, _) => DiscountListPage(
-                scope: scope,
-                productCard: card,
-                navTrailing: nav,
-              ),
-            ),
+            builder: (context, state) =>
+                _productDetailsPage(state.uri.queryParameters['barcode'] ?? ''),
           ),
           GoRoute(
             name: 'productDiscountForm',
@@ -313,11 +288,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => _discountRoute(
               state,
               (scope, card, nav, discountId, _) => discountId == null
-                  ? DiscountListPage(
-                      scope: scope,
-                      productCard: card,
-                      navTrailing: nav,
-                    )
+                  ? _productDetailsPage(scope.barcode)
                   : DiscountDetailsPage(
                       scope: scope,
                       discountId: discountId,

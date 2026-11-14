@@ -19,6 +19,7 @@ class ProductNameCard extends ConsumerWidget {
     this.taxText,
     this.onEdit,
     this.onAdjustStock,
+    this.collapse = 0,
     super.key,
   });
   final ProductDetails? product;
@@ -34,6 +35,14 @@ class ProductNameCard extends ConsumerWidget {
 
   /// Opens Update Stock; null keeps the stock action disabled.
   final VoidCallback? onAdjustStock;
+
+  /// How far the details layout is folded while its screen scrolls: 0 shows
+  /// the full card, 1 the compact card without the Tax and Barcode rows and
+  /// with less spacing. Every step in between changes the height linearly.
+  final double collapse;
+
+  /// The share of the Tax and Barcode rows still shown.
+  double get _open => 1 - collapse.clamp(0.0, 1.0);
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final current = product;
@@ -90,7 +99,7 @@ class ProductNameCard extends ConsumerWidget {
   );
 
   Widget _card(BuildContext context, bool stockNotSet) => Container(
-    padding: EdgeInsets.fromLTRB(16, 0, 16, detailsLayout ? 16 : 24),
+    padding: EdgeInsets.fromLTRB(16, 0, 16, detailsLayout ? 8 + 8 * _open : 24),
     child: detailsLayout
         ? _glass(_detailsContent(context, stockNotSet))
         : _glass(_compactContent(context, stockNotSet)),
@@ -154,82 +163,115 @@ class ProductNameCard extends ConsumerWidget {
         : category;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 12,
       children: [
-        // The category pill leads the card.
-        InfoBadge(
-          key: const Key('product-category-badge'),
-          text: categoryText,
-          semanticsLabel: l10n.categoryLabel(categoryText),
-          compact: true,
-          singleLine: true,
-        ),
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 12,
           children: [
-            Expanded(
-              child: Text(
-                product?.name ?? emptyTitle ?? l10n.productNotFound,
-                style: const TextStyle(
-                  fontSize: 28,
-                  height: 36 / 28,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+            // The category pill leads the card.
+            InfoBadge(
+              key: const Key('product-category-badge'),
+              text: categoryText,
+              semanticsLabel: l10n.categoryLabel(categoryText),
+              compact: true,
+              singleLine: true,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    product?.name ?? emptyTitle ?? l10n.productNotFound,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      height: 36 / 28,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            if (showActions) ...[
-              const SizedBox(width: 10),
-              EditPencilButton.onGradient(
-                tooltip: l10n.detailsEditName,
-                onPressed: onEdit,
-              ),
-            ],
-          ],
-        ),
-        if (product?.reference.isNotEmpty ?? false)
-          Text(
-            product!.reference,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              height: 1.5,
-            ),
-          ),
-        Row(
-          children: [
-            Expanded(
-              child: Wrap(
-                children: [
-                  StockBadge(
-                    quantity: stockNotSet ? null : product?.stock,
-                    unit: product?.unit ?? '',
-                    compact: true,
-                    labels: _stockLabels(context, stockNotSet),
+                if (showActions) ...[
+                  const SizedBox(width: 10),
+                  EditPencilButton.onGradient(
+                    tooltip: l10n.detailsEditName,
+                    onPressed: onEdit,
                   ),
                 ],
-              ),
+              ],
             ),
-            if (showActions)
-              EditPencilButton.onGradient(
-                tooltip: l10n.detailsUpdateStock,
-                onPressed: onAdjustStock,
+            if (product?.reference.isNotEmpty ?? false)
+              Text(
+                product!.reference,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  height: 1.5,
+                ),
               ),
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    children: [
+                      StockBadge(
+                        quantity: stockNotSet ? null : product?.stock,
+                        unit: product?.unit ?? '',
+                        compact: true,
+                        labels: _stockLabels(context, stockNotSet),
+                      ),
+                    ],
+                  ),
+                ),
+                if (showActions)
+                  EditPencilButton.onGradient(
+                    tooltip: l10n.detailsUpdateStock,
+                    onPressed: onAdjustStock,
+                  ),
+              ],
+            ),
           ],
         ),
-        if (taxText case final tax?)
-          _fact(
-            key: const Key('product-tax-row'),
-            asset: 'assets/icons/product_detail_tax.svg',
-            label: l10n.detailsTax,
-            value: tax,
+        // Fold away (with the gap above them) while the screen scrolls; the
+        // rows above stay.
+        ?_fold(
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 12,
+              children: [
+                if (taxText case final tax?)
+                  _fact(
+                    key: const Key('product-tax-row'),
+                    asset: 'assets/icons/product_detail_tax.svg',
+                    label: l10n.detailsTax,
+                    value: tax,
+                  ),
+                _fact(
+                  key: const Key('product-hero-barcode'),
+                  asset: 'assets/icons/product_barcode.svg',
+                  label: l10n.detailsBarcode,
+                  value: product?.barcode ?? '',
+                ),
+              ],
+            ),
           ),
-        _fact(
-          key: const Key('product-hero-barcode'),
-          asset: 'assets/icons/product_barcode.svg',
-          label: l10n.detailsBarcode,
-          value: product?.barcode ?? '',
         ),
       ],
+    );
+  }
+
+  /// [child] cut to [_open] of its height and faded alike; null once fully
+  /// folded, so the column adds no spacing for it.
+  Widget? _fold(Widget child) {
+    final open = _open;
+    if (open <= 0) return null;
+    if (open >= 1) return child;
+    return ClipRect(
+      child: Align(
+        alignment: Alignment.topCenter,
+        heightFactor: open,
+        child: Opacity(opacity: open, child: child),
+      ),
     );
   }
 

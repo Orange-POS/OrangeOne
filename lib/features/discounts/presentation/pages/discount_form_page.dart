@@ -5,11 +5,13 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/preferences/time_format_controller.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
+import 'package:orange_one/features/discounts/presentation/providers/discount_details_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_form_providers.dart';
 import 'package:orange_one/features/discounts/presentation/providers/discount_providers.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_conflict_panel.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_sections.dart';
+import 'package:orange_one/features/discounts/presentation/widgets/discount_navigation.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_pickers.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_replay_dialog.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
@@ -167,6 +169,31 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     }
   }
 
+  /// Confirms, then pauses or resumes through the form's own controller.
+  /// The form stays open on the server's reply and keeps the entered
+  /// values; a failure keeps the draft.
+  Future<void> _toggle(Discount discount) async {
+    if (_confirming || !_controller.canToggle) return;
+    final l10n = context.l10n;
+    final pause = !discount.paused;
+    _confirming = true;
+    FocusScope.of(context).unfocus();
+    try {
+      final confirmed = await DiscountConfirmDialog.show(
+        context,
+        title: pause
+            ? l10n.discountConfirmPauseTitle
+            : l10n.discountConfirmResumeTitle,
+        message: pause
+            ? l10n.discountConfirmPauseBody
+            : l10n.discountConfirmResumeBody,
+      );
+      if (confirmed && mounted) await _controller.toggle();
+    } finally {
+      _confirming = false;
+    }
+  }
+
   Future<void> _pickDate(DiscountFormState state, {required bool end}) async {
     final l10n = context.l10n;
     final schedule = state.draft.schedule;
@@ -229,6 +256,13 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
       } else if (value.phase == DiscountFormPhase.archived &&
           before?.phase != DiscountFormPhase.archived) {
         context.pop(l10n.discountArchivedDone);
+      } else if (value.toggled != null && before?.toggled == null) {
+        showDiscountResult(
+          context,
+          value.toggled == DiscountAction.pause
+              ? l10n.discountPausedDone
+              : l10n.discountResumedDone,
+        );
       } else if (before?.conflict != null && value.conflict == null) {
         // The merged values replace what the inputs show.
         _fill(value.draft);
@@ -295,6 +329,8 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
                   ? l10n.discountSaving
                   : state?.phase == DiscountFormPhase.archiving
                   ? l10n.discountArchiving
+                  : state?.phase == DiscountFormPhase.toggling
+                  ? l10n.discountSaving
                   : editingStored
                   ? l10n.commonSaveChanges
                   : l10n.discountCreateTitle,
@@ -404,9 +440,25 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     final pendingResolvable =
         state.problem == DiscountFormProblem.pendingExpired ||
         state.problem == DiscountFormProblem.pendingCommitted;
+    final stored = state.original;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The stored discount's status with its Pause/Resume action (the
+        // list on Product Details has no switches).
+        if (stored != null && !stored.archived) ...[
+          _StatusCard(
+            discount: stored,
+            busy: state.phase == DiscountFormPhase.toggling,
+            onToggle: access.manage
+                ? (state.canToggle && access.canWrite
+                      ? () => _toggle(stored)
+                      : null)
+                : null,
+            showAction: access.manage,
+          ),
+          const SizedBox(height: 16),
+        ],
         // An earlier create of this product is unresolved: said first.
         if (pendingProblem) ...[
           DiscountNotice(
@@ -810,6 +862,68 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// The stored discount's status and, for managers, its Pause/Resume action.
+class _StatusCard extends StatelessWidget {
+  const new({
+    required this.discount,
+    required this.busy,
+    required this.onToggle,
+    required this.showAction,
+  });
+
+  final Discount discount;
+
+  /// A pause or resume is being sent.
+  final bool busy;
+
+  /// Null keeps the action disabled.
+  final VoidCallback? onToggle;
+  final bool showAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return DiscountPanel(
+      key: const Key('discount-form-status'),
+      // Wraps the action below the status when a language's labels do not
+      // fit on one line.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l10n.discountStatusLabel,
+                style: const TextStyle(color: OrangeTheme.secondary),
+              ),
+              const SizedBox(width: 12),
+              DiscountStatusPill(status: discount.status),
+            ],
+          ),
+          if (showAction)
+            OutlinedButton(
+              key: const Key('discount-form-toggle'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: busy ? null : onToggle,
+              child: Text(
+                discount.paused ? l10n.discountResume : l10n.discountPause,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
