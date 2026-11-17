@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/l10n/l10n.dart';
@@ -177,6 +178,50 @@ class DiscountStatusPill extends StatelessWidget {
   }
 }
 
+/// "Multiple discounts active": the card's discount is in effect at the same
+/// time as another discount of the product. Orange text with a small
+/// warning icon in the card's top-right corner, on the title's line.
+class DiscountOverlapWarning extends StatelessWidget {
+  const new({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = context.l10n.discountOverlapWarning;
+    return Semantics(
+      label: text,
+      excludeSemantics: true,
+      // One line with the icon right before the text; scaled down instead of
+      // wrapping when a long translation does not fit beside the title.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 12,
+              color: OrangeTheme.action,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              text,
+              maxLines: 1,
+              softWrap: false,
+              style: const TextStyle(
+                color: OrangeTheme.action,
+                fontSize: 10,
+                height: 14 / 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// An inline message (offline, read-only, conflict, server rule).
 class DiscountNotice extends StatelessWidget {
   const new({required this.message, this.error = false, super.key});
@@ -249,7 +294,10 @@ class DiscountConfirmDialog extends StatelessWidget {
         ),
         FilledButton(
           key: const Key('discount-confirm'),
-          onPressed: () => Navigator.pop(context, true),
+          onPressed: () {
+            playHaptic(context, HapticEffect.confirm);
+            Navigator.pop(context, true);
+          },
           child: Text(confirmLabel ?? l10n.commonConfirm),
         ),
       ],
@@ -264,58 +312,106 @@ class DiscountListTile extends StatelessWidget {
     this.subtitle,
     this.onTap,
     this.trailing,
+    this.overlapping = false,
     super.key,
   });
 
   final Discount discount;
   final String? subtitle;
+
+  /// Shows "Multiple discounts active" in the top-right corner, on the
+  /// title's line; the action then sits below it, beside the details.
+  final bool overlapping;
   final VoidCallback? onTap;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final title = Text(
+      DiscountText.title(l10n, discount),
+      style: const TextStyle(
+        color: OrangeTheme.ink,
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          DiscountText.typeLong(l10n, discount.type),
+          style: const TextStyle(color: OrangeTheme.secondary, fontSize: 13),
+        ),
+        if (subtitle != null)
+          Text(
+            subtitle!,
+            style: const TextStyle(color: OrangeTheme.secondary, fontSize: 13),
+          ),
+        const SizedBox(height: 6),
+        DiscountStatusPill(status: discount.status),
+      ],
+    );
     return DiscountPanel(
       onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      padding: EdgeInsets.fromLTRB(16, 12, overlapping ? 12 : 8, 12),
       child: Row(
         children: [
           const DiscountTagIcon(),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  DiscountText.title(l10n, discount),
-                  style: const TextStyle(
-                    color: OrangeTheme.ink,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+            child: overlapping
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // The title's line runs to the card's edge, with the
+                      // warning at its end (above the action).
+                      // The title keeps its own width (a price or a short
+                      // offer), at most 55% of the line; the warning takes
+                      // the rest and wraps only when it does not fit. A
+                      // table, not a LayoutBuilder: Product Details sizes
+                      // its panel with intrinsic dimensions.
+                      Table(
+                        defaultVerticalAlignment:
+                            TableCellVerticalAlignment.middle,
+                        columnWidths: const {
+                          0: MinColumnWidth(
+                            IntrinsicColumnWidth(),
+                            FractionColumnWidth(.55),
+                          ),
+                          1: FixedColumnWidth(8),
+                          2: FlexColumnWidth(),
+                        },
+                        children: [
+                          TableRow(
+                            children: [
+                              title,
+                              const SizedBox.shrink(),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: DiscountOverlapWarning(
+                                  key: Key('discount-overlap-${discount.id}'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Expanded(child: details),
+                          ?trailing,
+                        ],
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [title, const SizedBox(height: 2), details],
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  DiscountText.typeLong(l10n, discount.type),
-                  style: const TextStyle(
-                    color: OrangeTheme.secondary,
-                    fontSize: 13,
-                  ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle!,
-                    style: const TextStyle(
-                      color: OrangeTheme.secondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                const SizedBox(height: 6),
-                DiscountStatusPill(status: discount.status),
-              ],
-            ),
           ),
-          ?trailing,
+          if (!overlapping) ?trailing,
         ],
       ),
     );

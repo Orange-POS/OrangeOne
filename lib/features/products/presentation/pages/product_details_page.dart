@@ -274,7 +274,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
                   children: [
                     InfoRowCard.price(
                       label: l10n.detailsPrice,
-                      value: _priceLabel(details.product!.price),
+                      value: _priceLabel(details.product!),
                       action: EditPencilButton(
                         tooltip: l10n.detailsUpdatePrice,
                         onPressed: !offline && details.access.updatePrice
@@ -293,7 +293,14 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
     );
   }
 
-  String _priceLabel(double price) => 'CHF ${price.toStringAsFixed(2)}';
+  /// The price in the product's own currency (`USD 25.00`, `CHF 100.00`).
+  /// An offline cached read carries no currency: the amount is shown alone
+  /// rather than a guessed currency.
+  String _priceLabel(ProductDetails product) {
+    final amount = product.price.toStringAsFixed(2);
+    final currency = product.currency?.trim() ?? '';
+    return currency.isEmpty ? amount : '$currency $amount';
+  }
 }
 
 /// The product card pinned at the top of Product Details. It folds from

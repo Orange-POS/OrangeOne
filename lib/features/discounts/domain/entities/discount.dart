@@ -298,6 +298,10 @@ class Discount {
 
   bool get archived => !active || status == DiscountStatus.archived;
 
+  /// In effect right now by the server's account (`applies_now`: validity
+  /// period and repeat days in the shop timezone), not paused or archived.
+  bool get inEffect => appliesNow && !paused && !archived;
+
   /// Archived discounts cannot be edited, paused or resumed.
   bool get editable => !archived;
   bool get canPause => !archived && !paused;
@@ -340,4 +344,50 @@ class ProductDiscounts {
   final List<Discount> discounts;
 
   bool get limitReached => counts.total >= limit;
+
+  /// The discounts in effect at the same time as at least another one of
+  /// this product ("Multiple discounts active"); empty while at most one is.
+  Set<int> get overlapping {
+    final now = {
+      for (final discount in discounts)
+        if (discount.inEffect) discount.id,
+    };
+    return now.length > 1 ? now : const {};
+  }
+
+  /// When the set of discounts in effect can next change: the nearest
+  /// future start or end of a discount that is not paused or archived, or
+  /// the next midnight for a repeat schedule (repeat days switch at
+  /// midnight). Read in the device's local time; the server decides after
+  /// the re-read. Null while fewer than two discounts could ever overlap.
+  DateTime? nextChange(DateTime now) {
+    final candidates = [
+      for (final discount in discounts)
+        if (!discount.paused && !discount.archived) discount,
+    ];
+    if (candidates.length < 2) return null;
+    DateTime? next;
+    void consider(DateTime moment) {
+      if (moment.isAfter(now) && (next == null || moment.isBefore(next!))) {
+        next = moment;
+      }
+    }
+
+    for (final discount in candidates) {
+      final schedule = discount.schedule;
+      if (schedule != null) {
+        consider(_at(schedule.startDate, schedule.startTime));
+        if (schedule.hasEnd) {
+          consider(_at(schedule.endDate!, schedule.endTime!));
+        }
+      }
+      if (discount.repeat.type != RepeatType.none) {
+        consider(DateTime(now.year, now.month, now.day + 1));
+      }
+    }
+    return next;
+  }
+
+  static DateTime _at(LocalDate date, TimeOfDayValue time) =>
+      DateTime(date.year, date.month, date.day, time.hour, time.minute);
 }

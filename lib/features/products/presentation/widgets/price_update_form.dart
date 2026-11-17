@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/validation_haptic.dart';
 
 class PriceUpdateForm extends StatelessWidget {
   const new({
@@ -33,42 +34,45 @@ class PriceUpdateForm extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w500),
       ),
       const SizedBox(height: 8),
-      TextField(
-        key: const Key('new-price-input'),
-        controller: controller,
-        focusNode: focusNode,
-        enabled: enabled,
-        onChanged: onChanged,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => focusNode.unfocus(),
-        decoration: InputDecoration(
-          prefixText: alwaysShowCurrency ? null : 'CHF ',
-          prefixIcon: alwaysShowCurrency
-              ? const Padding(
-                  padding: EdgeInsets.only(left: 16, right: 8),
-                  child: Text(
-                    'CHF',
-                    style: TextStyle(color: OrangeTheme.secondary),
-                  ),
-                )
-              : null,
-          prefixIconConstraints: alwaysShowCurrency
-              ? const BoxConstraints()
-              : null,
-          hintText: hint ?? context.l10n.priceNewHint,
-          errorText: error,
-          errorMaxLines: 3,
-          filled: !enabled,
-          fillColor: const Color(0xFFF5F6F8),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: OrangeTheme.brand, width: 2),
+      ValidationHaptic(
+        error: error,
+        child: TextField(
+          key: const Key('new-price-input'),
+          controller: controller,
+          focusNode: focusNode,
+          enabled: enabled,
+          onChanged: onChanged,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => focusNode.unfocus(),
+          decoration: InputDecoration(
+            prefixText: alwaysShowCurrency ? null : 'CHF ',
+            prefixIcon: alwaysShowCurrency
+                ? const Padding(
+                    padding: EdgeInsets.only(left: 16, right: 8),
+                    child: Text(
+                      'CHF',
+                      style: TextStyle(color: OrangeTheme.secondary),
+                    ),
+                  )
+                : null,
+            prefixIconConstraints: alwaysShowCurrency
+                ? const BoxConstraints()
+                : null,
+            hintText: hint ?? context.l10n.priceNewHint,
+            errorText: error,
+            errorMaxLines: 3,
+            filled: !enabled,
+            fillColor: const Color(0xFFF5F6F8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFDADCE0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: OrangeTheme.brand, width: 2),
+            ),
           ),
         ),
       ),

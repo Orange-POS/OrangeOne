@@ -104,6 +104,41 @@ void main() {
     );
   });
 
+  testWidgets('the price shows the product currency, never a fixed CHF', (
+    tester,
+  ) async {
+    ProductDetails priced(String? currency) => ProductDetails(
+      id: 10,
+      name: 'Tabel wood',
+      barcode: '0010101010',
+      price: 25,
+      stock: 1,
+      unit: 'Units',
+      currency: currency,
+      version: '1',
+    );
+    await mount(tester, FakeDetailsRepository()..product = priced('USD'));
+    expect(find.text('USD 25.00'), findsOneWidget);
+    expect(find.textContaining('CHF'), findsNothing);
+  });
+
+  testWidgets('an unknown currency shows the amount alone', (tester) async {
+    await mount(
+      tester,
+      FakeDetailsRepository()
+        ..product = const ProductDetails(
+          id: 10,
+          name: 'Cached',
+          barcode: '0010101010',
+          price: 25,
+          stock: 1,
+          unit: 'Units',
+        ),
+    );
+    expect(find.text('25.00'), findsOneWidget);
+    expect(find.textContaining('CHF'), findsNothing);
+  });
+
   testWidgets('no back arrow and no "Powered by"; Open Scanner navigates', (
     tester,
   ) async {

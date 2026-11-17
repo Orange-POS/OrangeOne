@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/core/preferences/time_format_controller.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
@@ -636,8 +637,12 @@ class _DiscountNumberWheelState extends State<DiscountNumberWheel> {
                     diameterRatio: 1.6,
                     perspective: .004,
                     overAndUnderCenterOpacity: .35,
-                    onSelectedItemChanged: (index) =>
-                        widget.onChanged(index % _count),
+                    onSelectedItemChanged: (index) {
+                      // Called only when the centred value changes (scroll
+                      // or chevron), never on a rebuild.
+                      playHaptic(context, HapticEffect.selection);
+                      widget.onChanged(index % _count);
+                    },
                     childDelegate: widget.looping
                         ? ListWheelChildLoopingListDelegate(children: children)
                         : ListWheelChildListDelegate(children: children),

@@ -15,6 +15,7 @@ import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/network/pending_writes.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/core/storage/encrypted_read_cache.dart';
 import 'package:orange_one/core/storage/read_cache_database.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
@@ -38,6 +39,7 @@ import 'package:orange_one/shared/widgets/product_action_surface.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/discount_fakes.dart';
+import '../../support/haptics_fakes.dart';
 import '../../support/mobile_api_fakes.dart';
 import '../../support/product_api_fakes.dart';
 import '../../support/product_details_fakes.dart';
@@ -235,6 +237,153 @@ void main() {
       expect(find.text('Create Discount'), findsNothing);
       // No intermediate overview screen anywhere.
       expect(find.text('Discount Overview'), findsNothing);
+    });
+
+    group('multiple discounts active', () {
+      // testNow is 2030-01-01 12:00 UTC; schedules are in local dates.
+      final today = testNow.toLocal();
+      LocalDate day(int offset) {
+        final value = DateTime(today.year, today.month, today.day + offset);
+        return LocalDate(value.year, value.month, value.day);
+      }
+
+      DiscountSchedule period(int from, int to) => DiscountSchedule(
+        startDate: day(from),
+        startTime: const TimeOfDayValue(0, 0),
+        endDate: day(to),
+        endTime: const TimeOfDayValue(23, 0),
+      );
+
+      // The issue's example: a fixed price from yesterday through tomorrow
+      // and a percentage from yesterday through the month's end.
+      Discount fixed({DiscountStatus status = DiscountStatus.active}) =>
+          discountOf(
+            type: DiscountType.fixedPrice,
+            status: status,
+            schedule: period(-1, 1),
+          );
+      Discount percentage() => discountOf(id: 2, schedule: period(-1, 30));
+
+      Finder warning(int id) => find.byKey(Key('discount-overlap-$id'));
+
+      testWidgets('both overlapping cards show the warning', (tester) async {
+        discounts.discounts = [fixed(), percentage()];
+        await open(tester);
+        expect(warning(1), findsOneWidget);
+        expect(warning(2), findsOneWidget);
+        expect(find.text('Multiple discounts active'), findsNWidgets(2));
+        expect(
+          find.descendant(
+            of: warning(1),
+            matching: find.byIcon(Icons.error_outline),
+          ),
+          findsOneWidget,
+        );
+        // As designed: top-right on the title's line, the pencil below it,
+        // the status pill on its own.
+        final card = tester.getRect(find.byKey(const Key('discount-1')));
+        final notice = tester.getRect(warning(1));
+        final title = tester.getRect(
+          find.descendant(
+            of: find.byKey(const Key('discount-1')),
+            matching: find.text('CHF 80.00'),
+          ),
+        );
+        final pencil = tester.getRect(find.byKey(const Key('discount-edit-1')));
+        final status = tester.getRect(
+          find.descendant(
+            of: find.byKey(const Key('discount-1')),
+            matching: find.text('Active'),
+          ),
+        );
+        expect(notice.right, greaterThan(card.right - 24));
+        expect(notice.top, lessThan(title.bottom));
+        expect(notice.left, greaterThan(title.right));
+        expect(pencil.top, greaterThanOrEqualTo(notice.bottom));
+        expect(status.bottom, lessThanOrEqualTo(card.bottom));
+        expect(status.top, greaterThan(notice.bottom));
+        // Small and on one line, the icon right before the text.
+        final text = find.descendant(
+          of: warning(1),
+          matching: find.text('Multiple discounts active'),
+        );
+        expect(tester.widget<Text>(text).style?.fontSize, 10);
+        expect(tester.getSize(text).height, lessThanOrEqualTo(14));
+        final icon = tester.getRect(
+          find.descendant(
+            of: warning(1),
+            matching: find.byIcon(Icons.error_outline),
+          ),
+        );
+        expect(tester.getRect(text).left - icon.right, lessThanOrEqualTo(4));
+      });
+
+      testWidgets('cards without overlap keep the pencil beside the text', (
+        tester,
+      ) async {
+        discounts.discounts = [percentage()];
+        await open(tester);
+        expect(warning(2), findsNothing);
+        final card = tester.getRect(find.byKey(const Key('discount-2')));
+        final pencil = tester.getRect(find.byKey(const Key('discount-edit-2')));
+        // Vertically centred in the card, as before.
+        expect((pencil.center.dy - card.center.dy).abs(), lessThan(2));
+      });
+
+      testWidgets('long translations fit without overflow on a phone', (
+        tester,
+      ) async {
+        discounts.discounts = [
+          fixed(),
+          percentage(),
+          discountOf(id: 3, type: DiscountType.collective),
+        ];
+        await open(tester);
+        tester.view.physicalSize = const Size(320, 2600);
+        await tester.pumpAndSettle();
+        await tester.binding.setLocale('de', '');
+        await tester.pumpAndSettle();
+        expect(find.text('Mehrere Rabatte aktiv'), findsNWidgets(3));
+        expect(tester.takeException(), isNull);
+        // Never wrapped: every card's warning stays one line.
+        for (final id in [1, 2, 3]) {
+          expect(tester.getSize(warning(id)).height, lessThanOrEqualTo(14));
+        }
+      });
+
+      testWidgets('the warning goes when the overlap ends, screen open', (
+        tester,
+      ) async {
+        discounts.discounts = [fixed(), percentage()];
+        await open(tester);
+        expect(find.text('Multiple discounts active'), findsNWidgets(2));
+        // The fixed price ends; the open screen reads the list again.
+        discounts.discounts = [
+          fixed(status: DiscountStatus.expired),
+          percentage(),
+        ];
+        await tester.pump(
+          ProductDiscountsController.overlapRecheck +
+              const Duration(seconds: 1),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Multiple discounts active'), findsNothing);
+        // The percentage discount continues, without the warning.
+        expect(find.text('20% off'), findsWidgets);
+        expect(warning(2), findsNothing);
+      });
+
+      testWidgets('a single, paused or expired discount shows no warning', (
+        tester,
+      ) async {
+        discounts.discounts = [
+          percentage(),
+          discountOf(id: 3, paused: true),
+          fixed(status: DiscountStatus.expired),
+        ];
+        await open(tester);
+        expect(find.text('Multiple discounts active'), findsNothing);
+      });
     });
 
     testWidgets('a card opens the edit form; saving returns to details', (
@@ -903,6 +1052,59 @@ void main() {
       await confirm(tester);
       final start = discounts.lastDraft!.schedule!.startTime;
       expect((start.hour, start.minute), (21, 0));
+    });
+
+    testWidgets('time card: hour, minute and AM/PM steps each tick once', (
+      tester,
+    ) async {
+      final haptics = RecordingHapticEngine();
+      discounts.discounts = [];
+      await open(tester, more: hapticsOverrides(haptics));
+      await tapKey(tester, 'product-discounts-create');
+      await tapKey(tester, 'discount-type-percentage');
+      await tester.enterText(find.byKey(const Key('discount-percent')), '20');
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'discount-section-schedule');
+      await tapKey(tester, 'discount-start-time');
+      // Opening the card is silent.
+      expect(haptics.played, isEmpty);
+      await tapKey(tester, 'discount-time-hour-up');
+      await tapKey(tester, 'discount-time-minute-down');
+      expect(haptics.played, [HapticEffect.selection, HapticEffect.selection]);
+      // The format switch rebuilds the wheels without a tick.
+      await tapKey(tester, 'discount-time-format');
+      expect(haptics.played, hasLength(2));
+      await tapKey(tester, 'discount-time-meridiem-up');
+      await tapKey(tester, 'discount-time-hour-down');
+      expect(haptics.played, List.filled(4, HapticEffect.selection));
+      await tapKey(tester, 'discount-sheet-cancel');
+      expect(haptics.played, hasLength(4));
+    });
+
+    testWidgets('an input error vibrates once when it appears', (tester) async {
+      final haptics = RecordingHapticEngine();
+      discounts.discounts = [];
+      await open(tester, more: hapticsOverrides(haptics));
+      await tapKey(tester, 'product-discounts-create');
+      await tapKey(tester, 'discount-type-percentage');
+      final percent = find.byKey(const Key('discount-percent'));
+      await tester.enterText(percent, '20');
+      await tester.pumpAndSettle();
+      expect(haptics.played, isEmpty);
+      // Above 100 %: the error appears, one error haptic.
+      await tester.enterText(percent, '150');
+      await tester.pumpAndSettle();
+      expect(haptics.played, [HapticEffect.error]);
+      // Still invalid while typing on: no further vibration.
+      await tester.enterText(percent, '1500');
+      await tester.pumpAndSettle();
+      expect(haptics.played, [HapticEffect.error]);
+      // Valid again, then invalid again: a new failure.
+      await tester.enterText(percent, '15');
+      await tester.pumpAndSettle();
+      await tester.enterText(percent, '101');
+      await tester.pumpAndSettle();
+      expect(haptics.played, [HapticEffect.error, HapticEffect.error]);
     });
 
     testWidgets('the type input shows the type icon', (tester) async {

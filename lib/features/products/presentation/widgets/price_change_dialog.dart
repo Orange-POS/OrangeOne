@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/products/domain/use_cases/update_product_price.dart';
 import 'package:orange_one/l10n/l10n.dart';
 
@@ -14,6 +15,7 @@ class _PriceChangeDialogState extends State<PriceChangeDialog> {
   void _answer(bool accepted) {
     if (_answered) return;
     setState(() => _answered = true);
+    if (accepted) playHaptic(context, HapticEffect.confirm);
     Navigator.pop(context, accepted);
   }
 

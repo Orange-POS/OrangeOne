@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_pickers.dart';
@@ -54,6 +55,13 @@ class _DiscountSectionState extends State<DiscountSection> {
   @override
   void didUpdateWidget(DiscountSection old) {
     super.didUpdateWidget(old);
+    // The card's error appeared (an end before the start, a repeat without
+    // days). Not when it only moves between the card and its open input.
+    if (old.error == null &&
+        widget.error != null &&
+        old.expanded == widget.expanded) {
+      playHaptic(context, HapticEffect.error);
+    }
     if (widget.child != null && widget.expanded && !old.expanded) {
       // After the card has opened: bring it to the middle of the visible
       // area (above the sticky action bar).

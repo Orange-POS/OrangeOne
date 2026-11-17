@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/domain/use_cases/adjust_stock.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/validation_haptic.dart';
 
 /// Quantity text without insignificant zeros (`48`, `12.5`) plus the unit.
 String stockQuantityLabel(double quantity, String unit) {
@@ -130,31 +132,34 @@ class StockCountForm extends StatelessWidget {
     String hint,
     String helper,
     String? errorText,
-  ) => TextField(
-    key: const Key('stock-count-input'),
-    controller: controller,
-    focusNode: focusNode,
-    enabled: enabled,
-    onChanged: onChanged,
-    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-    textInputAction: TextInputAction.done,
-    onSubmitted: (_) => focusNode.unfocus(),
-    decoration: InputDecoration(
-      suffixText: unit.isEmpty ? null : unit,
-      hintText: hint,
-      helperText: helper,
-      errorText: errorText,
-      errorMaxLines: 3,
-      filled: !enabled,
-      fillColor: const Color(0xFFF5F6F8),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: OrangeTheme.brand, width: 2),
+  ) => ValidationHaptic(
+    error: errorText,
+    child: TextField(
+      key: const Key('stock-count-input'),
+      controller: controller,
+      focusNode: focusNode,
+      enabled: enabled,
+      onChanged: onChanged,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => focusNode.unfocus(),
+      decoration: InputDecoration(
+        suffixText: unit.isEmpty ? null : unit,
+        hintText: hint,
+        helperText: helper,
+        errorText: errorText,
+        errorMaxLines: 3,
+        filled: !enabled,
+        fillColor: const Color(0xFFF5F6F8),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFDADCE0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: OrangeTheme.brand, width: 2),
+        ),
       ),
     ),
   );
@@ -172,6 +177,7 @@ class _StockCountDialogState extends State<StockCountDialog> {
   void _answer(bool accepted) {
     if (_answered) return;
     setState(() => _answered = true);
+    if (accepted) playHaptic(context, HapticEffect.confirm);
     Navigator.pop(context, accepted);
   }
 

@@ -101,6 +101,8 @@ class ProductDiscountsSection extends ConsumerWidget {
     final pending = ref.watch(pendingDiscountCreateProvider(scope.productId));
     final recover = list.limitReached && pending != null;
     final canCreate = access.canWrite && (!list.limitReached || recover);
+    // Discounts in effect at the same time as another one of the product.
+    final overlapping = list.overlapping;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -123,7 +125,13 @@ class ProductDiscountsSection extends ConsumerWidget {
             style: const TextStyle(color: OrangeTheme.secondary),
           ),
         for (final discount in list.discounts) ...[
-          _tile(context, access, discount, locale),
+          _tile(
+            context,
+            access,
+            discount,
+            locale,
+            overlapping: overlapping.contains(discount.id),
+          ),
           const SizedBox(height: 12),
         ],
         if (access.manage)
@@ -145,13 +153,15 @@ class ProductDiscountsSection extends ConsumerWidget {
     BuildContext context,
     DiscountAccess access,
     Discount discount,
-    String locale,
-  ) {
+    String locale, {
+    required bool overlapping,
+  }) {
     final l10n = context.l10n;
     final canEdit = access.canWrite && discount.editable;
     return DiscountListTile(
       key: Key('discount-${discount.id}'),
       discount: discount,
+      overlapping: overlapping,
       subtitle: DiscountText.schedule(l10n, locale, discount.schedule),
       // Straight to the edit form when permitted; otherwise the read-only
       // details, so every term stays visible.

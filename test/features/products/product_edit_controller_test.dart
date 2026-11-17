@@ -8,6 +8,7 @@ import 'package:orange_one/features/products/domain/use_cases/edit_product_infor
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
 
+import '../../support/haptics_fakes.dart';
 import '../../support/product_details_fakes.dart';
 
 void main() {
@@ -17,7 +18,10 @@ void main() {
   setUp(() {
     repo = FakeDetailsRepository();
     container = ProviderContainer.test(
-      overrides: [productDetailsRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        productDetailsRepositoryProvider.overrideWithValue(repo),
+        ...hapticsOverrides(),
+      ],
     )..listen(provider, (_, _) {});
   });
   ProductEditController controller() => container.read(provider.notifier);

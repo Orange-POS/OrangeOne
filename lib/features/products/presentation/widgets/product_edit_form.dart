@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/validation_haptic.dart';
 
 class ProductEditForm extends StatelessWidget {
   const new({
@@ -53,16 +54,19 @@ class ProductEditForm extends StatelessWidget {
       children: [
         Text(l10n.productNameLabel),
         const SizedBox(height: 8),
-        TextField(
-          key: const Key('product-name-input'),
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          onChanged: onChanged,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: _decoration().copyWith(
-            errorText: error,
-            errorMaxLines: 3,
+        ValidationHaptic(
+          error: error,
+          child: TextField(
+            key: const Key('product-name-input'),
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled,
+            onChanged: onChanged,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: _decoration().copyWith(
+              errorText: error,
+              errorMaxLines: 3,
+            ),
           ),
         ),
         const SizedBox(height: 16),

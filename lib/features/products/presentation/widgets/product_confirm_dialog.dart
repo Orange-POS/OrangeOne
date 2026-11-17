@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/l10n/l10n.dart';
 
 /// The confirmation popup of the product forms (same design as the price and
@@ -16,6 +17,7 @@ class _ProductConfirmDialogState extends State<ProductConfirmDialog> {
   void _answer(bool accepted) {
     if (_answered) return;
     setState(() => _answered = true);
+    if (accepted) playHaptic(context, HapticEffect.confirm);
     Navigator.pop(context, accepted);
   }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
@@ -465,6 +466,8 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
           if (!ref.mounted || generation != _generation) return;
         }
       }
+      // A save the server refused as invalid: the distinct error haptic.
+      ref.read(hapticsControllerProvider.notifier).rejected(error);
       final rejected =
           error is FormatException ||
           (error is AppFailure &&

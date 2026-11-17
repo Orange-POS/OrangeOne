@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/idempotency_keys.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_draft.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount_merge.dart';
@@ -722,6 +723,9 @@ class DiscountFormController extends AsyncNotifier<DiscountFormState> {
   ) async {
     // A refused create or replay settles it; an open outcome keeps it.
     _pendingChanged();
+    // A save the server refused as invalid: the distinct error haptic (the
+    // input's own error, shown next, does not vibrate a second time).
+    ref.read(hapticsControllerProvider.notifier).rejected(failure);
     if (failure.code == 'VERSION_CONFLICT' && current.original != null) {
       try {
         final latest = await ref
