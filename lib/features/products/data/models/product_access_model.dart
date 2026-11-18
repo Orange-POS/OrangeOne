@@ -19,6 +19,7 @@ abstract final class ProductAccessModel {
       createCategory: granted('category_create'),
       adjustStock: granted('stock_adjust'),
       readHistory: granted('product_history_read'),
+      manageDiscounts: granted('discount_manage'),
     );
   }
 }

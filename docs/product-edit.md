@@ -104,13 +104,17 @@ All four screens follow one flow and one set of components:
   Tax card of Edit Name & Tax was removed. Creation has no card (the product
   does not exist yet). Tax percentages are shown once (`15%`, not `15% (15%)`;
   `ProductReferenceModel.taxLabel`).
-- **Save flow.** *Save Changes* opens the confirmation popup
-  (`ProductConfirmDialog`, `PriceChangeDialog`, `StockCountDialog` share one
-  design). Nothing is sent before **Confirm**. On success the form returns to
-  Product Details (`pop`, or `pushReplacement` after creation) and the success
-  toast (`ProductSuccessToast`, the existing success notice design, fed by
-  `productSuccessProvider`) appears above the Open Scanner button for a few
-  seconds. On failure the form stays with its entries, shows the error and
+- **Save flow.** *Save Changes* opens the shared confirmation popup
+  (`ConfirmDialog` in `shared/widgets/confirm_dialog.dart`, also used by the
+  discount screens; the texts come from `priceConfirmText` and
+  `stockConfirmText`). It answers once and ignores a second tap. Nothing is
+  sent before **Confirm**. On success the form returns to Product Details
+  (`pop`, or `pushReplacement` after creation) and the success toast
+  (`ProductSuccessToast` showing the shared `StatusNotice`, fed by
+  `productSuccessProvider`) appears above the Open Scanner button for five
+  seconds. The notice is as tall as its text (it once filled the screen in
+  the floating slot). Confirmed discount results (created, saved,
+  archived) appear in the same toast. On failure the form stays with its entries, shows the error and
   never announces success. Duplicate submissions stay blocked and the busy
   button stays orange.
 - **Success texts.** A success names only what was changed *and* confirmed by

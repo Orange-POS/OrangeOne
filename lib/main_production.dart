@@ -1,4 +1,4 @@
 import 'package:orange_one/bootstrap.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 
-void main() => bootstrap(AppEnvironment.production);
+Future<void> main() => bootstrap(AppEnvironment.production);

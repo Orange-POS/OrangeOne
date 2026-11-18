@@ -11,11 +11,17 @@ import 'package:orange_one/features/home/presentation/widgets/product_camera.dar
 import 'package:orange_one/features/home/presentation/widgets/product_result_panel.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/demo_badge.dart';
 import 'package:orange_one/shared/widgets/scan_frame.dart';
 
 class ProductScannerPage extends ConsumerStatefulWidget {
-  const new({required this.onLookup, super.key});
+  const new({required this.onLookup, this.samples, super.key});
   final Future<void> Function(String barcode, {required bool found}) onLookup;
+
+  /// Optional barcode shortcuts composed by the app (Demo Mode samples); each
+  /// runs the normal lookup with the barcode it is given. When supplied they
+  /// replace the camera, which is then never built or started.
+  final Widget Function(void Function(String barcode) scan)? samples;
 
   @override
   ConsumerState<ProductScannerPage> createState() => _ProductScannerPageState();
@@ -86,6 +92,7 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
     });
     final controller = ref.read(productLookupControllerProvider.notifier);
     final cameraGeneration = _cameraGeneration;
+    final samplesOnly = widget.samples != null;
     final scanning =
         !state.isLoading &&
         !state.hasError &&
@@ -137,13 +144,17 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                             ),
                           ),
                           Expanded(
-                            child: Text(
-                              l10n.scannerTitle,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                            child: Center(
+                              child: TitleWithDemoBadge(
+                                title: Text(
+                                  l10n.scannerTitle,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -170,7 +181,7 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                if (scanning)
+                                if (scanning && !samplesOnly)
                                   KeyedSubtree(
                                     key: ValueKey(_cameraGeneration),
                                     child:
@@ -202,6 +213,8 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                             child: Text(
                               state.isLoading
                                   ? l10n.scannerLookingUp
+                                  : scanning && samplesOnly
+                                  ? l10n.scannerDemoSamples
                                   : scanning
                                   ? _status ?? l10n.scanOpeningCamera
                                   : l10n.scannerPaused,
@@ -217,6 +230,10 @@ class _ProductScannerPageState extends ConsumerState<ProductScannerPage> {
                       ),
                     ),
                     const Spacer(),
+                    if (widget.samples != null)
+                      widget.samples!(
+                        (code) => unawaited(controller.scan(code)),
+                      ),
                     ProductResultPanel(
                       state: state,
                       recents: recents,

@@ -17,6 +17,7 @@ import 'package:orange_one/features/products/presentation/widgets/product_name_c
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/l10n/locale_controller.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 import '../../support/product_details_fakes.dart';
 
@@ -593,7 +594,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsWidgets);
+    expect(find.byType(Skeleton), findsWidgets);
     repository.pendingCreation!.completeError(
       const AppFailure(FailureKind.backend, 'Unable to load creation options.'),
     );

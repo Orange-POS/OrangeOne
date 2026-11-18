@@ -2,6 +2,7 @@
 # Connect. One app serves the Dev, Staging and Production groups, so the number
 # must be above every build the app already has, whatever its version or flavor.
 require_relative 'testflight_groups'
+require_relative 'app_store_connect_errors'
 
 class OrangeoneBuildNumber
   MAX = 9999
@@ -17,15 +18,20 @@ class OrangeoneBuildNumber
     end
   end
 
-  def initialize(api: AppleAPI.new)
+  # Waits between attempts of a read that failed temporarily.
+  RETRY_WAITS = [5, 10].freeze
+
+  def initialize(api: AppleAPI.new, sleeper: ->(seconds) { sleep(seconds) })
     @api = api
+    @sleeper = sleeper
   end
 
   # Highest numeric build number of the production app (0 when it has none).
   def highest
-    app = request { @api.app }
+    app = request('finding the production app') { @api.app }
     raise Error, 'Production App Store Connect app was not found.' unless app && app.bundle_id == OrangeoneTestflight::BUNDLE_ID
-    request { @api.builds(app) }.filter_map { |build| Integer(build.version.to_s, 10, exception: false) }.max || 0
+    request('listing the uploaded builds') { @api.builds(app) }
+      .filter_map { |build| Integer(build.version.to_s, 10, exception: false) }.max || 0
   end
 
   # Next free number: above App Store Connect and above [floor], the highest
@@ -45,12 +51,23 @@ class OrangeoneBuildNumber
 
   private
 
-  def request
-    yield
-  rescue Error
-    raise
-  rescue StandardError
-    # Never print API errors, responses or credentials.
-    raise Error, 'App Store Connect build query failed. Verify API access and the production app.', cause: nil
+  # Read-only queries: repeated after temporary Apple or network errors. A
+  # failure names the operation and its reason only; API errors, responses
+  # and credentials are never printed.
+  def request(operation)
+    attempt = 0
+    begin
+      yield
+    rescue Error
+      raise
+    rescue StandardError => error
+      if OrangeoneConnectErrors.transient?(error) && attempt < RETRY_WAITS.length
+        @sleeper.call(RETRY_WAITS[attempt])
+        attempt += 1
+        retry
+      end
+      raise Error, "App Store Connect build query failed while #{operation}: " \
+                   "#{OrangeoneConnectErrors.reason(error)}", cause: nil
+    end
   end
 end

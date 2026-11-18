@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/config/environment_loader.dart';
 import 'package:orange_one/features/initialization/presentation/pages/initialization_page.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 void main() {
   testWidgets('renders pending configuration then the injected environment', (
@@ -21,12 +22,12 @@ void main() {
       ),
     );
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(Skeleton), findsOneWidget);
     expect(find.textContaining('Application initialized'), findsNothing);
     pending.complete(AppEnvironment.staging);
     await tester.pumpAndSettle();
 
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(Skeleton), findsNothing);
     expect(find.textContaining('Environment: staging'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -58,7 +59,7 @@ void main() {
     expect(calls, 1);
     await tester.tap(find.text('Retry'));
     await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(Skeleton), findsOneWidget);
     expect(find.text('Retry'), findsNothing);
     recovery.complete(AppEnvironment.production);
     await tester.pumpAndSettle();

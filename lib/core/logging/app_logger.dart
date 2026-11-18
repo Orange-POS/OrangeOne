@@ -12,6 +12,7 @@ enum LogEvent {
   startup,
   frameworkFailure,
   platformFailure,
+  monitoringUnavailable,
   rpcStarted,
   rpcSucceeded,
   rpcFailed,

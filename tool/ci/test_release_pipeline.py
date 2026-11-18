@@ -297,7 +297,7 @@ class ReleaseWorkflowTest(unittest.TestCase):
         text = read('android-release.yaml')
         body = jobs(text)
         self.assertEqual({'plan', 'checks', 'apk'}, set(body))
-        self.assertIn('environment: android-release', body['apk'])
+        self.assertIn('environment: android-production', body['apk'])
         for secret in ('ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEYSTORE_ALIAS',
                        'ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD', 'ANDROID_SIGNING_CERT_SHA256'):
             self.assertIn(f'secrets.{secret}', body['apk'])

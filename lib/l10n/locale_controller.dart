@@ -16,7 +16,7 @@ class AppLanguage {
 /// The six supported languages, in selector order.
 const appLanguages = [
   AppLanguage(Locale('en'), 'Hello', 'English'),
-  AppLanguage(Locale('nl'), 'Hallo', 'Nederlands'),
+  AppLanguage(Locale('de'), 'Hallo', 'Deutsch'),
   AppLanguage(Locale('fr'), 'Bonjour', 'Français'),
   AppLanguage(Locale('it'), 'Ciao', 'Italiano'),
   AppLanguage(Locale('tr'), 'Merhaba', 'Türkçe'),

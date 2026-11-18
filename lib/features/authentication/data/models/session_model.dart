@@ -83,8 +83,17 @@ abstract final class SessionModel {
       posConfigId: _id(posConfig['id']),
       posSessionId: posSession as int?,
       employeeId: employee == null ? null : _nestedId(employee),
+      permissions: _permissions(data['permissions']),
     );
   }
+
+  /// Boolean `Session.permissions`; other entries are ignored, and a missing
+  /// map is unknown (empty), never a sign-in failure.
+  static Map<String, bool> _permissions(Object? data) => {
+    if (data is Map<String, dynamic>)
+      for (final MapEntry(:key, :value) in data.entries)
+        if (value is bool) key: value,
+  };
 
   /// True when [other] belongs to the same sign-in as [session].
   static bool sameIdentity(AuthSession session, AuthSession other) =>

@@ -62,4 +62,20 @@ void main() {
     await write('PUT a');
     expect(sent[1], isNot(sent[0]));
   });
+
+  // The server checks these before it reserves the key: they say nothing
+  // about an earlier attempt, which may have committed.
+  for (final failure in const [
+    AppFailure(FailureKind.unauthenticated, 'expired', code: 'TOKEN_EXPIRED'),
+    AppFailure(FailureKind.rateLimited, 'slow down', code: 'RATE_LIMITED'),
+  ]) {
+    test('${failure.code} keeps the key of an open request', () async {
+      const lost = AppFailure(FailureKind.timeout, 'no answer');
+      await expectLater(write('POST a', lost), throwsA(same(lost)));
+      await expectLater(write('POST a', failure), throwsA(same(failure)));
+      await write('POST a');
+      expect(sent[1], sent[0]);
+      expect(sent[2], sent[0]);
+    });
+  }
 }

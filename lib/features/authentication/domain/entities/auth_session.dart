@@ -15,6 +15,7 @@ class AuthSession {
     required this.companyId,
     this.posSessionId,
     this.employeeId,
+    this.permissions = const {},
   });
 
   final String accessToken;
@@ -33,6 +34,11 @@ class AuthSession {
   final int companyId;
   final int? posSessionId;
   final int? employeeId;
+
+  /// Effective permissions reported by the server (`Session.permissions`).
+  /// In memory only: the stored session record never contains them, so a
+  /// restored session is empty until `GET /auth/session` verifies it.
+  final Map<String, bool> permissions;
 
   /// Scheme, host and port of [apiBase].
   Uri get backendOrigin => apiBase.replace(path: '');

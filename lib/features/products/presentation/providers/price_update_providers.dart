@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/use_cases/manage_product_details.dart';
@@ -192,16 +193,9 @@ class PriceUpdateController extends AsyncNotifier<PriceUpdateState> {
           if (!ref.mounted || generation != _generation) return;
         }
       }
-      final denied =
-          error is AppFailure &&
-          {
-            FailureKind.forbidden,
-            FailureKind.validation,
-            FailureKind.unauthenticated,
-            FailureKind.conflict,
-            FailureKind.notFound,
-            FailureKind.rateLimited,
-          }.contains(error.kind);
+      // A save the server refused as invalid: the distinct error haptic.
+      ref.read(hapticsControllerProvider.notifier).rejected(error);
+      final denied = AppFailure.refusedWrite(error);
       if (writeStarted && !denied) {
         state = AsyncData(
           PriceUpdateState(

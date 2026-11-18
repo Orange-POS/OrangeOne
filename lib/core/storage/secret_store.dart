@@ -40,13 +40,17 @@ class PlatformSecretStore implements SecretStore {
   }
 }
 
-final secretStoreProvider = Provider<SecretStore>(
-  (ref) => const PlatformSecretStore(
-    FlutterSecureStorage(
-      iOptions: IOSOptions(
-        accessibility: KeychainAccessibility.unlocked_this_device,
-      ),
+/// The device's secure storage, also used by the bootstrap before the
+/// provider scope exists.
+const SecretStore platformSecretStore = PlatformSecretStore(
+  FlutterSecureStorage(
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.unlocked_this_device,
     ),
   ),
+);
+
+final secretStoreProvider = Provider<SecretStore>(
+  (ref) => platformSecretStore,
   name: 'secretStoreProvider',
 );

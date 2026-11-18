@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/network/backend_features.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/repositories/product_details_repository.dart';
@@ -37,6 +38,9 @@ class ProductDetailsController extends AsyncNotifier<ProductDetailsState> {
     ref.listen(readCacheRecoveryProvider, (previous, next) {
       if (next.hasValue) unawaited(refresh());
     });
+    // Read the shop's features early, so the stock screen opened from here
+    // shows its operations at once.
+    ref.listen(backendFeaturesProvider, (previous, next) {});
     return ManageProductDetails(ref.watch(productDetailsRepositoryProvider))
         .load(barcode);
   }

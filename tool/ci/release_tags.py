@@ -22,7 +22,7 @@ SHA = re.compile(r'[a-f0-9]{40}')
 FLAVOR = 'production'
 GROUP = 'production'
 ENVIRONMENT = 'ios-production'
-ANDROID_ENVIRONMENT = 'android-release'
+ANDROID_ENVIRONMENT = 'android-production'
 
 
 def parse_tag(tag):

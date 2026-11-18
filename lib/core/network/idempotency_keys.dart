@@ -1,6 +1,16 @@
 import 'dart:math';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+
+/// The session's [IdempotencyKeys]. App composition makes one per session
+/// identity, so the key of a write with an unknown outcome outlives the
+/// screen and repository that sent it (the repository is rebuilt when its
+/// screens close) but never another session, user or shop.
+final idempotencyKeysProvider = Provider<IdempotencyKeys>(
+  (ref) => IdempotencyKeys(),
+  name: 'idempotencyKeysProvider',
+);
 
 /// `Idempotency-Key` values for Mobile API writes.
 ///
@@ -22,18 +32,29 @@ class IdempotencyKeys {
     String operation,
     Future<T> Function(String key) write,
   ) async {
-    final key = _uncertain.remove(operation) ?? _newKey();
+    final key = _uncertain.remove(operation) ?? newKey();
     try {
       return await write(key);
     } on AppFailure catch (failure) {
-      // Error envelopes carry a code: the server decided, nothing is pending.
-      if (failure.code == null) _remember(operation, key);
+      // Error envelopes carry a code: the server decided, nothing is
+      // pending. Except authentication and rate limits: the server checks
+      // those before it reserves the key, so they say nothing about an
+      // earlier attempt of this request, which may still have committed.
+      if (!settles(failure)) _remember(operation, key);
       rethrow;
     } on Object {
       _remember(operation, key);
       rethrow;
     }
   }
+
+  /// Whether [failure] is a server decision about the write itself, so the
+  /// key is used up. Transport failures, authentication and rate limits
+  /// leave the outcome of the request open.
+  static bool settles(AppFailure failure) =>
+      failure.code != null &&
+      failure.kind != FailureKind.unauthenticated &&
+      failure.kind != FailureKind.rateLimited;
 
   void _remember(String operation, String key) {
     _uncertain[operation] = key;
@@ -42,7 +63,8 @@ class IdempotencyKeys {
     }
   }
 
-  String _newKey() {
+  /// A fresh UUID v4 key for a new write intent.
+  String newKey() {
     final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;

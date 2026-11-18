@@ -1,5 +1,6 @@
 require_relative '../tool/ci/testflight_groups'
 require_relative '../tool/ci/testflight_build_number'
+require_relative '../tool/ci/phased_release'
 default_platform(:ios)
 ROOT = File.expand_path('..', __dir__)
 
@@ -55,7 +56,7 @@ def distribute_or_report(distribution, version:, number:, group:)
   distribution.distribute(version: version, number: number)
   true
 rescue OrangeoneTestflight::Pending => error
-  text = "Build #{version} (#{number}) is uploaded but not yet in the #{group} group: #{error.message} "          "Resume without rebuilding or uploading: run the iOS workflow operation distribute_existing "          "with version #{version}, build #{number} and target group #{group}."
+  text = "Build #{version} (#{number}) is uploaded but not yet in the #{group} group: #{error.message} "          "Resume without rebuilding or uploading: run the OrangeONE iOS workflow from main with operation distribute_existing "          "with version #{version}, build #{number} and target group #{group}."
   UI.important(text)
   puts "::warning title=TestFlight distribution pending::#{text}"
   summary = ENV.fetch('GITHUB_STEP_SUMMARY', '')
@@ -178,10 +179,17 @@ platform :ios do
       ENV.fetch('RELEASE_FLAVOR', 'production') == 'production'
     UI.user_error!('Confirm physical iPhone smoke testing first') unless
       ENV['IPHONE_SMOKE_TEST_CONFIRMED'] == 'true'
+    key = connect_key
+    version = ENV.fetch('RELEASE_VERSION')
+    # Automatic updates then reach iPhones over seven days and can be paused if
+    # monitoring shows a problem; users can still update manually. Set and read
+    # back here: deliver's phased_release option is skipped with skip_metadata.
+    state = OrangeonePhasedRelease.new.enable(version: version)
+    UI.success("Phased release confirmed for #{version} (#{state}).")
     upload_to_app_store(
-      api_key: connect_key,
+      api_key: key,
       app_identifier: OrangeoneTestflight::BUNDLE_ID,
-      app_version: ENV.fetch('RELEASE_VERSION'),
+      app_version: version,
       build_number: ENV.fetch('RELEASE_BUILD_NUMBER'),
       skip_binary_upload: true,
       skip_metadata: true,
@@ -191,5 +199,7 @@ platform :ios do
       precheck_include_in_app_purchases: false,
       force: true
     )
+  rescue OrangeonePhasedRelease::Error => error
+    UI.user_error!(error.message)
   end
 end

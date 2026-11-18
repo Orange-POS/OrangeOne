@@ -8,6 +8,18 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase Crashlytics. CI writes src/<flavor>/google-services.json from the
+// environment's configuration (it is never committed). Local builds without
+// it run without Firebase; distributable builds set FIREBASE_CONFIG_REQUIRED
+// so a missing configuration fails the build instead of being skipped.
+val firebaseRequired = System.getenv("FIREBASE_CONFIG_REQUIRED") == "true"
+val firebaseConfigPresent = listOf("production", "staging", "development")
+    .any { file("src/$it/google-services.json").exists() }
+if (firebaseRequired || firebaseConfigPresent) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {

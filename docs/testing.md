@@ -95,7 +95,7 @@ Fastlane actions; they never sign, upload, contact Apple or access credentials.
 
 Keep the independent native flavor builds and license workflow required statuses.
 Only the legacy quality status is replaced by **Format, analyze and test**.
-`ios-release.yaml`, `android-release.yaml`, `release_tags.py` and `android_apk.py` are covered by `tool/ci/test_release_pipeline.py`; pending export compliance is covered in `test_fastlane.rb`. `ios-testflight.yaml` (DEV/STG delivery) is covered by `tool/ci/test_testflight_cd.py`, `test_testflight_build_number.rb` and the channel lane tests in `test_fastlane.rb`. The workflows are linted with actionlint, and `tool/ci/test_workflows.py` and
+`ios-release.yaml`, `android-release.yaml`, `release_tags.py` and `android_apk.py` are covered by `tool/ci/test_release_pipeline.py`; pending export compliance is covered in `test_fastlane.rb`. `firebase_config.py`, `upload_flutter_symbols.py` and the Crashlytics wiring of the workflows, Xcode project and Gradle files are covered by `tool/ci/test_firebase.py` (see `docs/firebase-crashlytics.md`). `ios-testflight.yaml` (DEV/STG delivery) is covered by `tool/ci/test_testflight_cd.py`, `test_testflight_build_number.rb` and the channel lane tests in `test_fastlane.rb`. The workflows are linted with actionlint, and `tool/ci/test_workflows.py` and
 `test_versioning.py` guard triggers, secrets, signing protections and the app
 version (see "Stage 1 CI foundation" in [Deployment](deployment.md)).
 Environment protection rules (reviewers) still require owner configuration.
@@ -117,6 +117,32 @@ Orange-POS/odoo_addons PR #192):
    Wi-Fi for offline read-only and recovery, restart (session restore), log out.
 
 Never run these checks against staging or production data.
+
+### Backward compatibility before every mobile release
+
+One app version must work with every supported addon version (shops upgrade
+their POS backend on their own schedule; an iPhone cannot be downgraded).
+
+1. CI: `test/core/network/backend_features_test.dart` (the real `/meta` replies
+   of an older and a newer shop), `test/app/providers/backend_features_override_test.dart`
+   (per-session features, shop switching, failure fallback, Demo Mode) and the
+   stock screen tests for both kinds of shop.
+2. Read-only contract checks against **each** supported backend (no login, no
+   data changes); `backend-compat.spec.ts` checks the app baseline and that
+   every advertised feature's endpoint exists (and is missing when not
+   advertised):
+
+   ```sh
+   cd tool/e2e
+   ODOO_URL=http://localhost npx playwright test --project=public            # newer addons
+   ODOO_URL=https://<older-pos> ODOO_INSECURE_TLS=1 npx playwright test --project=public   # self-signed POS
+   ```
+3. Device journey on a TestFlight/APK build against an older **and** a newer
+   shop: QR login, scan, details, edit, price, stock Update (Add/Remove only on
+   the newer shop), create, offline read, restart, logout, then sign in to the
+   other shop and check that its features apply.
+4. After release, watch Crashlytics during the phased rollout and pause it if
+   needed (`docs/deployment.md`).
 
 ## Adding a feature or fixing a regression
 

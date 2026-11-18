@@ -65,6 +65,8 @@ jobs:
       contents: read
     outputs:
       build_number: ${{ steps.allocate.outputs.build_number }}
+      firebase_config: ${{ steps.firebase.outputs.config }}
+      firebase_project_id: ${{ steps.firebase.outputs.project_id }}
     env:
       CHANNEL_FLAVOR: ${{ needs.plan.outputs.flavor }}
       TARGET_GROUP: ${{ needs.plan.outputs.group }}
@@ -86,6 +88,16 @@ jobs:
           bundler-cache: false
       - run: bundle config set --local frozen true
       - run: bundle install
+      # Firebase client configuration (project identifiers, not credentials) lives in
+      # this GitHub environment. It is validated here and handed to the credential-free
+      # build job as an output, so that job never needs the environment or its secrets.
+      - name: Validate this environment's Firebase configuration
+        id: firebase
+        env:
+          FIREBASE_CONFIG_BASE64: ${{ vars.FIREBASE_CONFIG_BASE64 }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
+        run: python3 tool/ci/firebase_config.py export ios production
       - name: Load only the App Store Connect API key
         env:
           APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
@@ -108,6 +120,11 @@ jobs:
       FLAVOR: ${{ needs.plan.outputs.flavor }}
       RELEASE_VERSION: ${{ needs.plan.outputs.version }}
       RELEASE_BUILD_NUMBER: ${{ needs.allocate.outputs.build_number }}
+      # Validated by the allocate job from the ios-production environment.
+      FIREBASE_CONFIG_BASE64: ${{ needs.allocate.outputs.firebase_config }}
+      FIREBASE_PROJECT_ID: ${{ needs.allocate.outputs.firebase_project_id }}
+      FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
+      CRASHLYTICS_UPLOAD_SYMBOLS: ${{ needs.plan.outputs.dry_run == 'false' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,8 +138,18 @@ jobs:
           # Signing jobs must never consume a cache written by this compilation.
           cache: false
       - run: flutter pub get --enforce-lockfile
+      - name: Write the production Firebase configuration
+        run: python3 tool/ci/firebase_config.py write ios production
       - name: Archive production, unsigned
-        run: flutter build ipa --release --no-codesign --flavor production --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$RELEASE_BUILD_NUMBER"
+        run: flutter build ipa --release --no-codesign --flavor production --split-debug-info="$GITHUB_WORKSPACE/build/symbols/ios" --target lib/main_production.dart --dart-define-from-file=config/production.example.json --build-name="$RELEASE_VERSION" --build-number="$RELEASE_BUILD_NUMBER"
+      - name: Confirm the archive carries the production Firebase project
+        run: python3 tool/ci/firebase_config.py verify-ios build/ios/archive/Runner.xcarchive production
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flutter-symbols-production
+          path: build/symbols/ios
+          if-no-files-found: error
+          retention-days: 7
       - name: Package unsigned archive as data
         run: ditto -c -k --norsrc --noextattr --keepParent build/ios/archive/Runner.xcarchive candidate.zip
       - uses: actions/upload-artifact@v4
@@ -173,6 +200,15 @@ jobs:
           path: ${{ runner.temp }}/candidate-download
       - name: Validate and unpack the archive without executing its code
         run: python3 tool/ci/prepare_archive.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: flutter-symbols-production
+          path: ${{ runner.temp }}/symbols-download
+      - name: Upload the Dart symbols to the Crashlytics project of this build
+        if: needs.plan.outputs.dry_run == 'false'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: python3 tool/ci/upload_flutter_symbols.py "$RUNNER_TEMP/symbols-download" "$RUNNER_TEMP/candidate/Runner.xcarchive/Products/Applications/Runner.app/GoogleService-Info.plist"
       - name: Import temporary Apple credentials
         env:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}

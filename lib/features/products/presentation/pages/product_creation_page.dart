@@ -2,21 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/formatting/money.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_creation_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
-import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_category_sheet.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_confirm_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_creation_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_tax_sheet.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/confirm_dialog.dart';
+import 'package:orange_one/shared/widgets/product_action_surface.dart';
+import 'package:orange_one/shared/widgets/product_navbar.dart';
+import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
+import 'package:orange_one/shared/widgets/status_notice.dart';
 
 /// Creates a product for an unknown barcode. There is no product name card:
 /// the product does not exist yet.
@@ -115,21 +117,19 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
     FocusScope.of(context).unfocus();
     final l10n = context.l10n;
     try {
-      final accepted = await showDialog<bool>(
-        context: context,
-        builder: (context) => ProductConfirmDialog(
-          title: l10n.createConfirmTitle,
-          message: l10n.createConfirmMessage(
-            value.name.trim(),
-            widget.barcode,
-            value.categoryName ?? '',
-            value.taxText(l10n.taxNoTax) ?? '',
-            value.effectivePrice,
-            value.stock.trim().isEmpty ? l10n.stockNotSet : value.stock.trim(),
-          ),
+      final accepted = await ConfirmDialog.show(
+        context,
+        title: l10n.createConfirmTitle,
+        message: l10n.createConfirmMessage(
+          value.name.trim(),
+          widget.barcode,
+          value.categoryName ?? '',
+          value.taxText(l10n.taxNoTax) ?? '',
+          value.effectivePrice,
+          value.stock.trim().isEmpty ? l10n.stockNotSet : value.stock.trim(),
         ),
       );
-      if (accepted == true && mounted) {
+      if (accepted && mounted) {
         await ref
             .read(productCreationControllerProvider(widget.barcode).notifier)
             .save();
@@ -151,7 +151,7 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
           title: l10n.createSuccessTitle,
           message: l10n.createSuccessMessage(
             created.name,
-            created.price.toStringAsFixed(2),
+            formatAmount(created.price),
             value.taxText(l10n.taxNoTax) ?? '',
           ),
         );
@@ -237,20 +237,13 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                 child: async.when(
                   skipLoadingOnReload: false,
                   skipLoadingOnRefresh: false,
-                  loading: () => Center(
-                    child: CircularProgressIndicator(
-                      semanticsLabel: l10n.createLoading,
-                    ),
+                  loading: () => Skeleton(
+                    label: l10n.createLoading,
+                    child: const SkeletonForm(fields: 4),
                   ),
                   error: (error, stack) => Column(
                     children: [
-                      Text(
-                        error is AppFailure
-                            ? error.message
-                            : error is FormatException
-                            ? error.message
-                            : l10n.createLoadFailed,
-                      ),
+                      Text(failureText(error, l10n.createLoadFailed)),
                       if (error is! FormatException)
                         TextButton(
                           onPressed: () =>
@@ -294,7 +287,7 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                             : null,
                       ),
                       if (view.message != null)
-                        PriceUpdateNotice(message: view.message!),
+                        StatusNotice(message: view.message!),
                     ],
                   ),
                 ),

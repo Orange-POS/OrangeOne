@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/chf_price.dart';
 import 'package:orange_one/features/products/domain/entities/new_product.dart';
@@ -299,6 +300,8 @@ class ProductCreationController extends AsyncNotifier<ProductCreationState> {
       ref.invalidate(productDetailsControllerProvider(barcode));
     } on Exception catch (error) {
       if (!ref.mounted || generation != _generation) return;
+      // A save the server refused as invalid: the distinct error haptic.
+      ref.read(hapticsControllerProvider.notifier).rejected(error);
       final rejected =
           error is AppFailure &&
           {

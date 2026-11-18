@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/validation_haptic.dart';
 
 class ProductEditForm extends StatelessWidget {
   const new({
@@ -27,24 +28,17 @@ class ProductEditForm extends StatelessWidget {
   final VoidCallback? onSelectCategory;
   final String? error;
 
-  InputDecoration _decoration() => InputDecoration(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    filled: !enabled,
-    fillColor: const Color(0xFFF5F6F8),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-    ),
-    disabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: OrangeTheme.scannerAccent, width: 2),
-    ),
-  );
+  InputDecoration _decoration() =>
+      OrangeTheme.productInput(
+        enabled: enabled,
+        focusColor: OrangeTheme.scannerAccent,
+        outlineDisabled: true,
+      ).copyWith(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      );
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -53,16 +47,19 @@ class ProductEditForm extends StatelessWidget {
       children: [
         Text(l10n.productNameLabel),
         const SizedBox(height: 8),
-        TextField(
-          key: const Key('product-name-input'),
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          onChanged: onChanged,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: _decoration().copyWith(
-            errorText: error,
-            errorMaxLines: 3,
+        ValidationHaptic(
+          error: error,
+          child: TextField(
+            key: const Key('product-name-input'),
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled,
+            onChanged: onChanged,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: _decoration().copyWith(
+              errorText: error,
+              errorMaxLines: 3,
+            ),
           ),
         ),
         const SizedBox(height: 16),

@@ -3,6 +3,7 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 class ProductCategoryChoice {
   const new(this.id);
@@ -135,11 +136,13 @@ class _ProductCategorySheetState extends State<ProductCategorySheet> {
                     ),
                     onPressed: _creating ? null : _create,
                     icon: _creating
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                        ? Skeleton(
+                            label: context.l10n.categoryCreating,
+                            onDark: true,
+                            child: const SkeletonBox(
+                              width: 24,
+                              height: 8,
+                              radius: 4,
                             ),
                           )
                         : const Icon(Icons.add),
@@ -168,33 +171,33 @@ class _ProductCategorySheetState extends State<ProductCategorySheet> {
     );
   }
 
-  Widget _option(BuildContext context, int? id, String label, bool selected) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF202124),
-            minimumSize: const Size(double.infinity, 56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            side: const BorderSide(color: Color(0xFFDADCE0)),
+  Widget _option(
+    BuildContext context,
+    int? id,
+    String label,
+    bool selected,
+  ) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF202124),
+        minimumSize: const Size(double.infinity, 56),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: const BorderSide(color: OrangeTheme.outline),
+      ),
+      onPressed: _creating
+          ? null
+          : () => Navigator.pop(context, ProductCategoryChoice(id)),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 12),
+          Icon(
+            selected ? Icons.radio_button_checked : Icons.radio_button_off,
+            color: selected ? OrangeTheme.scannerAccent : OrangeTheme.outline,
           ),
-          onPressed: _creating
-              ? null
-              : () => Navigator.pop(context, ProductCategoryChoice(id)),
-          child: Row(
-            children: [
-              Expanded(child: Text(label)),
-              const SizedBox(width: 12),
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected
-                    ? OrangeTheme.scannerAccent
-                    : const Color(0xFFDADCE0),
-              ),
-            ],
-          ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }

@@ -28,6 +28,7 @@ PR #19 into main.
 | `ios-testflight.yaml` | Push to `develop` (DEV) or `staging` (STG); manual dispatch on those branches (dry run by default) | Waits for the required CI checks, allocates the build number, compiles the flavor secret-free, signs and (only when enabled) uploads to that channel's one tester group. See Stage 2 below |
 | `ios-release.yaml` | Published GitHub Release of a `vX.Y.Z` tag only | Validates the tag, waits for the required checks, builds production, signs and (only when enabled) uploads to Production Testers |
 | `android-release.yaml` | Published GitHub Release of a `vX.Y.Z` tag only | Builds the production APK signed with the existing release keystore, verifies it and keeps it as a private artifact |
+| `android-development.yaml` | Push to `develop` | Debug-signed development APK with the Development Firebase project (environment `android-development`); see `docs/firebase-crashlytics.md` |
 | `license_check.yaml` | Pushes to and PRs into `main`/`develop`/`staging`, their merge queues, manual | Flutter dependency license policy |
 
 A merge into an integration branch triggers push checks. Workflows use read-only repository access;
@@ -173,6 +174,15 @@ existing App Store Connect binary, performs prechecks and submits for Apple revi
 it neither rebuilds a potentially different binary nor uploads one.
 
 `automatic_release: false` keeps the approved build pending developer release.
+Before submitting, the lane turns on **phased release** for the exact App Store
+version and reads it back (`tool/ci/phased_release.rb`); if it cannot be
+confirmed, nothing is submitted. deliver's own `phased_release` option is not
+used: with `skip_metadata: true` (existing metadata stays untouched) fastlane
+2.241.1 skips it (`tool/ci/test_phased_release.rb` checks the pinned code).
+After the manual release, automatic updates then reach iPhones over seven days
+(1%, 2%, 5%, 10%, 20%, 50%, 100%); the release owner can pause the rollout in
+App Store Connect when Crashlytics shows a problem (up to 30 days) or release
+to everyone at once. Users who update manually get the new version at once.
 After Apple approval, the release owner checks the selected build in App Store
 Connect and chooses **Release This Version** manually. This final public-release
 step deliberately remains outside automated jobs. Stop/reject a pending approval
@@ -308,8 +318,13 @@ existing pinned Spaceship client for Apple's official App Store Connect API:
 - Resolve the production app and the one exact allowlisted group; missing,
   duplicate or automatic/all-build groups fail preflight before upload.
 - Query builds by that app ID, iOS platform, marketing version and build number.
-  Wait up to 15 minutes for that exact build and testing eligibility; never use
+  Wait up to 30 minutes for that exact build and testing eligibility; never use
   an unrelated latest build. Invalid, failed, expired or ambiguous builds fail.
+  When Apple's processing outlasts the wait, the upload stays valid: the run
+  reports a pending distribution naming the last state (not yet listed, still
+  processing, not yet ready for testing, or assignment not yet confirmed) and
+  the exact `distribute_existing` resume. Do not re-run the delivery job; it
+  would export again and then stop because the build number is already used.
 - Export compliance comes from the reviewed `ITSAppUsesNonExemptEncryption`
   declaration in the production Info.plist (see "Encryption declaration" below),
   so new builds need no manual answer. If Apple still reports missing compliance
@@ -361,7 +376,7 @@ pending/rejected review, compliance and terminal failures stop with manual guida
 Unknown external states fail closed. No absent external-readiness method is called. Hosted
 macOS verification is still required for real signing, API permissions, group
 eligibility/processing, TestFlight installation and protected-environment rules.
-Firebase is not integrated by this change.
+Firebase Crashlytics configuration, symbols and the DEV verification control are described in `docs/firebase-crashlytics.md`.
 
 
 ### Recover assignment without another upload
@@ -578,6 +593,23 @@ still the only way to submit to Apple review. No release or tag trigger exists.
    `dry_run` on. When both succeed, set the repository variable
    `TESTFLIGHT_CD_ENABLED` to `true`; the next push uploads.
 
+### When `allocate` or `deliver` cannot reach App Store Connect
+
+The tester-group preflight and the build-number query (`testflight_groups.rb`,
+`testflight_build_number.rb`) name the failing operation and the reason, without
+Apple's response or any credential (`app_store_connect_errors.rb`):
+
+| Reason in the log | Owner action |
+|---|---|
+| Updated agreements (403 `REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`) | The Account Holder accepts the updated agreements in App Store Connect (Business) and on developer.apple.com; Apple blocks every API call until then |
+| Key rejected (401) | Check that `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID` and `APP_STORE_CONNECT_KEY_BASE64` of the job's environment (`ios-development`, `ios-staging`, `ios-production`) belong to one active, unrevoked key |
+| Not allowed (403) | Give the key App Manager or Admin access (Users and Access > Integrations) |
+| Temporarily unavailable | Read calls were already retried three times (5 s, 10 s); run the workflow again later |
+| Unexpected `<class>` / rejected request | Check the app, build and tester groups in App Store Connect |
+
+Reads are retried after temporary Apple or network errors; the group
+assignment (a write) is never repeated automatically.
+
 Unsigned archive and Flutter's signing check: `flutter build ios --release`
 validates for a development signing certificate (using the flavor's own
 `.dev`/`.stg` bundle ID) unless `--no-codesign` is passed, even with
@@ -616,7 +648,7 @@ production group.
 - every required CI check of the tagged commit passed (`wait_for_checks.py`).
 
 Approval itself is a person publishing the Release plus the protected
-environment (`ios-production`, `android-release`) with required reviewers.
+environment (`ios-production`, `android-production`) with required reviewers.
 
 ### iOS: Production Testers
 
@@ -683,7 +715,7 @@ with `--build-name` from the tag and `--build-number` as the version code.
 1. Environment `ios-production`: allow deployment from release tags matching
    `v*` (it allows `main` today) and keep required reviewers; the signing secrets
    already live there.
-2. Create environment `android-release` (tags `v*`, required reviewers) with secrets
+2. Create environment `android-production` (tags `v*`, required reviewers) with secrets
    `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEYSTORE_ALIAS`,
    `ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD` and `ANDROID_SIGNING_CERT_SHA256` (the
    SHA-256 of the existing release certificate; `keytool -list -v` shows it). Use the

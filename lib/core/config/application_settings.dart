@@ -12,6 +12,7 @@ class ApplicationSettings {
     required this.responseTimeout,
     required this.loggingEnabled,
     required this.diagnosticsEnabled,
+    this.crashTestEnabled = false,
   });
 
   factory parse(
@@ -68,6 +69,9 @@ class ApplicationSettings {
               (logging == null && environment == AppEnvironment.development)),
       diagnosticsEnabled:
           debugBuild && environment == AppEnvironment.development,
+      // Flavor only (not build mode): the TestFlight/APK DEV build must be able
+      // to verify symbolicated reports. STG and PROD never get the control.
+      crashTestEnabled: environment == AppEnvironment.development,
     );
   }
 
@@ -98,6 +102,9 @@ class ApplicationSettings {
   final Duration responseTimeout;
   final bool loggingEnabled;
   final bool diagnosticsEnabled;
+
+  /// Development-only Crashlytics verification (Settings > Trigger the Crash).
+  final bool crashTestEnabled;
 }
 
 final applicationSettingsProvider = Provider<ApplicationSettings>(
@@ -109,4 +116,11 @@ final applicationSettingsProvider = Provider<ApplicationSettings>(
 final developmentDiagnosticsProvider = Provider<bool>(
   (ref) => false,
   name: 'developmentDiagnosticsProvider',
+);
+
+/// Whether the Settings screen and its crash test exist in this build.
+/// Closed unless the bootstrap enables it for the development flavor.
+final crashTestControlsProvider = Provider<bool>(
+  (ref) => false,
+  name: 'crashTestControlsProvider',
 );

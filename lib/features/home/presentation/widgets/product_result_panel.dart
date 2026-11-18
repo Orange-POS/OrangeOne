@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/formatting/money.dart';
 import 'package:orange_one/features/home/domain/entities/product.dart';
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/info_badge.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 import 'package:orange_one/shared/widgets/stock_badge.dart';
 
 /// The scanner's bottom card: the lookup in progress or its result and, while
@@ -64,15 +66,22 @@ class ProductResultPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 if (state.isLoading)
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                      Text(l10n.scannerLookingUp),
+                      const SizedBox(height: 10),
+                      // The visible text announces the lookup.
+                      const Skeleton(
+                        label: null,
+                        child: Row(
+                          children: [
+                            SkeletonBox(width: 44, height: 44, radius: 10),
+                            SizedBox(width: 12),
+                            Expanded(child: SkeletonLines(height: 12)),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(l10n.scannerLookingUp)),
                     ],
                   )
                 else if (state.hasError) ...[
@@ -155,7 +164,7 @@ class _ProductCard extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: OrangeTheme.pale,
-        border: Border.all(color: const Color(0xFFDADCE0)),
+        border: Border.all(color: OrangeTheme.outline),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -226,7 +235,7 @@ class _ProductCard extends StatelessWidget {
                       const SizedBox(width: 12),
                       Flexible(
                         child: Text(
-                          'CHF ${product.price.toStringAsFixed(2)}',
+                          formatMoney(product.price, currency: 'CHF'),
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                             fontSize: 16,

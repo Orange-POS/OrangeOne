@@ -13,5 +13,6 @@ extension LocalizedCameraMessages on AppLocalizations {
     restricted: cameraRestricted,
     openSettings: cameraOpenSettings,
     allowRetry: cameraAllowRetry,
+    starting: cameraStarting,
   );
 }

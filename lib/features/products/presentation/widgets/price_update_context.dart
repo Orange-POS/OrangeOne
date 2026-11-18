@@ -17,7 +17,7 @@ class PriceContextRow extends StatelessWidget {
     margin: const EdgeInsets.only(bottom: 10),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      border: Border.all(color: const Color(0xFFDADCE0)),
+      border: Border.all(color: OrangeTheme.outline),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Row(

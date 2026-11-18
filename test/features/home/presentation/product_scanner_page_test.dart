@@ -83,6 +83,17 @@ void main() {
     },
   );
 
+  testWidgets('without demo samples the real camera is built and started', (
+    tester,
+  ) async {
+    await mount(tester, FakeProductRepository());
+    await tester.tap(find.text('Tap to scan Barcode'));
+    await tester.pumpAndSettle();
+    expect(find.text('Test scan'), findsOneWidget);
+    expect(find.text('Opening camera…'), findsOneWidget);
+    expect(find.byKey(const Key('demo-sample-barcodes')), findsNothing);
+  });
+
   testWidgets(
     'not found opens a prefilled creation form without any mutation',
     (tester) async {

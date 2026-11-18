@@ -139,15 +139,15 @@ void main() {
     }
 
     testWidgets('the message follows the selected language', (tester) async {
-      await mount(tester, edit, locale: const Locale('nl'));
+      await mount(tester, edit, locale: const Locale('de'));
       await rename(tester);
       await tester.tap(find.byType(FilledButton).last);
       await tester.pumpAndSettle();
       await tester.tap(find.byType(FilledButton).last);
       await tester.pumpAndSettle();
       final success = pendingSuccess(tester)!;
-      expect(success.title, 'Productnaam succesvol bijgewerkt');
-      expect(success.message, 'Nieuwe naam: Aachi 100g');
+      expect(success.title, 'Produktname erfolgreich aktualisiert');
+      expect(success.message, 'Neuer Name: Aachi 100g');
     });
   });
 

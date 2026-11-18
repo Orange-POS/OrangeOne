@@ -11,6 +11,7 @@ import 'package:orange_one/features/products/domain/use_cases/manage_product_det
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/l10n/l10n.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
 
 import '../../support/auth_fakes.dart';
 import '../../support/product_details_fakes.dart';
@@ -118,7 +119,7 @@ void main() {
     final repo = FakeDetailsRepository()
       ..pending = Completer<ProductDetailsState>();
     await mount(tester, repo);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(Skeleton), findsOneWidget);
     repo.pending!.complete(const ProductDetailsState(null, ProductAccess()));
     await tester.pumpAndSettle();
     expect(find.text('Product not found'), findsOneWidget);
@@ -149,10 +150,10 @@ void main() {
       );
       expect(tester.widget<IconButton>(action).onPressed, isNull);
     }
-    expect(find.text('Discount · Mock data'), findsNothing);
+    // Without `product_discounts` in GET /meta there is no discount card.
     expect(
-      find.text('Discount · Mock data', skipOffstage: false),
-      findsOneWidget,
+      find.byKey(const Key('discount-summary'), skipOffstage: false),
+      findsNothing,
     );
     expect(repo.writes, 0);
     expect(tester.takeException(), isNull);

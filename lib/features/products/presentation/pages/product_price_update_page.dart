@@ -2,20 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/formatting/money.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
-import 'package:orange_one/features/products/presentation/product_tax_label.dart';
 import 'package:orange_one/features/products/presentation/providers/price_update_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
-import 'package:orange_one/features/products/presentation/widgets/price_change_dialog.dart';
+import 'package:orange_one/features/products/presentation/widgets/price_confirm_text.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_action_surface.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_navbar.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_scaffold.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
+import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/confirm_dialog.dart';
+import 'package:orange_one/shared/widgets/product_action_surface.dart';
+import 'package:orange_one/shared/widgets/product_navbar.dart';
+import 'package:orange_one/shared/widgets/product_scaffold.dart';
+import 'package:orange_one/shared/widgets/skeleton.dart';
+import 'package:orange_one/shared/widgets/status_notice.dart';
 
 class ProductPriceUpdatePage extends ConsumerStatefulWidget {
   const new({required this.barcode, super.key});
@@ -57,11 +61,13 @@ class _ProductPriceUpdatePageState
     _confirming = true;
     _focus.unfocus();
     try {
-      final accepted = await showDialog<bool>(
-        context: context,
-        builder: (context) => PriceChangeDialog(confirmation: confirmation),
+      final l10n = context.l10n;
+      final accepted = await ConfirmDialog.show(
+        context,
+        title: l10n.priceConfirmTitle,
+        message: priceConfirmText(l10n, confirmation),
       );
-      if (accepted == true && mounted) {
+      if (accepted && mounted) {
         await ref.read(provider.notifier).save(confirmation);
       }
     } finally {
@@ -69,7 +75,7 @@ class _ProductPriceUpdatePageState
     }
   }
 
-  String _priceLabel(double price) => 'CHF ${price.toStringAsFixed(2)}';
+  String _priceLabel(double price) => formatMoney(price, currency: 'CHF');
 
   /// A saved price returns to Product Details with the success toast.
   void _finish(PriceUpdateState value) {
@@ -81,7 +87,7 @@ class _ProductPriceUpdatePageState
         .show(
           barcode: widget.barcode,
           title: l10n.priceSuccessTitle,
-          message: l10n.priceSuccessMessage(product.price.toStringAsFixed(2)),
+          message: l10n.priceSuccessMessage(formatAmount(product.price)),
         );
     _leave(true);
   }
@@ -192,20 +198,19 @@ class _ProductPriceUpdatePageState
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   child: async.when(
-                    loading: () => Center(
-                      child: CircularProgressIndicator(
-                        semanticsLabel: l10n.priceLoading,
+                    loading: () => Skeleton(
+                      label: l10n.priceLoading,
+                      child: const Column(
+                        children: [
+                          SkeletonInfoRow(),
+                          SizedBox(height: 20),
+                          SkeletonForm(fields: 1),
+                        ],
                       ),
                     ),
                     error: (error, stack) => Column(
                       children: [
-                        Text(
-                          error is AppFailure
-                              ? error.message
-                              : error is FormatException
-                              ? error.message
-                              : l10n.priceLoadFailed,
-                        ),
+                        Text(failureText(error, l10n.priceLoadFailed)),
                         if (error is! FormatException)
                           TextButton(
                             onPressed: _refresh,
@@ -225,7 +230,7 @@ class _ProductPriceUpdatePageState
                                 ),
                               ),
                               const Divider(
-                                color: Color(0xFFDADCE0),
+                                color: OrangeTheme.outline,
                                 height: 24,
                               ),
                               Padding(
@@ -247,11 +252,9 @@ class _ProductPriceUpdatePageState
                                 ),
                               ),
                               if (!value.details.access.updatePrice)
-                                PriceUpdateNotice(
-                                  message: l10n.priceNoPermission,
-                                ),
+                                StatusNotice(message: l10n.priceNoPermission),
                               if (value.message != null)
-                                PriceUpdateNotice(message: value.message!),
+                                StatusNotice(message: value.message!),
                             ],
                           ),
                   ),
