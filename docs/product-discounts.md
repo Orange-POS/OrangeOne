@@ -58,6 +58,9 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
 
 ### Multiple discounts active
 
+The text follows the supplied design ("Multiple discounts active"); issue
+#84 first called it "Overlapping discount".
+
 When two or more discounts of the product are in effect at the same time,
 each of their cards on Product Details shows "Multiple discounts active" in
 small (10 px) orange text right after a small warning icon in the card's
@@ -68,10 +71,15 @@ a translation too long for the line is scaled down with its icon.
 in the shop timezone) of a discount that is not paused or archived
 (`Discount.inEffect`, `ProductDiscounts.overlapping`); the app never
 computes the schedule itself. While the screen stays open the list is read
-again at the next start or end of a discount that could overlap, or at
-midnight for repeat schedules (`ProductDiscounts.nextChange`, device time),
-and at least every 15 minutes while the warning shows, so it appears and
-disappears on time also when the device and shop clocks differ. Offline it
+again at the next start or end of a discount that could overlap, or at the
+shop's midnight for repeat schedules (`ProductDiscounts.nextChange`), and
+at least every 15 minutes while the warning shows. Schedule dates and times
+are shop-local in the schedule's IANA `timezone`: `ShopClock`
+(`IanaShopClock`, the `timezone` package's ten-year database, bound by
+`shopClockProvider`) turns them into instants with that zone's
+daylight-saving rules, so the phone's own timezone never moves a refresh
+(a phone ahead of the shop once skipped an upcoming start). A schedule
+without a known timezone is read again every 15 minutes instead. Offline it
 waits for the read after reconnecting. Example: a fixed price from yesterday
 through tomorrow and a percentage through the month's end both show the
 warning until the fixed price ends; the percentage then continues without

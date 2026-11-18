@@ -67,6 +67,7 @@ void main() {
     ProductAccess access = _manage,
     List<Override> more = const [],
     DiscountRepository? repository,
+    DateTime Function()? clock,
   }) async {
     tester.view
       ..physicalSize = const Size(900, 2600)
@@ -78,7 +79,7 @@ void main() {
           authRepositoryProvider.overrideWithValue(
             FakeAuthRepository()..restored = testSession,
           ),
-          utcNowProvider.overrideWithValue(() => testNow),
+          utcNowProvider.overrideWithValue(clock ?? () => testNow),
           productDetailsRepositoryProvider.overrideWithValue(
             FakeDetailsRepository()..access = access,
           ),
@@ -371,6 +372,80 @@ void main() {
         // The percentage discount continues, without the warning.
         expect(find.text('20% off'), findsWidgets);
         expect(warning(2), findsNothing);
+      });
+
+      testWidgets('shop in another timezone: the warning appears at the '
+          "shop's start and clears at its end, screen open", (tester) async {
+        // The shop is in Tokyo (UTC+9); the phone is wherever the test runs.
+        // testNow (12:00 UTC) is 21:00 in the shop.
+        const tokyo = 'Asia/Tokyo';
+        var now = testNow;
+        // A percentage running since December, without an end date, and a
+        // fixed price from 22:00 to 23:30 shop time (13:00-14:30 UTC).
+        final running = discountOf(
+          id: 2,
+          schedule: const DiscountSchedule(
+            startDate: LocalDate(2029, 12, 1),
+            startTime: TimeOfDayValue(9, 0),
+            timezone: tokyo,
+          ),
+        );
+        const evening = DiscountSchedule(
+          startDate: LocalDate(2030, 1, 1),
+          startTime: TimeOfDayValue(22, 0),
+          endDate: LocalDate(2030, 1, 1),
+          endTime: TimeOfDayValue(23, 30),
+          timezone: tokyo,
+        );
+        // What the server's applies_now says at [at].
+        List<Discount> server(DateTime at) {
+          final status = at.isBefore(DateTime.utc(2030, 1, 1, 13))
+              ? DiscountStatus.scheduled
+              : at.isBefore(DateTime.utc(2030, 1, 1, 14, 30))
+              ? DiscountStatus.active
+              : DiscountStatus.expired;
+          return [
+            discountOf(
+              type: DiscountType.fixedPrice,
+              status: status,
+              schedule: evening,
+            ),
+            running,
+          ];
+        }
+
+        Future<void> wait(Duration duration) async {
+          now = now.add(duration);
+          discounts.discounts = server(now);
+          await tester.pump(duration);
+          await tester.pumpAndSettle();
+        }
+
+        discounts.discounts = server(now);
+        await open(tester, clock: () => now);
+        expect(warning(1), findsNothing);
+        expect(warning(2), findsNothing);
+        final reads = discounts.lists;
+
+        // Not read before the shop-time start...
+        await wait(const Duration(minutes: 59, seconds: 59));
+        expect(discounts.lists, reads);
+        expect(warning(1), findsNothing);
+        // ...and read right after it: both cards warn.
+        await wait(const Duration(seconds: 2));
+        expect(discounts.lists, reads + 1);
+        expect(warning(1), findsOneWidget);
+        expect(warning(2), findsOneWidget);
+
+        // While it shows it is checked at least every 15 minutes, and it
+        // clears once the fixed price ended (23:30 shop time).
+        for (var i = 0; i < 6; i++) {
+          await wait(ProductDiscountsController.overlapRecheck);
+        }
+        expect(now.isAfter(DateTime.utc(2030, 1, 1, 14, 30)), isTrue);
+        expect(warning(1), findsNothing);
+        expect(warning(2), findsNothing);
+        expect(find.text('20% off'), findsWidgets);
       });
 
       testWidgets('a single, paused or expired discount shows no warning', (

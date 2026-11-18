@@ -7,9 +7,11 @@ import 'package:orange_one/core/capabilities/feature_resolver.dart';
 import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/features/discounts/data/repositories/iana_shop_clock.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/pending_discount_create.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
+import 'package:orange_one/features/discounts/domain/repositories/shop_clock.dart';
 
 /// App composition binds the signed-in shop's contract adapter; it throws
 /// while signed out.
@@ -18,6 +20,13 @@ final Provider<DiscountRepository> discountRepositoryProvider =
       (ref) => throw invalidSession,
       name: 'discountRepositoryProvider',
     );
+
+/// Shop wall clock for discount schedules (IANA timezone rules). Container
+/// lived: the timezone data is loaded once. Tests inject a fixed one.
+final Provider<ShopClock> shopClockProvider = Provider<ShopClock>(
+  (ref) => IanaShopClock(),
+  name: 'shopClockProvider',
+);
 
 /// The product a discount screen belongs to. [manageAllowed] is the
 /// product's own `discount_manage` (from Product Details), composed by the
@@ -148,8 +157,12 @@ class ProductDiscountsController extends AsyncNotifier<ProductDiscounts> {
   /// open. The server's `applies_now` decides; nothing is computed here.
   /// Cancelled with the list; offline it waits for the recovery re-read.
   void _recheckOverlap(ProductDiscounts list) {
-    final now = ref.read(utcNowProvider)().toLocal();
-    final change = list.nextChange(now);
+    final now = ref.read(utcNowProvider)().toUtc();
+    final change = list.nextChange(
+      now,
+      ref.read(shopClockProvider),
+      fallback: overlapRecheck,
+    );
     // A second after the change, so the server already counts it.
     var wait = change == null
         ? null

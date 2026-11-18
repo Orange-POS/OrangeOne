@@ -100,6 +100,10 @@ Discount discountOf({
   DiscountStatus status = DiscountStatus.active,
   String percent = '20',
   DiscountSchedule? schedule,
+  DiscountRepeat repeat = DiscountRepeat.none,
+
+  /// The server's `applies_now`; by default true for an active discount.
+  bool? appliesNow,
 }) => Discount(
   id: id,
   productId: 10,
@@ -120,9 +124,9 @@ Discount discountOf({
     savingsPercent: '20.00',
   ),
   schedule: schedule,
-  repeat: DiscountRepeat.none,
+  repeat: repeat,
   status: paused ? DiscountStatus.paused : status,
-  appliesNow: !paused && status == DiscountStatus.active,
+  appliesNow: appliesNow ?? (!paused && status == DiscountStatus.active),
   paused: paused,
   active: active,
   version: version,
