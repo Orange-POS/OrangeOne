@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/product_tax.dart';
@@ -465,17 +466,10 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
           if (!ref.mounted || generation != _generation) return;
         }
       }
+      // A save the server refused as invalid: the distinct error haptic.
+      ref.read(hapticsControllerProvider.notifier).rejected(error);
       final rejected =
-          error is FormatException ||
-          (error is AppFailure &&
-              {
-                FailureKind.forbidden,
-                FailureKind.validation,
-                FailureKind.unauthenticated,
-                FailureKind.conflict,
-                FailureKind.notFound,
-                FailureKind.rateLimited,
-              }.contains(error.kind));
+          error is FormatException || AppFailure.refusedWrite(error);
       state = AsyncData(
         _copy(
           current,
@@ -485,11 +479,10 @@ class ProductEditController extends AsyncNotifier<ProductEditState> {
           message: writeStarted && !rejected
               ? 'The save could not be confirmed. Check current product '
                     'information before saving again.'
-              : error is AppFailure
-              ? error.message
-              : error is FormatException
-              ? error.message
-              : 'Unable to update this product. Your changes are preserved.',
+              : failureText(
+                  error,
+                  'Unable to update this product. Your changes are preserved.',
+                ),
         ),
       );
     }

@@ -52,9 +52,42 @@ other's presentation. `ProductScaffold`, `ProductNavbar` and
 
 | Route | Screen |
 |---|---|
-| `productDetails` | "Product Discounts" section under the price (`ProductDiscountsSection`): the count and every discount card (value, type, schedule, status pill, edit pencil; no switches), then the compact "Create New Discounts" card (`DiscountCreateCard`, only with manage access; "Confirm earlier discount" at the limit with an unresolved create). A card or its pencil opens the edit form when the discount can be changed, otherwise the read-only `productDiscountDetail`. Forms return straight here with their result; the list is read again after every confirmed write. There is no separate overview or list screen |
+| `productDetails` | "Product Discounts" section under the price (`ProductDiscountsSection`): the count and every discount card (value, type, schedule, status pill, edit pencil; no switches), then the compact "Create New Discounts" card (`DiscountCreateCard`, only with manage access; "Confirm earlier discount" at the limit with an unresolved create). A card or its pencil opens the edit form when the discount can be changed, otherwise the read-only `productDiscountDetail`. Forms return straight here with their result, shown in the same success toast as the product forms (`ProductDiscountsSection.onResult`, bound to `productSuccessProvider` in app composition; pause and resume on the discount screens keep a snack bar there); the list is read again after every confirmed write. There is no separate overview or list screen |
 | `productDiscountDetail` | One discount: value, server preview, schedule, timezone, repeat, minimum, status, applies now; Edit, Pause/Resume, Archive. Reached from a card without write access (read-only); without `discount_id` the route shows Product Details |
 | `productDiscountForm` | Create (no `discount_id`) or Edit: live preview, Fixed Price / Percentage / Collective, Date & Time with No End Date, order Price card, Discount Preview, Discount Type (Lucide banknote / percent / package icons, the selected type's icon in front of its input), Date & Time and Minimum Quantity cards that open and close smoothly, Repeat Schedule; the start/end date opens a calendar card and the time a 24-hour wheel card (hour 00-23, minute 00-59), and Repeat Schedule a card with the options, all sliding up from the bottom (`discount_pickers.dart`); archive icon in the navigation bar in edit mode (`DELETE /discounts/{id}`); the shared Price card (`InfoRowCard.price`) shows the regular price as read-only reference information on create and edit (no pencil, also with `update_price`), as Discount Details does. Saving a discount never writes the product price; it stays editable only through the price workflow on Product Details (`productPrice`) |
+
+### Multiple discounts active
+
+The text follows the supplied design ("Multiple discounts active"); issue
+#84 first called it "Overlapping discount".
+
+When two or more discounts of the product are in effect at the same time,
+each of their cards on Product Details shows "Multiple discounts active" in
+small (10 px) orange text right after a small warning icon in the card's
+top-right corner, on the title's line; the edit pencil then sits below it
+(`DiscountOverlapWarning`, `DiscountListTile.overlapping`). It never wraps:
+a translation too long for the line is scaled down with its icon.
+"In effect" is the server's `applies_now` (validity period and repeat days
+in the shop timezone) of a discount that is not paused or archived
+(`Discount.inEffect`, `ProductDiscounts.overlapping`); the app never
+computes the schedule itself. While the screen stays open the list is read
+again at the next start or end of a discount that could overlap, or at the
+shop's midnight for repeat schedules (`ProductDiscounts.nextChange`), and
+at least every 15 minutes while the warning shows. Schedule dates and times
+are shop-local in the schedule's IANA `timezone`: `ShopClock`
+(`IanaShopClock`, the `timezone` package's ten-year database, bound by
+`shopClockProvider`) turns them into instants with that zone's
+daylight-saving rules, so the phone's own timezone never moves a refresh
+(a phone ahead of the shop once skipped an upcoming start). A schedule
+without a known timezone is read again every 15 minutes instead. Only the
+newest list read may start that timer: a slower, obsolete response that
+arrives after a newer one schedules nothing (a build generation, since
+`ref.mounted` stays true across rebuilds), and a timer dies with the build
+that started it. Offline it
+waits for the read after reconnecting. Example: a fixed price from yesterday
+through tomorrow and a percentage through the month's end both show the
+warning until the fixed price ends; the percentage then continues without
+it.
 
 ## Write rules
 

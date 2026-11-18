@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/network/backend_features.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
 
 import '../../support/backend_features_fakes.dart';
+import '../../support/haptics_fakes.dart';
 import '../../support/product_details_fakes.dart';
 
 ProductDetails _with({double? stock = 48, bool adjustable = true}) =>
@@ -32,12 +34,15 @@ void main() {
   final provider = stockUpdateControllerProvider('0010101010');
   StockUpdateController controller() => container.read(provider.notifier);
   StockUpdateState value() => container.read(provider).requireValue;
+  late RecordingHapticEngine haptics;
   setUp(() async {
     repo = FakeDetailsRepository();
+    haptics = RecordingHapticEngine();
     container =
         ProviderContainer.test(
             overrides: [
               productDetailsRepositoryProvider.overrideWithValue(repo),
+              ...hapticsOverrides(haptics),
               // A shop with stock movements: Add and Remove are offered.
               stockMovementsBackend,
             ],
@@ -249,6 +254,18 @@ void main() {
     await controller().save(confirmed);
     expect(value().phase, StockUpdatePhase.editing);
     expect(value().message, 'Stock in packages cannot be counted here.');
+    // The refusal plays the error haptic once.
+    await pumpEventQueue();
+    expect(haptics.played, [HapticEffect.error]);
+  });
+
+  test('a network failure plays no error haptic', () async {
+    controller().changeQuantity('50');
+    final confirmed = controller().confirmation()!;
+    repo.writeError = const AppFailure(FailureKind.network, 'Offline');
+    await controller().save(confirmed);
+    await pumpEventQueue();
+    expect(haptics.played, isEmpty);
   });
 }
 

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
-import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
+import 'package:orange_one/shared/widgets/status_notice.dart';
 
 /// The success toast of a finished product form: the existing success notice
 /// design, shown above the Open Scanner button of Product Details.
@@ -51,7 +51,7 @@ class _ProductSuccessToastState extends ConsumerState<ProductSuccessToast> {
     if (success == null || success.barcode != widget.barcode) {
       return const SizedBox.shrink();
     }
-    return PriceUpdateNotice(
+    return StatusNotice(
       key: const Key('product-success-toast'),
       success: true,
       title: success.title,

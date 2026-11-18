@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/l10n/l10n.dart';
+import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/edit_pencil_button.dart';
 import 'package:orange_one/shared/widgets/info_badge.dart';
 import 'package:orange_one/shared/widgets/stock_badge.dart';
@@ -310,7 +311,7 @@ class ProductNameCard extends ConsumerWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: style.copyWith(color: const Color(0xFFDADCE0)),
+              style: style.copyWith(color: OrangeTheme.outline),
             ),
           ),
         ],

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/shared/widgets/skeleton.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -222,6 +223,9 @@ class _CodeCameraState extends State<CodeCamera> with WidgetsBindingObserver {
         if (code == null) return;
         _accepted = widget.singleScan;
         if (widget.singleScan) unawaited(_controller.stop());
+        // Repeats of a code still in view are already dropped by the
+        // controller (noDuplicates), so each read ticks once.
+        playHaptic(context, HapticEffect.scan);
         widget.onCode(code);
       },
     );

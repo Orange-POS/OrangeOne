@@ -33,6 +33,7 @@ import 'package:orange_one/features/products/presentation/pages/product_edit_pag
 import 'package:orange_one/features/products/presentation/pages/product_price_update_page.dart';
 import 'package:orange_one/features/products/presentation/pages/product_stock_update_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/settings/presentation/pages/settings_page.dart';
@@ -137,14 +138,20 @@ Widget _discountRoute(
 
 /// Product Details with its "Product Discounts" section, scoped by the
 /// product's `discount_manage` of the read it shows (the discount screens
-/// keep their own verified value, [_discountManageProvider]).
+/// keep their own verified value, [_discountManageProvider]). A confirmed
+/// discount result appears in the same success toast as the product forms'.
 Widget _productDetailsPage(String barcode) => ProductDetailsPage(
   barcode: barcode,
-  discountsBuilder: (details) => ProductDiscountsSection(
-    scope: DiscountScope(
-      productId: details.product!.id,
-      barcode: barcode,
-      manageAllowed: details.access.manageDiscounts,
+  discountsBuilder: (details) => Consumer(
+    builder: (context, ref, _) => ProductDiscountsSection(
+      scope: DiscountScope(
+        productId: details.product!.id,
+        barcode: barcode,
+        manageAllowed: details.access.manageDiscounts,
+      ),
+      onResult: (message) => ref
+          .read(productSuccessProvider.notifier)
+          .show(barcode: barcode, message: message),
     ),
   ),
 );

@@ -77,7 +77,31 @@ class AppFailure implements Exception {
 
   @override
   String toString() => 'AppFailure(${kind.name})';
+
+  /// Kinds where the server answered and refused the write: nothing was
+  /// saved, so the outcome is certain (never "could not be confirmed").
+  static const Set<FailureKind> writeRefusals = {
+    FailureKind.forbidden,
+    FailureKind.validation,
+    FailureKind.unauthenticated,
+    FailureKind.conflict,
+    FailureKind.notFound,
+    FailureKind.rateLimited,
+  };
+
+  /// Whether [error] is one of the [writeRefusals].
+  static bool refusedWrite(Object error) =>
+      error is AppFailure && writeRefusals.contains(error.kind);
 }
+
+/// The text to show for [error]: an [AppFailure]'s display-safe message, a
+/// [FormatException]'s message (a reply the app could not read), otherwise
+/// [fallback].
+String failureText(Object? error, String fallback) => switch (error) {
+  AppFailure(:final message) => message,
+  FormatException(:final message) => message,
+  _ => fallback,
+};
 
 const invalidQr = AppFailure(
   FailureKind.validation,

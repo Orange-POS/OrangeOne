@@ -1,14 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 
 /// A confirmed change that Product Details announces in its success toast.
 class ProductSuccess {
-  const new({
-    required this.barcode,
-    required this.title,
-    required this.message,
-  });
+  const new({required this.barcode, required this.message, this.title});
   final String barcode;
-  final String title;
+
+  /// The bold first line; null for a one-line result (a discount's).
+  final String? title;
   final String message;
 }
 
@@ -29,12 +28,11 @@ class ProductSuccessController extends Notifier<ProductSuccess?> {
     return null;
   }
 
-  void show({
-    required String barcode,
-    required String title,
-    required String message,
-  }) =>
-      state = ProductSuccess(barcode: barcode, title: title, message: message);
+  /// Called only after the server confirmed the change.
+  void show({required String barcode, required String message, String? title}) {
+    state = ProductSuccess(barcode: barcode, title: title, message: message);
+    ref.read(hapticsControllerProvider.notifier).play(HapticEffect.success);
+  }
 
   void dismiss() => state = null;
 }

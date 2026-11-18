@@ -171,33 +171,33 @@ class _ProductCategorySheetState extends State<ProductCategorySheet> {
     );
   }
 
-  Widget _option(BuildContext context, int? id, String label, bool selected) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF202124),
-            minimumSize: const Size(double.infinity, 56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            side: const BorderSide(color: Color(0xFFDADCE0)),
+  Widget _option(
+    BuildContext context,
+    int? id,
+    String label,
+    bool selected,
+  ) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF202124),
+        minimumSize: const Size(double.infinity, 56),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: const BorderSide(color: OrangeTheme.outline),
+      ),
+      onPressed: _creating
+          ? null
+          : () => Navigator.pop(context, ProductCategoryChoice(id)),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 12),
+          Icon(
+            selected ? Icons.radio_button_checked : Icons.radio_button_off,
+            color: selected ? OrangeTheme.scannerAccent : OrangeTheme.outline,
           ),
-          onPressed: _creating
-              ? null
-              : () => Navigator.pop(context, ProductCategoryChoice(id)),
-          child: Row(
-            children: [
-              Expanded(child: Text(label)),
-              const SizedBox(width: 12),
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected
-                    ? OrangeTheme.scannerAccent
-                    : const Color(0xFFDADCE0),
-              ),
-            ],
-          ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }

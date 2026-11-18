@@ -118,7 +118,7 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
               edited: state.draft,
               currency: currency,
             )
-          : await DiscountConfirmDialog.show(
+          : await confirmDiscountWrite(
               context,
               title: state.editing
                   ? l10n.discountConfirmSaveTitle
@@ -141,7 +141,7 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     _confirming = true;
     FocusScope.of(context).unfocus();
     try {
-      final confirmed = await DiscountConfirmDialog.show(
+      final confirmed = await confirmDiscountWrite(
         context,
         title: l10n.discountConfirmArchiveTitle,
         message: l10n.discountConfirmArchiveBody,
@@ -162,7 +162,7 @@ class _DiscountFormPageState extends ConsumerState<DiscountFormPage> {
     _confirming = true;
     FocusScope.of(context).unfocus();
     try {
-      final confirmed = await DiscountConfirmDialog.show(
+      final confirmed = await confirmDiscountWrite(
         context,
         title: pause
             ? l10n.discountConfirmPauseTitle

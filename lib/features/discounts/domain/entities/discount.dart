@@ -2,6 +2,8 @@
 /// Plain Dart: no Flutter, Riverpod or API payloads.
 library;
 
+import 'package:orange_one/features/discounts/domain/repositories/shop_clock.dart';
+
 enum DiscountType {
   fixedPrice('fixed_price'),
   percentage('percentage'),
@@ -130,6 +132,12 @@ class LocalDate implements Comparable<LocalDate> {
   /// Weekday of this date (proleptic Gregorian, independent of timezones).
   Weekday get weekday =>
       Weekday.values[DateTime.utc(year, month, day).weekday - 1];
+
+  /// The following calendar day.
+  LocalDate get next {
+    final day = DateTime.utc(year, month, this.day + 1);
+    return LocalDate(day.year, day.month, day.day);
+  }
 
   String get iso =>
       '${year.toString().padLeft(4, '0')}-'
@@ -298,6 +306,10 @@ class Discount {
 
   bool get archived => !active || status == DiscountStatus.archived;
 
+  /// In effect right now by the server's account (`applies_now`: validity
+  /// period and repeat days in the shop timezone), not paused or archived.
+  bool get inEffect => appliesNow && !paused && !archived;
+
   /// Archived discounts cannot be edited, paused or resumed.
   bool get editable => !archived;
   bool get canPause => !archived && !paused;
@@ -340,4 +352,65 @@ class ProductDiscounts {
   final List<Discount> discounts;
 
   bool get limitReached => counts.total >= limit;
+
+  /// The discounts in effect at the same time as at least another one of
+  /// this product ("Multiple discounts active"); empty while at most one is.
+  Set<int> get overlapping {
+    final now = {
+      for (final discount in discounts)
+        if (discount.inEffect) discount.id,
+    };
+    return now.length > 1 ? now : const {};
+  }
+
+  /// When the set of discounts in effect can next change, as a UTC instant:
+  /// the nearest future start or end of a discount that is not paused or
+  /// archived, or the shop's next midnight for a repeat schedule (repeat
+  /// days switch at midnight). Schedules are shop-local times; [clock]
+  /// converts them with the shop timezone's rules, so the phone's timezone
+  /// never matters. A schedule whose timezone is missing or unknown cannot
+  /// be placed in time: then the list is read again after [fallback]. The
+  /// server's `applies_now` decides after the re-read. Null while fewer than
+  /// two discounts could ever overlap.
+  DateTime? nextChange(
+    DateTime nowUtc,
+    ShopClock clock, {
+    required Duration fallback,
+  }) {
+    final candidates = [
+      for (final discount in discounts)
+        if (!discount.paused && !discount.archived) discount,
+    ];
+    if (candidates.length < 2) return null;
+    DateTime? next;
+    void consider(DateTime? moment) {
+      // Unknown: never wait longer than the fallback.
+      final at = moment ?? nowUtc.add(fallback);
+      if (at.isAfter(nowUtc) && (next == null || at.isBefore(next!))) {
+        next = at;
+      }
+    }
+
+    for (final discount in candidates) {
+      final schedule = discount.schedule;
+      final zone = schedule?.timezone;
+      if (schedule != null) {
+        DateTime? at(LocalDate date, TimeOfDayValue time) =>
+            zone == null ? null : clock.instant(zone, date, time);
+        consider(at(schedule.startDate, schedule.startTime));
+        if (schedule.hasEnd) {
+          consider(at(schedule.endDate!, schedule.endTime!));
+        }
+      }
+      if (discount.repeat.type != RepeatType.none) {
+        final today = zone == null ? null : clock.dateAt(zone, nowUtc);
+        consider(
+          today == null
+              ? null
+              : clock.instant(zone!, today.next, const TimeOfDayValue(0, 0)),
+        );
+      }
+    }
+    return next?.toUtc();
+  }
 }

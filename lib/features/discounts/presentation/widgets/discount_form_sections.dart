@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_form_inputs.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_pickers.dart';
@@ -8,8 +9,6 @@ import 'package:orange_one/features/discounts/presentation/widgets/discount_text
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
-
-const _border = Color(0xFFDADCE0);
 
 /// A card of the form (Date & Time, Minimum Quantity, Repeat Schedule):
 /// icon, title and summary, and a chevron. [child] slides open and closed
@@ -54,6 +53,13 @@ class _DiscountSectionState extends State<DiscountSection> {
   @override
   void didUpdateWidget(DiscountSection old) {
     super.didUpdateWidget(old);
+    // The card's error appeared (an end before the start, a repeat without
+    // days). Not when it only moves between the card and its open input.
+    if (old.error == null &&
+        widget.error != null &&
+        old.expanded == widget.expanded) {
+      playHaptic(context, HapticEffect.error);
+    }
     if (widget.child != null && widget.expanded && !old.expanded) {
       // After the card has opened: bring it to the middle of the visible
       // area (above the sticky action bar).
@@ -211,7 +217,7 @@ class DiscountPickerField extends StatelessWidget {
           color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: _border),
+            side: const BorderSide(color: OrangeTheme.outline),
           ),
           child: InkWell(
             key: Key(fieldKey),
@@ -430,7 +436,9 @@ class _RepeatOption extends StatelessWidget {
       color: selected ? OrangeTheme.pale : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: selected ? OrangeTheme.action : _border),
+        side: BorderSide(
+          color: selected ? OrangeTheme.action : OrangeTheme.outline,
+        ),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -502,7 +510,9 @@ class _DayChip extends StatelessWidget {
       color: selected ? OrangeTheme.action : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: selected ? OrangeTheme.action : _border),
+        side: BorderSide(
+          color: selected ? OrangeTheme.action : OrangeTheme.outline,
+        ),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),

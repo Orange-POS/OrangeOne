@@ -18,9 +18,15 @@ import 'package:orange_one/shared/widgets/tag_icon.dart';
 /// the discount can be changed, otherwise its read-only details. Pause and
 /// resume are on the edit form. Hidden entirely without discount access.
 class ProductDiscountsSection extends ConsumerWidget {
-  const new({required this.scope, super.key});
+  const new({required this.scope, this.onResult, super.key});
 
   final DiscountScope scope;
+
+  /// Announces a confirmed result (created, saved, archived) after a
+  /// discount screen returns here. The app binds it to Product Details'
+  /// success toast, the same one the product forms use; without it the
+  /// result is shown as a snack bar.
+  final ValueChanged<String>? onResult;
 
   /// Opens a discount screen and shows its confirmed result on return. The
   /// screens refresh the product's discounts after every confirmed write.
@@ -29,7 +35,12 @@ class ProductDiscountsSection extends ConsumerWidget {
       route,
       queryParameters: discountRouteQuery(scope, discountId: id),
     );
-    if (context.mounted) showDiscountResult(context, message);
+    if (!context.mounted || message == null) return;
+    if (onResult case final announce?) {
+      announce(message);
+    } else {
+      showDiscountResult(context, message);
+    }
   }
 
   @override
@@ -101,6 +112,8 @@ class ProductDiscountsSection extends ConsumerWidget {
     final pending = ref.watch(pendingDiscountCreateProvider(scope.productId));
     final recover = list.limitReached && pending != null;
     final canCreate = access.canWrite && (!list.limitReached || recover);
+    // Discounts in effect at the same time as another one of the product.
+    final overlapping = list.overlapping;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -123,7 +136,13 @@ class ProductDiscountsSection extends ConsumerWidget {
             style: const TextStyle(color: OrangeTheme.secondary),
           ),
         for (final discount in list.discounts) ...[
-          _tile(context, access, discount, locale),
+          _tile(
+            context,
+            access,
+            discount,
+            locale,
+            overlapping: overlapping.contains(discount.id),
+          ),
           const SizedBox(height: 12),
         ],
         if (access.manage)
@@ -145,13 +164,15 @@ class ProductDiscountsSection extends ConsumerWidget {
     BuildContext context,
     DiscountAccess access,
     Discount discount,
-    String locale,
-  ) {
+    String locale, {
+    required bool overlapping,
+  }) {
     final l10n = context.l10n;
     final canEdit = access.canWrite && discount.editable;
     return DiscountListTile(
       key: Key('discount-${discount.id}'),
       discount: discount,
+      overlapping: overlapping,
       subtitle: DiscountText.schedule(l10n, locale, discount.schedule),
       // Straight to the edit form when permitted; otherwise the read-only
       // details, so every term stays visible.

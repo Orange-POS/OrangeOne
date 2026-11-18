@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,11 +7,13 @@ import 'package:orange_one/core/config/app_environment.dart';
 import 'package:orange_one/core/config/app_version.dart';
 import 'package:orange_one/core/config/application_settings.dart';
 import 'package:orange_one/core/monitoring/crash_reporter.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/settings/presentation/widgets/company_footer.dart';
 import 'package:orange_one/features/settings/presentation/widgets/settings_row.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/language_menu.dart';
+import 'package:orange_one/shared/widgets/orange_switch.dart';
 import 'package:orange_one/shared/widgets/panel_scaffold.dart';
 
 /// Settings in every flavor: application facts, the [demoSection] supplied by
@@ -87,6 +91,24 @@ class SettingsPage extends ConsumerWidget {
                 color: OrangeTheme.ink,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SettingsRow(
+            key: const Key('settings-haptics'),
+            height: 58,
+            verticalPadding: 5,
+            icon: 'assets/icons/settings_haptics.svg',
+            label: l10n.settingsHapticsLabel,
+            trailing: OrangeSwitch(
+              key: const Key('settings-haptics-switch'),
+              value: ref.watch(hapticsControllerProvider),
+              label: l10n.settingsHapticsLabel,
+              onChanged: (enabled) => unawaited(
+                ref
+                    .read(hapticsControllerProvider.notifier)
+                    .select(enabled: enabled),
               ),
             ),
           ),

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/core/preferences/time_format_controller.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_text.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/orange_switch.dart';
-
-const _border = Color(0xFFDADCE0);
 
 /// The white card that slides up from the bottom for the discount pickers
 /// (date, time, repeat): 24 px corners, light border, a gray caption, the
@@ -54,7 +53,7 @@ class DiscountSheet extends StatelessWidget {
           color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: const BorderSide(color: _border),
+            side: const BorderSide(color: OrangeTheme.outline),
           ),
           clipBehavior: Clip.antiAlias,
           child: SingleChildScrollView(
@@ -346,7 +345,7 @@ class _DayCell extends StatelessWidget {
               color: selected
                   ? Colors.white
                   : onTap == null
-                  ? _border
+                  ? OrangeTheme.outline
                   : OrangeTheme.ink,
             ),
           ),
@@ -636,8 +635,12 @@ class _DiscountNumberWheelState extends State<DiscountNumberWheel> {
                     diameterRatio: 1.6,
                     perspective: .004,
                     overAndUnderCenterOpacity: .35,
-                    onSelectedItemChanged: (index) =>
-                        widget.onChanged(index % _count),
+                    onSelectedItemChanged: (index) {
+                      // Called only when the centred value changes (scroll
+                      // or chevron), never on a rebuild.
+                      playHaptic(context, HapticEffect.selection);
+                      widget.onChanged(index % _count);
+                    },
                     childDelegate: widget.looping
                         ? ListWheelChildLoopingListDelegate(children: children)
                         : ListWheelChildListDelegate(children: children),

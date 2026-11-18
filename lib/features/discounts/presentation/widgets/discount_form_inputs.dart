@@ -8,8 +8,7 @@ import 'package:orange_one/features/discounts/presentation/widgets/discount_widg
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/tag_icon.dart';
-
-const _border = Color(0xFFDADCE0);
+import 'package:orange_one/shared/widgets/validation_haptic.dart';
 
 /// The SVG icon of each discount type (Lucide banknote, percent, package),
 /// used on the type tabs and in the value inputs.
@@ -204,7 +203,9 @@ class DiscountTypeSelector extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: type == selected ? OrangeTheme.action : _border,
+                    color: type == selected
+                        ? OrangeTheme.action
+                        : OrangeTheme.outline,
                   ),
                 ),
                 child: InkWell(
@@ -305,41 +306,44 @@ class DiscountTextField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          key: Key(fieldKey),
-          controller: controller,
-          enabled: enabled,
-          onChanged: onChanged,
-          keyboardType: TextInputType.numberWithOptions(decimal: !integer),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(
-              integer ? RegExp(r'\d') : RegExp(r'[\d.,]'),
+        ValidationHaptic(
+          error: error,
+          child: TextField(
+            key: Key(fieldKey),
+            controller: controller,
+            enabled: enabled,
+            onChanged: onChanged,
+            keyboardType: TextInputType.numberWithOptions(decimal: !integer),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(
+                integer ? RegExp(r'\d') : RegExp(r'[\d.,]'),
+              ),
+            ],
+            style: const TextStyle(fontSize: 17, color: OrangeTheme.ink),
+            decoration: InputDecoration(
+              hintText: context.l10n.discountEnterValue,
+              prefixIcon: icon == null
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 10),
+                      child: DiscountSvgIcon(icon!),
+                    ),
+              prefixIconConstraints: const BoxConstraints(minHeight: 48),
+              prefixText: prefix == null ? null : '$prefix ',
+              suffixText: suffix,
+              errorText: error,
+              helperText: error == null ? helper : null,
+              helperMaxLines: 3,
+              errorMaxLines: 3,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              border: _fieldBorder(OrangeTheme.outline),
+              enabledBorder: _fieldBorder(OrangeTheme.outline),
+              disabledBorder: _fieldBorder(OrangeTheme.outline),
+              focusedBorder: _fieldBorder(OrangeTheme.action, 2),
             ),
-          ],
-          style: const TextStyle(fontSize: 17, color: OrangeTheme.ink),
-          decoration: InputDecoration(
-            hintText: context.l10n.discountEnterValue,
-            prefixIcon: icon == null
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(left: 16, right: 10),
-                    child: DiscountSvgIcon(icon!),
-                  ),
-            prefixIconConstraints: const BoxConstraints(minHeight: 48),
-            prefixText: prefix == null ? null : '$prefix ',
-            suffixText: suffix,
-            errorText: error,
-            helperText: error == null ? helper : null,
-            helperMaxLines: 3,
-            errorMaxLines: 3,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            border: _fieldBorder(_border),
-            enabledBorder: _fieldBorder(_border),
-            disabledBorder: _fieldBorder(_border),
-            focusedBorder: _fieldBorder(OrangeTheme.action, 2),
           ),
         ),
       ],

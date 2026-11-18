@@ -954,6 +954,10 @@
   "@settingsAppVersionLabel": {
     "description": "Label of the installed app version row"
   },
+  "settingsHapticsLabel": "Haptic feedback",
+  "@settingsHapticsLabel": {
+    "description": "Label and accessibility name of the Settings switch that turns haptic (vibration) feedback on or off"
+  },
   "settingsDemonstrationSection": "DEMONSTRATION",
   "@settingsDemonstrationSection": {
     "description": "Section heading for Demo Mode; kept in capitals"
@@ -1567,6 +1571,10 @@
   "discountStatusUnknown": "Not applying",
   "@discountStatusUnknown": {
     "description": "Status this app does not know"
+  },
+  "discountOverlapWarning": "Multiple discounts active",
+  "@discountOverlapWarning": {
+    "description": "Warning on a discount card while another discount of the product is in effect at the same time"
   },
   "discountStatusLabel": "Status",
   "@discountStatusLabel": {

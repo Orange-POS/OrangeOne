@@ -3,6 +3,7 @@ import 'package:orange_one/features/products/presentation/providers/product_crea
 import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/validation_haptic.dart';
 
 class ProductCreationForm extends StatelessWidget {
   const new({
@@ -33,20 +34,9 @@ class ProductCreationForm extends StatelessWidget {
   final VoidCallback? onTax;
   final VoidCallback? onCategory;
 
-  InputDecoration _decoration() => InputDecoration(
-    contentPadding: const EdgeInsets.all(16),
-    filled: !value.editable,
-    fillColor: const Color(0xFFF5F6F8),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: OrangeTheme.brand, width: 2),
-    ),
-  );
+  InputDecoration _decoration() =>
+      OrangeTheme.productInput(enabled: value.editable)
+          .copyWith(contentPadding: const EdgeInsets.all(16));
 
   Widget _selector({
     required Key key,
@@ -85,19 +75,22 @@ class ProductCreationForm extends StatelessWidget {
       children: [
         Text(l10n.productNameLabel),
         const SizedBox(height: 8),
-        TextField(
-          key: const Key('create-product-name'),
-          controller: name,
-          focusNode: nameFocus,
-          enabled: value.editable,
-          onChanged: onName,
-          textCapitalization: TextCapitalization.sentences,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) => priceFocus.requestFocus(),
-          decoration: _decoration().copyWith(
-            hintText: l10n.createNameHint,
-            errorText: value.nameError,
-            errorMaxLines: 3,
+        ValidationHaptic(
+          error: value.nameError,
+          child: TextField(
+            key: const Key('create-product-name'),
+            controller: name,
+            focusNode: nameFocus,
+            enabled: value.editable,
+            onChanged: onName,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) => priceFocus.requestFocus(),
+            decoration: _decoration().copyWith(
+              hintText: l10n.createNameHint,
+              errorText: value.nameError,
+              errorMaxLines: 3,
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -127,20 +120,23 @@ class ProductCreationForm extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
-        TextField(
-          key: const Key('create-product-stock'),
-          controller: stock,
-          focusNode: stockFocus,
-          enabled: value.editable,
-          onChanged: onStock,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => stockFocus.unfocus(),
-          decoration: _decoration().copyWith(
-            // Left empty, the stock is not set; it is not zero.
-            hintText: l10n.stockNotSet,
-            errorText: value.stockError,
-            errorMaxLines: 3,
+        ValidationHaptic(
+          error: value.stockError,
+          child: TextField(
+            key: const Key('create-product-stock'),
+            controller: stock,
+            focusNode: stockFocus,
+            enabled: value.editable,
+            onChanged: onStock,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => stockFocus.unfocus(),
+            decoration: _decoration().copyWith(
+              // Left empty, the stock is not set; it is not zero.
+              hintText: l10n.stockNotSet,
+              errorText: value.stockError,
+              errorMaxLines: 3,
+            ),
           ),
         ),
         const SizedBox(height: 16),

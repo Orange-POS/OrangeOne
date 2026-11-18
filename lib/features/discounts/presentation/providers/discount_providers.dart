@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:orange_one/core/capabilities/feature_resolver.dart';
+import 'package:orange_one/core/config/api_configuration.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
+import 'package:orange_one/features/discounts/data/repositories/iana_shop_clock.dart';
 import 'package:orange_one/features/discounts/domain/entities/discount.dart';
 import 'package:orange_one/features/discounts/domain/entities/pending_discount_create.dart';
 import 'package:orange_one/features/discounts/domain/repositories/discount_repository.dart';
+import 'package:orange_one/features/discounts/domain/repositories/shop_clock.dart';
 
 /// App composition binds the signed-in shop's contract adapter; it throws
 /// while signed out.
@@ -15,6 +20,13 @@ final Provider<DiscountRepository> discountRepositoryProvider =
       (ref) => throw invalidSession,
       name: 'discountRepositoryProvider',
     );
+
+/// Shop wall clock for discount schedules (IANA timezone rules). Container
+/// lived: the timezone data is loaded once. Tests inject a fixed one.
+final Provider<ShopClock> shopClockProvider = Provider<ShopClock>(
+  (ref) => IanaShopClock(),
+  name: 'shopClockProvider',
+);
 
 /// The product a discount screen belongs to. [manageAllowed] is the
 /// product's own `discount_manage` (from Product Details), composed by the
@@ -130,7 +142,54 @@ class ProductDiscountsController extends AsyncNotifier<ProductDiscounts> {
     ref.listen(readCacheRecoveryProvider, (previous, next) {
       if (next.hasValue) ref.invalidateSelf();
     });
-    return await ref.watch(discountRepositoryProvider).list(productId);
+    // `ref` is shared by all builds of this provider, so `ref.mounted` is
+    // still true for a build that a newer one replaced. The generation tells
+    // them apart: an obsolete response (completing after a newer one) must
+    // never register a timer on the current build.
+    final generation = ++_generation;
+    final list = await ref.watch(discountRepositoryProvider).list(productId);
+    if (ref.mounted && generation == _generation) {
+      _recheckOverlap(list, generation);
+    }
+    return list;
+  }
+
+  /// The newest build; see [build].
+  var _generation = 0;
+
+  /// Longest wait before the "Multiple discounts active" warning is checked
+  /// again while it is shown (also if the device clock or timezone differs
+  /// from the shop's).
+  static const overlapRecheck = Duration(minutes: 15);
+
+  /// Reads the list again when discounts may start or stop overlapping, so
+  /// the warning appears and disappears on time while the screen stays
+  /// open. The server's `applies_now` decides; nothing is computed here.
+  /// Cancelled with the list; offline it waits for the recovery re-read.
+  /// Registered only by the current build [generation]; cancelled when that
+  /// build is invalidated or disposed (`ref.onDispose` of that build).
+  void _recheckOverlap(ProductDiscounts list, int generation) {
+    final now = ref.read(utcNowProvider)().toUtc();
+    final change = list.nextChange(
+      now,
+      ref.read(shopClockProvider),
+      fallback: overlapRecheck,
+    );
+    // A second after the change, so the server already counts it.
+    var wait = change == null
+        ? null
+        : change.difference(now) + const Duration(seconds: 1);
+    if (list.overlapping.isNotEmpty &&
+        (wait == null || wait > overlapRecheck)) {
+      wait = overlapRecheck;
+    }
+    if (wait == null) return;
+    final timer = Timer(wait, () {
+      if (!ref.mounted || generation != _generation) return;
+      if (ref.read(readCacheProvider)?.offline ?? false) return;
+      ref.invalidateSelf();
+    });
+    ref.onDispose(timer.cancel);
   }
 
   Future<void> refresh() async {
