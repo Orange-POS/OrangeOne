@@ -124,7 +124,9 @@ jobs:
       FIREBASE_CONFIG_BASE64: ${{ needs.allocate.outputs.firebase_config }}
       FIREBASE_PROJECT_ID: ${{ needs.allocate.outputs.firebase_project_id }}
       FIREBASE_PRODUCTION_PROJECT_ID: ${{ vars.FIREBASE_PRODUCTION_PROJECT_ID }}
-      CRASHLYTICS_UPLOAD_SYMBOLS: ${{ needs.plan.outputs.dry_run == 'false' && 'true' || 'false' }}
+      # Real deliveries upload the dSYMs; dry runs run the same phase in verify
+      # mode (tool, configuration and dSYMs must exist; nothing is uploaded).
+      CRASHLYTICS_UPLOAD_SYMBOLS: ${{ needs.plan.outputs.dry_run == 'false' && 'true' || 'verify' }}
     steps:
       - uses: actions/checkout@v4
         with:

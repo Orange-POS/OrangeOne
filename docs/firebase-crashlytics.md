@@ -108,9 +108,22 @@ variables directly.
   or is required (`android/app/build.gradle.kts`); the R8 mapping uploads with
   the release build.
 - **iOS:** Xcode run scripts `[OrangeONE] Firebase Configuration` (copies the
-  flavor's plist into the app) and `[OrangeONE] Crashlytics Symbols` (uploads
-  dSYMs when `CRASHLYTICS_UPLOAD_SYMBOLS=true`, which workflows set only for real
-  deliveries, never for a dry run). The iOS deployment target is **15.0**, which
+  flavor's plist into the app) and `[OrangeONE] Crashlytics Symbols`. That phase
+  uploads the dSYMs when `CRASHLYTICS_UPLOAD_SYMBOLS=true` (real deliveries:
+  `ios-release.yaml`, `ios-testflight.yaml`, the manual `ios.yaml` upload) and,
+  with `=verify` (every dry run), finds the tool, the Firebase plist and the
+  dSYMs but uploads nothing, so a dry run fails wherever the real run would.
+  Unset or `false` (local and simulator builds) skips it. Firebase comes in
+  through Swift Package Manager (no CocoaPods), so `upload-symbols` lives in the
+  `firebase-ios-sdk` checkout, which depends on how the archive is built:
+  `flutter build ipa` (production) clones packages into
+  `build/ios/SourcePackages` (`-clonedSourcePackagesDirPath`, read through
+  `FLUTTER_APPLICATION_PATH`), `tool/ci/archive_flavor.py` (DEV/STG, plain
+  `xcodebuild archive`) into DerivedData, CocoaPods would use `Pods`. The phase
+  searches all three in that order and names them when the tool is missing.
+  Release `v1.1.0` failed because only DerivedData and Pods were searched; the
+  dry run had skipped the phase. `tool/ci/test_firebase.py` (`CrashlyticsPhase`)
+  runs the real phase script against these layouts. The iOS deployment target is **15.0**, which
   Firebase iOS SDK 13 requires; the supported iPhone models are the same as for
   iOS 13.
 - **Dart symbols:** release builds use `--split-debug-info`.

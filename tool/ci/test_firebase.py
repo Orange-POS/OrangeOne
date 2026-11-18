@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -317,8 +318,12 @@ class EnvironmentMappingTest(unittest.TestCase):
     def test_symbols_upload_only_for_real_deliveries(self):
         for name in ('ios-testflight.yaml', 'ios-release.yaml'):
             jobs_ = self.jobs(name)
-            self.assertIn("needs.plan.outputs.dry_run == 'false' && 'true' || 'false'",
-                          jobs_['archive'], 'dSYMs only for non-dry-runs')
+            # Real deliveries upload; dry runs verify the same phase (tool,
+            # configuration, dSYMs) so a dry run cannot pass where the real
+            # run would fail. Never 'false': that skipped the check entirely.
+            self.assertIn("needs.plan.outputs.dry_run == 'false' && 'true' || 'verify'",
+                          jobs_['archive'], 'dSYMs only for non-dry-runs, verified in dry runs')
+            self.assertNotIn("&& 'true' || 'false'", jobs_['archive'])
             deliver = jobs_['deliver']
             upload = deliver.split('Upload the Dart symbols')[1].split('- name')[0]
             self.assertIn("if: needs.plan.outputs.dry_run == 'false'", upload)
@@ -346,6 +351,16 @@ class NativeWiringTest(unittest.TestCase):
         self.assertIn('CRASHLYTICS_UPLOAD_SYMBOLS', project)
         self.assertIn('PLATFORM_NAME', project)
 
+    def test_symbol_phase_searches_flutter_spm_derived_data_and_pods(self):
+        script = CrashlyticsPhase.script()
+        # flutter build ipa clones packages into build/ios/SourcePackages
+        # (-clonedSourcePackagesDirPath); v1.1.0 failed because only
+        # DerivedData and Pods were searched.
+        self.assertIn('${FLUTTER_APPLICATION_PATH}/build/ios/SourcePackages/${sdk}', script)
+        self.assertIn('${BUILD_DIR%/Build/*}/SourcePackages/${sdk}', script)
+        self.assertIn('${PODS_ROOT}/FirebaseCrashlytics/upload-symbols', script)
+        self.assertIn('checkouts/firebase-ios-sdk/Crashlytics/upload-symbols', script)
+
     def test_ios_deployment_target_meets_firebase(self):
         project = (ROOT / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
         targets = {float(v) for v in re.findall(r'IPHONEOS_DEPLOYMENT_TARGET = ([\d.]+);', project)}
@@ -368,6 +383,102 @@ class NativeWiringTest(unittest.TestCase):
         tracked = subprocess.run(['git', 'ls-files'], cwd=ROOT, capture_output=True, text=True).stdout
         self.assertNotRegex(tracked, r'google-services\.json|GoogleService-Info\.plist')
         self.assertNotRegex(tracked, r'firebase_app_id_file\.json|firebase_options\.dart')
+
+
+SH = shutil.which('sh')
+
+
+@unittest.skipUnless(SH, 'needs a POSIX shell')
+class CrashlyticsPhase(unittest.TestCase):
+    """Runs the real "[OrangeONE] Crashlytics Symbols" script of the Xcode
+    project against fake build layouts (no Xcode needed)."""
+
+    SDK = 'checkouts/firebase-ios-sdk/Crashlytics/upload-symbols'
+
+    @staticmethod
+    def script():
+        project = (ROOT / 'ios/Runner.xcodeproj/project.pbxproj').read_text()
+        escaped = re.search(
+            r'/\* \[OrangeONE\] Crashlytics Symbols \*/ = \{.*?shellScript = "((?:[^"\\]|\\.)*)";',
+            project, re.S)[1]
+        return re.sub(r'\\(.)', lambda m: '\n' if m[1] == 'n' else m[1], escaped)
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.calls = self.root / 'calls.log'
+        app = self.root / 'Runner.app'
+        app.mkdir()
+        (app / 'GoogleService-Info.plist').write_text('<plist/>')
+        (self.root / 'dSYMs').mkdir()
+        # POSIX paths, as Xcode passes them (also when the test runs on Windows).
+        self.env = {
+            'PATH': os.environ.get('PATH', ''),
+            'PLATFORM_NAME': 'iphoneos',
+            'TARGET_BUILD_DIR': self.root.as_posix(),
+            'WRAPPER_NAME': 'Runner.app',
+            'DWARF_DSYM_FOLDER_PATH': (self.root / 'dSYMs').as_posix(),
+            'FLUTTER_APPLICATION_PATH': (self.root / 'app').as_posix(),
+            'BUILD_DIR': (self.root / 'DerivedData/Runner-x/Build/Intermediates.noindex/'
+                                      'ArchiveIntermediates/Runner/BuildProductsPath').as_posix(),
+        }
+
+    def tool(self, base):
+        tool = base / self.SDK
+        tool.parent.mkdir(parents=True)
+        tool.write_text(f'#!/bin/sh\necho "$@" >> "{self.calls.as_posix()}"\n')
+        tool.chmod(0o755)
+        return tool
+
+    def run_phase(self, **env):
+        return subprocess.run([SH, '-c', self.script()], env={**self.env, **env},
+                              capture_output=True, text=True)
+
+    def uploads(self):
+        return self.calls.read_text().splitlines() if self.calls.exists() else []
+
+    def test_flutter_build_ipa_finds_the_tool_in_its_package_cache(self):
+        # The v1.1.0 failure: flutter build ipa puts the SDK in
+        # <app>/build/ios/SourcePackages, not DerivedData; there are no Pods.
+        self.tool(self.root / 'app/build/ios/SourcePackages')
+        result = self.run_phase(CRASHLYTICS_UPLOAD_SYMBOLS='true')
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(1, len(self.uploads()))
+        self.assertIn('-gsp', self.uploads()[0])
+        self.assertIn('-p ios', self.uploads()[0])
+
+    def test_plain_xcodebuild_still_finds_the_tool_in_derived_data(self):
+        self.tool(self.root / 'DerivedData/Runner-x/SourcePackages')
+        result = self.run_phase(CRASHLYTICS_UPLOAD_SYMBOLS='true')
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(1, len(self.uploads()))
+
+    def test_verify_checks_everything_and_uploads_nothing(self):
+        self.tool(self.root / 'app/build/ios/SourcePackages')
+        result = self.run_phase(CRASHLYTICS_UPLOAD_SYMBOLS='verify')
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('nothing uploaded', result.stdout)
+        self.assertEqual([], self.uploads())
+
+    def test_a_missing_tool_fails_real_runs_and_dry_runs_alike(self):
+        for mode in ('true', 'verify'):
+            result = self.run_phase(CRASHLYTICS_UPLOAD_SYMBOLS=mode)
+            self.assertEqual(1, result.returncode, mode)
+            self.assertIn('upload-symbols was not found', result.stdout)
+            self.assertIn('build/ios/SourcePackages', result.stdout, 'names where it looked')
+
+    def test_missing_configuration_or_dsyms_fail_also_in_verify(self):
+        self.tool(self.root / 'app/build/ios/SourcePackages')
+        result = self.run_phase(CRASHLYTICS_UPLOAD_SYMBOLS='verify',
+                                DWARF_DSYM_FOLDER_PATH=(self.root / 'none').as_posix())
+        self.assertEqual(1, result.returncode)
+        self.assertIn('needs the Firebase configuration and the dSYMs', result.stdout)
+
+    def test_local_and_simulator_builds_skip(self):
+        for env in ({}, {'CRASHLYTICS_UPLOAD_SYMBOLS': 'false'},
+                    {'CRASHLYTICS_UPLOAD_SYMBOLS': 'true', 'PLATFORM_NAME': 'iphonesimulator'}):
+            self.assertEqual(0, self.run_phase(**env).returncode, env)
+        self.assertEqual([], self.uploads())
 
 
 if __name__ == '__main__':
