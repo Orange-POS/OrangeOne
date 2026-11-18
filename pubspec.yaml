@@ -8,7 +8,7 @@ environment:
 dependencies:
   cloud_firestore: 7.1.0
   connectivity_plus: 7.0.0
-  cryptography: 2.7.0
+  cryptography: 2.9.0
   dio: ^5.11.1
   drift: ^2.35.2
   firebase_core: ^5.1.0
