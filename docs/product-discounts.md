@@ -79,7 +79,11 @@ are shop-local in the schedule's IANA `timezone`: `ShopClock`
 `shopClockProvider`) turns them into instants with that zone's
 daylight-saving rules, so the phone's own timezone never moves a refresh
 (a phone ahead of the shop once skipped an upcoming start). A schedule
-without a known timezone is read again every 15 minutes instead. Offline it
+without a known timezone is read again every 15 minutes instead. Only the
+newest list read may start that timer: a slower, obsolete response that
+arrives after a newer one schedules nothing (a build generation, since
+`ref.mounted` stays true across rebuilds), and a timer dies with the build
+that started it. Offline it
 waits for the read after reconnecting. Example: a fixed price from yesterday
 through tomorrow and a percentage through the month's end both show the
 warning until the fixed price ends; the percentage then continues without

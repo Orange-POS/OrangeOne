@@ -142,10 +142,20 @@ class ProductDiscountsController extends AsyncNotifier<ProductDiscounts> {
     ref.listen(readCacheRecoveryProvider, (previous, next) {
       if (next.hasValue) ref.invalidateSelf();
     });
+    // `ref` is shared by all builds of this provider, so `ref.mounted` is
+    // still true for a build that a newer one replaced. The generation tells
+    // them apart: an obsolete response (completing after a newer one) must
+    // never register a timer on the current build.
+    final generation = ++_generation;
     final list = await ref.watch(discountRepositoryProvider).list(productId);
-    if (ref.mounted) _recheckOverlap(list);
+    if (ref.mounted && generation == _generation) {
+      _recheckOverlap(list, generation);
+    }
     return list;
   }
+
+  /// The newest build; see [build].
+  var _generation = 0;
 
   /// Longest wait before the "Multiple discounts active" warning is checked
   /// again while it is shown (also if the device clock or timezone differs
@@ -156,7 +166,9 @@ class ProductDiscountsController extends AsyncNotifier<ProductDiscounts> {
   /// the warning appears and disappears on time while the screen stays
   /// open. The server's `applies_now` decides; nothing is computed here.
   /// Cancelled with the list; offline it waits for the recovery re-read.
-  void _recheckOverlap(ProductDiscounts list) {
+  /// Registered only by the current build [generation]; cancelled when that
+  /// build is invalidated or disposed (`ref.onDispose` of that build).
+  void _recheckOverlap(ProductDiscounts list, int generation) {
     final now = ref.read(utcNowProvider)().toUtc();
     final change = list.nextChange(
       now,
@@ -173,6 +185,7 @@ class ProductDiscountsController extends AsyncNotifier<ProductDiscounts> {
     }
     if (wait == null) return;
     final timer = Timer(wait, () {
+      if (!ref.mounted || generation != _generation) return;
       if (ref.read(readCacheProvider)?.offline ?? false) return;
       ref.invalidateSelf();
     });
