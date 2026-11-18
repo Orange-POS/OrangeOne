@@ -404,6 +404,17 @@ void main() {
       );
       expect(find.text('Discount saved.'), findsOneWidget);
       expect(find.text('25% off'), findsOneWidget);
+      // In the same success toast as the product forms, not a snack bar.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('product-success-toast')),
+          matching: find.text('Discount saved.'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(SnackBar), findsNothing);
+      await tester.pump(const Duration(seconds: 6));
+      expect(find.byKey(const Key('product-success-toast')), findsNothing);
     });
 
     testWidgets('cancelling the edit form returns to details unchanged', (
@@ -702,6 +713,7 @@ void main() {
       expect(discounts.writes, ['create']);
       expect(discounts.lastDraft?.fixedPrice, '80');
       expect(find.text('Discount created.'), findsOneWidget);
+      expect(find.byKey(const Key('product-success-toast')), findsOneWidget);
       expect(find.text('Product Discounts'), findsOneWidget);
     });
 

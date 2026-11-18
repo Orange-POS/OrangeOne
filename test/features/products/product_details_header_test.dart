@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/pages/product_details_page.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
+import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/l10n/locale_controller.dart';
 import 'package:orange_one/shared/widgets/info_badge.dart';
@@ -137,6 +138,39 @@ void main() {
     );
     expect(find.text('25.00'), findsOneWidget);
     expect(find.textContaining('CHF'), findsNothing);
+  });
+
+  testWidgets('the success toast is as tall as its text, never the screen', (
+    tester,
+  ) async {
+    await mount(tester, FakeDetailsRepository());
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ProductDetailsPage)),
+    );
+    container
+        .read(productSuccessProvider.notifier)
+        .show(
+          barcode: '0010101010',
+          title: 'Price updated',
+          message: 'Price updated successfully',
+        );
+    await tester.pump();
+    final toast = tester.getRect(
+      find.byKey(const Key('product-success-toast')),
+    );
+    // Regression: the notice once filled the floating slot (the whole
+    // screen), with its text above the top edge.
+    expect(toast.height, lessThan(160));
+    final title = tester.getRect(find.text('Price updated'));
+    expect(title.top, greaterThanOrEqualTo(0));
+    expect(toast.contains(title.center), isTrue);
+    expect(
+      toast.bottom,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.byKey(const Key('open-scanner-button'))).dy,
+      ),
+    );
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('no back arrow and no "Powered by"; Open Scanner navigates', (

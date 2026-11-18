@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/formatting/money.dart';
 import 'package:orange_one/features/home/domain/entities/product.dart';
 import 'package:orange_one/features/home/presentation/providers/product_providers.dart';
 import 'package:orange_one/l10n/l10n.dart';
@@ -163,7 +164,7 @@ class _ProductCard extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: OrangeTheme.pale,
-        border: Border.all(color: const Color(0xFFDADCE0)),
+        border: Border.all(color: OrangeTheme.outline),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -234,7 +235,7 @@ class _ProductCard extends StatelessWidget {
                       const SizedBox(width: 12),
                       Flexible(
                         child: Text(
-                          'CHF ${product.price.toStringAsFixed(2)}',
+                          formatMoney(product.price, currency: 'CHF'),
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                             fontSize: 16,

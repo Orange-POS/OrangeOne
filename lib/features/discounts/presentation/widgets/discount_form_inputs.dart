@@ -10,8 +10,6 @@ import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/tag_icon.dart';
 import 'package:orange_one/shared/widgets/validation_haptic.dart';
 
-const _border = Color(0xFFDADCE0);
-
 /// The SVG icon of each discount type (Lucide banknote, percent, package),
 /// used on the type tabs and in the value inputs.
 String discountTypeIcon(DiscountType type) => switch (type) {
@@ -205,7 +203,9 @@ class DiscountTypeSelector extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: type == selected ? OrangeTheme.action : _border,
+                    color: type == selected
+                        ? OrangeTheme.action
+                        : OrangeTheme.outline,
                   ),
                 ),
                 child: InkWell(
@@ -339,9 +339,9 @@ class DiscountTextField extends StatelessWidget {
                 horizontal: 16,
                 vertical: 16,
               ),
-              border: _fieldBorder(_border),
-              enabledBorder: _fieldBorder(_border),
-              disabledBorder: _fieldBorder(_border),
+              border: _fieldBorder(OrangeTheme.outline),
+              enabledBorder: _fieldBorder(OrangeTheme.outline),
+              disabledBorder: _fieldBorder(OrangeTheme.outline),
               focusedBorder: _fieldBorder(OrangeTheme.action, 2),
             ),
           ),

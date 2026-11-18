@@ -5,9 +5,7 @@ import 'package:orange_one/core/errors/app_failure.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_edit_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
-import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_category_sheet.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_confirm_dialog.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_edit_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_success_text.dart';
@@ -16,10 +14,12 @@ import 'package:orange_one/features/products/presentation/widgets/product_tax_la
 import 'package:orange_one/features/products/presentation/widgets/product_tax_sheet.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/confirm_dialog.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
 import 'package:orange_one/shared/widgets/skeleton.dart';
+import 'package:orange_one/shared/widgets/status_notice.dart';
 
 class ProductEditPage extends ConsumerStatefulWidget {
   const new({required this.barcode, super.key});
@@ -146,18 +146,16 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
     final l10n = context.l10n;
     final provider = productEditControllerProvider(widget.barcode);
     try {
-      final accepted = await showDialog<bool>(
-        context: context,
-        builder: (context) => ProductConfirmDialog(
-          title: l10n.editConfirmTitle,
-          message: l10n.editConfirmMessage(
-            view.name.trim(),
-            _taxText(l10n, view),
-            _categoryText(l10n, view),
-          ),
+      final accepted = await ConfirmDialog.show(
+        context,
+        title: l10n.editConfirmTitle,
+        message: l10n.editConfirmMessage(
+          view.name.trim(),
+          _taxText(l10n, view),
+          _categoryText(l10n, view),
         ),
       );
-      if (accepted == true && mounted) {
+      if (accepted && mounted) {
         await ref.read(provider.notifier).save();
       }
     } finally {
@@ -290,13 +288,7 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                     ),
                     error: (error, stack) => Column(
                       children: [
-                        Text(
-                          error is AppFailure
-                              ? error.message
-                              : error is FormatException
-                              ? error.message
-                              : l10n.editLoadFailed,
-                        ),
+                        Text(failureText(error, l10n.editLoadFailed)),
                         if (error is! FormatException)
                           TextButton(
                             onPressed: _refresh,
@@ -332,17 +324,13 @@ class _ProductEditPageState extends ConsumerState<ProductEditPage> {
                                     : null,
                               ),
                               if (!view.details.access.editName)
-                                PriceUpdateNotice(
-                                  message: l10n.editNoPermission,
-                                ),
+                                StatusNotice(message: l10n.editNoPermission),
                               if (view.taxMessage != null && !saved)
-                                PriceUpdateNotice(message: view.taxMessage!),
+                                StatusNotice(message: view.taxMessage!),
                               if (view.categoryMessage != null && !saved)
-                                PriceUpdateNotice(
-                                  message: view.categoryMessage!,
-                                ),
+                                StatusNotice(message: view.categoryMessage!),
                               if (view.message != null)
-                                PriceUpdateNotice(message: view.message!),
+                                StatusNotice(message: view.message!),
                             ],
                           ),
                   ),

@@ -34,20 +34,9 @@ class ProductCreationForm extends StatelessWidget {
   final VoidCallback? onTax;
   final VoidCallback? onCategory;
 
-  InputDecoration _decoration() => InputDecoration(
-    contentPadding: const EdgeInsets.all(16),
-    filled: !value.editable,
-    fillColor: const Color(0xFFF5F6F8),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: OrangeTheme.brand, width: 2),
-    ),
-  );
+  InputDecoration _decoration() =>
+      OrangeTheme.productInput(enabled: value.editable)
+          .copyWith(contentPadding: const EdgeInsets.all(16));
 
   Widget _selector({
     required Key key,

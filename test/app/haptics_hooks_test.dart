@@ -7,8 +7,8 @@ import 'package:orange_one/core/storage/secret_store.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_navigation.dart';
 import 'package:orange_one/features/discounts/presentation/widgets/discount_widgets.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
-import 'package:orange_one/features/products/presentation/widgets/product_confirm_dialog.dart';
 import 'package:orange_one/l10n/l10n.dart';
+import 'package:orange_one/shared/widgets/confirm_dialog.dart';
 
 import '../support/auth_fakes.dart';
 import '../support/haptics_fakes.dart';
@@ -70,13 +70,12 @@ void main() {
       'product',
       (context) => showDialog<bool>(
         context: context,
-        builder: (_) => const ProductConfirmDialog(title: 'T', message: 'M'),
+        builder: (_) => const ConfirmDialog(title: 'T', message: 'M'),
       ),
     ),
     (
       'discount',
-      (context) =>
-          DiscountConfirmDialog.show(context, title: 'T', message: 'M'),
+      (context) => confirmDiscountWrite(context, title: 'T', message: 'M'),
     ),
   ]) {
     testWidgets('$name confirmation: Confirm ticks, Cancel is silent', (

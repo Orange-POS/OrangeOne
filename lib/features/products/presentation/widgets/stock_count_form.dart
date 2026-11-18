@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:orange_one/core/platform/haptics.dart';
 import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/domain/use_cases/adjust_stock.dart';
 import 'package:orange_one/l10n/l10n.dart';
@@ -143,93 +142,55 @@ class StockCountForm extends StatelessWidget {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textInputAction: TextInputAction.done,
       onSubmitted: (_) => focusNode.unfocus(),
-      decoration: InputDecoration(
+      decoration: OrangeTheme.productInput(enabled: enabled).copyWith(
         suffixText: unit.isEmpty ? null : unit,
         hintText: hint,
         helperText: helper,
         errorText: errorText,
         errorMaxLines: 3,
-        filled: !enabled,
-        fillColor: const Color(0xFFF5F6F8),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: OrangeTheme.brand, width: 2),
-        ),
       ),
     ),
   );
 }
 
-class StockCountDialog extends StatefulWidget {
-  const new({required this.confirmation, super.key});
-  final StockCountConfirmation confirmation;
-  @override
-  State<StockCountDialog> createState() => _StockCountDialogState();
-}
-
-class _StockCountDialogState extends State<StockCountDialog> {
-  bool _answered = false;
-  void _answer(bool accepted) {
-    if (_answered) return;
-    setState(() => _answered = true);
-    if (accepted) playHaptic(context, HapticEffect.confirm);
-    Navigator.pop(context, accepted);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final product = widget.confirmation.product;
-    final current = product.stock ?? 0;
-    final amount = widget.confirmation.count.quantity;
-    final counted = widget.confirmation.expectedStock;
-    final difference = counted - current;
-    final sign = difference > 0
-        ? '+'
-        : difference < 0
-        ? '-'
-        : '';
-    final change = stockQuantityLabel(difference.abs(), product.unit);
-    final l10n = context.l10n;
-    final currentText = stockQuantityLabel(current, product.unit);
-    final amountText = stockQuantityLabel(amount, product.unit);
-    final resultText = stockQuantityLabel(counted, product.unit);
-    return AlertDialog(
-      title: Text(l10n.stockConfirmTitle),
-      content: Text(switch (widget.confirmation.operation) {
-        StockOperation.update => l10n.stockConfirmMessage(
-          product.name,
-          currentText,
-          resultText,
-          '$sign$change',
-        ),
-        StockOperation.add => l10n.stockConfirmAddMessage(
-          product.name,
-          currentText,
-          amountText,
-          resultText,
-        ),
-        StockOperation.remove => l10n.stockConfirmRemoveMessage(
-          product.name,
-          currentText,
-          amountText,
-          resultText,
-        ),
-      }),
-      actions: [
-        TextButton(
-          onPressed: _answered ? null : () => _answer(false),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          onPressed: _answered ? null : () => _answer(true),
-          child: Text(l10n.commonConfirm),
-        ),
-      ],
-    );
-  }
+/// The text of the stock confirmation (shown in the shared confirm dialog):
+/// the current, entered and resulting stock for the chosen operation.
+String stockConfirmText(
+  AppLocalizations l10n,
+  StockCountConfirmation confirmation,
+) {
+  final product = confirmation.product;
+  final current = product.stock ?? 0;
+  final amount = confirmation.count.quantity;
+  final counted = confirmation.expectedStock;
+  final difference = counted - current;
+  final sign = difference > 0
+      ? '+'
+      : difference < 0
+      ? '-'
+      : '';
+  final change = stockQuantityLabel(difference.abs(), product.unit);
+  final currentText = stockQuantityLabel(current, product.unit);
+  final amountText = stockQuantityLabel(amount, product.unit);
+  final resultText = stockQuantityLabel(counted, product.unit);
+  return switch (confirmation.operation) {
+    StockOperation.update => l10n.stockConfirmMessage(
+      product.name,
+      currentText,
+      resultText,
+      '$sign$change',
+    ),
+    StockOperation.add => l10n.stockConfirmAddMessage(
+      product.name,
+      currentText,
+      amountText,
+      resultText,
+    ),
+    StockOperation.remove => l10n.stockConfirmRemoveMessage(
+      product.name,
+      currentText,
+      amountText,
+      resultText,
+    ),
+  };
 }

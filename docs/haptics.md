@@ -6,8 +6,8 @@ screens never call `HapticFeedback` themselves.
 | Effect (`HapticEffect`) | When | Played from |
 |---|---|---|
 | `scan` (selection click) | The camera accepted a code (product scanner and QR login) | `CodeCamera` (`shared/widgets/code_camera.dart`) |
-| `confirm` (light impact) | Confirm in a change's confirmation dialog (Cancel is silent) | `ProductConfirmDialog`, `PriceChangeDialog`, `StockCountDialog`, `DiscountConfirmDialog` |
-| `success` (medium impact) | The server confirmed a product or discount change | `ProductSuccessController.show`, `showDiscountResult` |
+| `confirm` (light impact) | Confirm in a change's confirmation dialog (Cancel is silent) | `ConfirmDialog` (`shared/widgets/confirm_dialog.dart`), used by every product and discount confirmation |
+| `success` (medium impact) | The server confirmed a product or discount change | `ProductSuccessController.show` (product forms and discount results on Product Details), `showDiscountResult` (pause/resume on the discount screens) |
 | `selection` (selection click) | The time picker's hour, minute or AM/PM wheel moved to another value (scroll or chevron) | `DiscountNumberWheel.onSelectedItemChanged` |
 | `error` (iOS: system error pattern; Android: heavy tap) | Validation refused the entered values: an input's error appeared, or the server refused a save as invalid | `ValidationHaptic` (shared), `DiscountSection`, `HapticsController.rejected` in the form controllers |
 

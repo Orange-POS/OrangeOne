@@ -195,16 +195,7 @@ class PriceUpdateController extends AsyncNotifier<PriceUpdateState> {
       }
       // A save the server refused as invalid: the distinct error haptic.
       ref.read(hapticsControllerProvider.notifier).rejected(error);
-      final denied =
-          error is AppFailure &&
-          {
-            FailureKind.forbidden,
-            FailureKind.validation,
-            FailureKind.unauthenticated,
-            FailureKind.conflict,
-            FailureKind.notFound,
-            FailureKind.rateLimited,
-          }.contains(error.kind);
+      final denied = AppFailure.refusedWrite(error);
       if (writeStarted && !denied) {
         state = AsyncData(
           PriceUpdateState(

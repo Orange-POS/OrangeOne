@@ -9,8 +9,6 @@ import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 import 'package:orange_one/shared/widgets/orange_switch.dart';
 
-const _border = Color(0xFFDADCE0);
-
 /// The white card that slides up from the bottom for the discount pickers
 /// (date, time, repeat): 24 px corners, light border, a gray caption, the
 /// content and Cancel / Confirm.
@@ -55,7 +53,7 @@ class DiscountSheet extends StatelessWidget {
           color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: const BorderSide(color: _border),
+            side: const BorderSide(color: OrangeTheme.outline),
           ),
           clipBehavior: Clip.antiAlias,
           child: SingleChildScrollView(
@@ -347,7 +345,7 @@ class _DayCell extends StatelessWidget {
               color: selected
                   ? Colors.white
                   : onTap == null
-                  ? _border
+                  ? OrangeTheme.outline
                   : OrangeTheme.ink,
             ),
           ),

@@ -313,17 +313,7 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
       }
       // A save the server refused as invalid: the distinct error haptic.
       ref.read(hapticsControllerProvider.notifier).rejected(error);
-      final denied =
-          error is FormatException ||
-          (error is AppFailure &&
-              {
-                FailureKind.forbidden,
-                FailureKind.validation,
-                FailureKind.unauthenticated,
-                FailureKind.conflict,
-                FailureKind.notFound,
-                FailureKind.rateLimited,
-              }.contains(error.kind));
+      final denied = error is FormatException || AppFailure.refusedWrite(error);
       if (writeStarted && !denied) {
         state = AsyncData(
           StockUpdateState(
@@ -342,12 +332,11 @@ class StockUpdateController extends AsyncNotifier<StockUpdateState> {
             details,
             current.draft,
             current.operation,
-            message: error is AppFailure
-                ? error.message
-                : error is FormatException
-                ? error.message
-                : 'Unable to check or update this stock. '
-                      'Try again after refreshing.',
+            message: failureText(
+              error,
+              'Unable to check or update this stock. '
+              'Try again after refreshing.',
+            ),
           ),
         );
       }

@@ -60,7 +60,7 @@ class DiscountDetailsPage extends ConsumerWidget {
         l10n.discountConfirmArchiveBody,
       ),
     };
-    final confirmed = await DiscountConfirmDialog.show(
+    final confirmed = await confirmDiscountWrite(
       context,
       title: title,
       message: body,

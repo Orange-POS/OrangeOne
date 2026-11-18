@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orange_one/core/errors/app_failure.dart';
+import 'package:orange_one/core/formatting/money.dart';
 import 'package:orange_one/core/storage/read_cache_providers.dart';
 import 'package:orange_one/features/products/domain/entities/product_details.dart';
 import 'package:orange_one/features/products/presentation/providers/product_details_providers.dart';
@@ -246,13 +247,7 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
           ),
           error: (error, stack) => Column(
             children: [
-              Text(
-                error is AppFailure
-                    ? error.message
-                    : error is FormatException
-                    ? error.message
-                    : l10n.detailsLoadFailed,
-              ),
+              Text(failureText(error, l10n.detailsLoadFailed)),
               Text(l10n.detailsPullToRefresh),
             ],
           ),
@@ -296,11 +291,8 @@ class _ProductDetailsPageState extends ConsumerState<ProductDetailsPage> {
   /// The price in the product's own currency (`USD 25.00`, `CHF 100.00`).
   /// An offline cached read carries no currency: the amount is shown alone
   /// rather than a guessed currency.
-  String _priceLabel(ProductDetails product) {
-    final amount = product.price.toStringAsFixed(2);
-    final currency = product.currency?.trim() ?? '';
-    return currency.isEmpty ? amount : '$currency $amount';
-  }
+  String _priceLabel(ProductDetails product) =>
+      formatMoney(product.price, currency: product.currency);
 }
 
 /// The product card pinned at the top of Product Details. It folds from

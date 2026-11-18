@@ -8,7 +8,6 @@ import 'package:orange_one/features/products/domain/entities/stock_count.dart';
 import 'package:orange_one/features/products/presentation/providers/product_success_providers.dart';
 import 'package:orange_one/features/products/presentation/providers/stock_update_providers.dart';
 import 'package:orange_one/features/products/presentation/widgets/price_update_context.dart';
-import 'package:orange_one/features/products/presentation/widgets/price_update_form.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_name_card.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_sync_nav_button.dart';
 import 'package:orange_one/features/products/presentation/widgets/product_tax_label.dart';
@@ -16,10 +15,12 @@ import 'package:orange_one/features/products/presentation/widgets/stock_count_fo
 import 'package:orange_one/features/products/presentation/widgets/stock_operation_selector.dart';
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
+import 'package:orange_one/shared/widgets/confirm_dialog.dart';
 import 'package:orange_one/shared/widgets/product_action_surface.dart';
 import 'package:orange_one/shared/widgets/product_navbar.dart';
 import 'package:orange_one/shared/widgets/product_scaffold.dart';
 import 'package:orange_one/shared/widgets/skeleton.dart';
+import 'package:orange_one/shared/widgets/status_notice.dart';
 
 /// Updates, adds to or removes from the on-hand stock, following the Update
 /// Price layout.
@@ -63,11 +64,13 @@ class _ProductStockUpdatePageState
     _confirming = true;
     _focus.unfocus();
     try {
-      final accepted = await showDialog<bool>(
-        context: context,
-        builder: (context) => StockCountDialog(confirmation: confirmation),
+      final l10n = context.l10n;
+      final accepted = await ConfirmDialog.show(
+        context,
+        title: l10n.stockConfirmTitle,
+        message: stockConfirmText(l10n, confirmation),
       );
-      if (accepted == true && mounted) {
+      if (accepted && mounted) {
         await ref.read(provider.notifier).save(confirmation);
       }
     } finally {
@@ -247,13 +250,7 @@ class _ProductStockUpdatePageState
                     ),
                     error: (error, stack) => Column(
                       children: [
-                        Text(
-                          error is AppFailure
-                              ? error.message
-                              : error is FormatException
-                              ? error.message
-                              : l10n.stockLoadFailed,
-                        ),
+                        Text(failureText(error, l10n.stockLoadFailed)),
                         if (error is! FormatException)
                           TextButton(
                             onPressed: _refresh,
@@ -284,7 +281,7 @@ class _ProductStockUpdatePageState
                                     current.unit,
                                   ),
                           ),
-                          const Divider(color: Color(0xFFDADCE0), height: 24),
+                          const Divider(color: OrangeTheme.outline, height: 24),
                           // Add and Remove need a backend with stock
                           // movements; older shops count with Update only.
                           if (operations.length > 1)
@@ -300,7 +297,7 @@ class _ProductStockUpdatePageState
                                   !value.busy &&
                                   value.phase == StockUpdatePhase.editing,
                             ),
-                          const Divider(color: Color(0xFFDADCE0), height: 24),
+                          const Divider(color: OrangeTheme.outline, height: 24),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -325,19 +322,15 @@ class _ProductStockUpdatePageState
                             ),
                           ),
                           if (!availability.visible)
-                            PriceUpdateNotice(
-                              message: l10n.stockFeatureUnavailable,
-                            )
+                            StatusNotice(message: l10n.stockFeatureUnavailable)
                           else if (!allowed)
-                            PriceUpdateNotice(message: l10n.stockNoPermission)
+                            StatusNotice(message: l10n.stockNoPermission)
                           else if (!value.permitted)
-                            PriceUpdateNotice(
-                              message: _blockedMessage(l10n, value),
-                            )
+                            StatusNotice(message: _blockedMessage(l10n, value))
                           else if (offline)
-                            PriceUpdateNotice(message: l10n.stockOffline),
+                            StatusNotice(message: l10n.stockOffline),
                           if (value.message != null)
-                            PriceUpdateNotice(message: value.message!),
+                            StatusNotice(message: value.message!),
                         ],
                       );
                     },

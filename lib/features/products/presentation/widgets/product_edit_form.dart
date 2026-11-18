@@ -28,24 +28,17 @@ class ProductEditForm extends StatelessWidget {
   final VoidCallback? onSelectCategory;
   final String? error;
 
-  InputDecoration _decoration() => InputDecoration(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    filled: !enabled,
-    fillColor: const Color(0xFFF5F6F8),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-    ),
-    disabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFDADCE0)),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: OrangeTheme.scannerAccent, width: 2),
-    ),
-  );
+  InputDecoration _decoration() =>
+      OrangeTheme.productInput(
+        enabled: enabled,
+        focusColor: OrangeTheme.scannerAccent,
+        outlineDisabled: true,
+      ).copyWith(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      );
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;

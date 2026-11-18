@@ -10,8 +10,6 @@ import 'package:orange_one/features/discounts/presentation/widgets/discount_widg
 import 'package:orange_one/l10n/l10n.dart';
 import 'package:orange_one/shared/theme/orange_theme.dart';
 
-const _border = Color(0xFFDADCE0);
-
 /// A card of the form (Date & Time, Minimum Quantity, Repeat Schedule):
 /// icon, title and summary, and a chevron. [child] slides open and closed
 /// smoothly below the header; once open, the card scrolls itself to the
@@ -219,7 +217,7 @@ class DiscountPickerField extends StatelessWidget {
           color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: _border),
+            side: const BorderSide(color: OrangeTheme.outline),
           ),
           child: InkWell(
             key: Key(fieldKey),
@@ -438,7 +436,9 @@ class _RepeatOption extends StatelessWidget {
       color: selected ? OrangeTheme.pale : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: selected ? OrangeTheme.action : _border),
+        side: BorderSide(
+          color: selected ? OrangeTheme.action : OrangeTheme.outline,
+        ),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -510,7 +510,9 @@ class _DayChip extends StatelessWidget {
       color: selected ? OrangeTheme.action : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: selected ? OrangeTheme.action : _border),
+        side: BorderSide(
+          color: selected ? OrangeTheme.action : OrangeTheme.outline,
+        ),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
